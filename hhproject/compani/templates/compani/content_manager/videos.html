@@ -1,0 +1,122 @@
+﻿{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}Видео вакансий{% endblock %}
+
+{% block content %}
+<section style="max-width:1120px;margin:0 auto;padding:28px 16px 40px;">
+    {% if messages %}
+    <div style="margin-bottom:12px;">
+        {% for message in messages %}
+        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+            <h1 style="margin:0;">Видео вакансий{% if company.name %} · {{ company.name }}{% endif %}</h1>
+            <div style="color:#64748b;margin-top:4px;">Загрузка и управление видео для ленты</div>
+        </div>
+    </div>
+
+    <div style="margin-top:14px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
+        <h2 style="margin:0 0 10px;font-size:20px;">Загрузить новое видео</h2>
+        <form method="post" enctype="multipart/form-data" style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="upload">
+
+            <div>
+                <label>Вакансия</label>
+                <select class="form-control" name="vacancy" required>
+                    <option value="">Выберите вакансию</option>
+                    {% for vacancy in vacancies %}
+                    <option value="{{ vacancy.id }}">{{ vacancy.position }}{% if vacancy.city %} · {{ vacancy.city }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Описание</label>
+                <input class="form-control" type="text" name="description" placeholder="Короткое описание видео">
+            </div>
+
+            <div>
+                <label>Видео</label>
+                <input class="form-control" type="file" name="video" accept="video/*" required>
+            </div>
+
+            <div>
+                <button class="btn btn-primary" type="submit">Загрузить</button>
+            </div>
+        </form>
+    </div>
+
+    <form method="get" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        <input class="form-control" style="max-width:280px;" type="text" name="q" value="{{ search }}" placeholder="Поиск по описанию или вакансии">
+        <select class="form-control" style="max-width:280px;" name="vacancy">
+            <option value="">Все вакансии</option>
+            {% for vacancy in vacancies %}
+            <option value="{{ vacancy.id }}" {% if vacancy_filter == vacancy.id|stringformat:'s' %}selected{% endif %}>
+                {{ vacancy.position }}
+            </option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-secondary" type="submit">Фильтр</button>
+        <a class="btn btn-secondary" href="{% url 'content_manager_videos' %}">с</a>
+    </form>
+
+    <div style="margin-top:14px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));">
+        {% if videos %}
+            {% for item in videos %}
+            <article style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px;display:grid;gap:10px;">
+                <div style="font-weight:700;">{{ item.vacancy_position|default:'Вакансия' }}</div>
+                <div style="color:#64748b;">{{ item.description|default:'Без описания' }}</div>
+
+                {% if item.video %}
+                <video controls playsinline preload="metadata" style="width:100%;max-height:260px;border-radius:10px;background:#0f172a;">
+                    <source src="{{ item.video }}" type="video/mp4">
+                </video>
+                {% else %}
+                <div style="padding:14px;border:1px dashed #cbd5e1;border-radius:10px;color:#64748b;">Файл видео недоступен</div>
+                {% endif %}
+
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <div style="color:#334155;">статус: {% if item.is_active %}<strong style="color:#047857;">активно</strong>{% else %}<strong style="color:#b45309;">выключено</strong>{% endif %}</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        {% if item.is_active %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="deactivate">
+                            <input type="hidden" name="video_id" value="{{ item.id }}">
+                            <button class="btn btn-secondary" type="submit">Выключить</button>
+                        </form>
+                        {% else %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="activate">
+                            <input type="hidden" name="video_id" value="{{ item.id }}">
+                            <button class="btn btn-primary" type="submit">Активировать</button>
+                        </form>
+                        {% endif %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="video_id" value="{{ item.id }}">
+                            <button class="btn btn-secondary" type="submit" onclick="return confirm('Удалить видео?')">Удалить</button>
+                        </form>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        {% else %}
+            <div style="grid-column:1/-1;padding:14px;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;">
+                Видео пока не загружены
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

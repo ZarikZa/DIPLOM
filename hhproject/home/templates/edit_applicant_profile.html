@@ -1,0 +1,153 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Редактирование профиля - ProHR{% endblock %}
+
+{% block content %}
+<div class="edit-profile-section">
+    <div class="edit-profile-container">
+        <div class="edit-profile-card">
+            <div class="edit-profile-header">
+                <h1>Редактирование профиля</h1>
+                <p>Обновите информацию о себе</p>
+            </div>
+
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data" class="profile-form">
+                {% csrf_token %}
+                
+                <!-- Основная информация -->
+                <div class="form-section" style="--index: 1">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Основная информация
+                    </h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="id_first_name">Имя</label>
+                            <input type="text" name="first_name" id="id_first_name" class="form-control" 
+                                   value="{{ profile.first_name|default:'' }}" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="id_last_name">Фамилия</label>
+                            <input type="text" name="last_name" id="id_last_name" class="form-control" 
+                                   value="{{ profile.last_name|default:'' }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="id_birth_date">Дата рождения</label>
+                        <input type="date" name="birth_date" id="id_birth_date" class="form-control" 
+                               value="{{ profile.birth_date|default:''|slice:":10" }}">
+                    </div>
+                </div>
+
+                <!-- Контактная информация -->
+                <div class="form-section" style="--index: 2">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        Контактная информация
+                    </h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="id_email">Email</label>
+                            <input type="email" name="email" id="id_email" class="form-control" 
+                                   value="{{ profile.email|default:'' }}" disabled>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="id_phone">Телефон</label>
+                            <input type="tel" name="phone" id="id_phone" class="form-control" 
+                                   value="{{ profile.phone|default:'' }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Резюме -->
+                <div class="form-section" style="--index: 3">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        Резюме
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label for="id_resume">О себе и опыт работы</label>
+                        <textarea name="resume" id="id_resume" class="form-control" 
+                                  placeholder="Опишите ваш опыт работы, навыки и достижения...">{{ profile.resume|default:'' }}</textarea>
+                        <div class="help-text">Расскажите о своем опыте, образовании и профессиональных навыках</div>
+                    </div>
+                </div>
+
+                <div class="form-section" style="--index: 4">
+                    <h3>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 19V7a2 2 0 0 0-2-2h-4l-2-2H9L7 5H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2z"></path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                        </svg>
+                        Фото профиля
+                    </h3>
+
+                    {% if profile.avatar %}
+                    <div style="margin-bottom: 12px;">
+                        <img src="{{ profile.avatar }}" alt="avatar" style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid #dbeafe;">
+                    </div>
+                    {% endif %}
+
+                    <div class="form-group">
+                        <label for="id_avatar">Новое фото</label>
+                        <input type="file" name="avatar" id="id_avatar" class="form-control" accept="image/*">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-save">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Сохранить изменения
+                    </button>
+                    <a href="{% url 'applicant_profile' %}" class="btn btn-cancel">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5"></path>
+                            <path d="M12 19l-7-7 7-7"></path>
+                        </svg>
+                        Отмена
+                    </a>
+                      <a href="{% url 'password_reset_request' %}" class="btn btn-accent">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 7a2 2 0 0 1 2 2m4 0a6 6 0 0 1-7.743 5.743L11 17H9v2H7v2H4a1 1 0 0 1-1-1v-2.586a1 1 0 0 1 .293-.707l5.964-5.964A6 6 0 1 1 21 9z"></path>
+                        </svg>
+                        Сменить пароль
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

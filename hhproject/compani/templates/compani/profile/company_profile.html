@@ -1,0 +1,142 @@
+﻿{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}Профиль компании{% endblock %}
+
+{% block content %}
+<style>
+.company-profile-actions {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.company-profile-actions .text-size-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.company-profile-actions .text-size-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 0 8px;
+}
+
+.company-profile-actions .text-size-btn {
+    min-width: 34px;
+    height: 32px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.company-profile-actions .text-size-btn[data-text-size-option="small"] { font-size: 0.75rem; }
+.company-profile-actions .text-size-btn[data-text-size-option="normal"] { font-size: 0.84rem; }
+.company-profile-actions .text-size-btn[data-text-size-option="large"] { font-size: 0.95rem; }
+
+.company-profile-actions .text-size-btn:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.company-profile-actions .text-size-btn.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
+}
+
+[data-theme="dark"] .company-profile-actions .text-size-controls {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+</style>
+
+<section style="max-width:1100px;margin:0 auto;padding:28px 16px 40px;">
+    {% if messages %}
+    <div style="margin-bottom:12px;">
+        {% for message in messages %}
+        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+        <h1 style="margin:0 0 6px;font-size:30px;">{{ company.name|default:'Компания' }}</h1>
+        <div style="color:#64748b;">{{ company.user.email|default:api_user.email }}</div>
+        <div style="margin-top:14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));">
+            <div><strong>ИНН:</strong> {{ company.number|default:'—' }}</div>
+            <div><strong>Отрасль:</strong> {{ company.industry|default:'—' }}</div>
+            <div><strong>Телефон:</strong> {{ company.user.phone|default:'—' }}</div>
+        </div>
+        {% if company.description %}
+        <p style="margin-top:14px;color:#334155;">{{ company.description }}</p>
+        {% endif %}
+        {% if is_owner %}
+        <div class="company-profile-actions">
+            <button class="theme-toggle-btn-profile" onclick="toggleTheme()" title="Переключить тему">
+                <span class="theme-icon">🌓</span>
+            </button>
+            <div class="text-size-controls" aria-label="Размер текста">
+                <span class="text-size-label">Текст:</span>
+                <button type="button" class="text-size-btn" data-text-size-option="small" onclick="setTextSize('small')" aria-pressed="false">A-</button>
+                <button type="button" class="text-size-btn" data-text-size-option="normal" onclick="setTextSize('normal')" aria-pressed="false">A</button>
+                <button type="button" class="text-size-btn" data-text-size-option="large" onclick="setTextSize('large')" aria-pressed="false">A+</button>
+            </div>
+            <a class="btn btn-edit" href="{% url 'edit_company_profile' %}">Редактировать профиль</a>
+            <a class="btn btn-edit" href="{% url 'change_password_request' %}">Сменить пароль</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:14px;">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
+            <h2 style="margin:0 0 10px;font-size:20px;">Вакансии ({{ vacancies|length }})</h2>
+            {% if vacancies %}
+                {% for vacancy in vacancies %}
+                <div style="padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;">
+                    <div style="font-weight:700;">{{ vacancy.position }}</div>
+                    <div style="color:#334155;">{{ vacancy.city }} · {{ vacancy.salary_min }}-{{ vacancy.salary_max }} б.</div>
+                    <div style="color:#64748b;">{{ vacancy.status_name|default:'статус не задан' }}{% if vacancy.is_archived %} · Архив{% endif %}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="color:#64748b;">Пока нет вакансий</div>
+            {% endif %}
+        </div>
+
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
+            <h2 style="margin:0 0 10px;font-size:20px;">сотрудники ({{ employees|length }})</h2>
+            {% if employees %}
+                {% for employee in employees %}
+                <div style="padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;">
+                    <div style="font-weight:700;">{{ employee.first_name }} {{ employee.last_name }}</div>
+                    <div style="color:#334155;">{{ employee.email }}</div>
+                    <div style="color:#64748b;">ль: {{ employee.role }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="color:#64748b;">сотрудники недоступны или отсутствуют</div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

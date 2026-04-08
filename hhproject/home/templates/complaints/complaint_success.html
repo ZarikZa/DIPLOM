@@ -1,0 +1,26 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Жалоба отправлена - CareerHub{% endblock %}
+
+{% block content %}
+<div class="success-section">
+    <div class="container">
+        <div class="success-card">
+            <div class="success-icon">✅</div>
+            <h1>Жалоба успешно отправлена</h1>
+            <p class="success-message">Ваша жалоба на вакансию «{{ vacancy.position }}» принята к рассмотрению.</p>
+            <p class="success-details">Мы проверим вакансию в течение 24-48 часов и уведомим вас о результате.</p>
+            
+            <div class="success-actions">
+                <a href="{% url 'vacancy_detail' vacancy.id %}" class="btn btn-outline">
+                    Вернуться к вакансии
+                </a>
+                <a href="{% url 'vakansi_page' %}" class="btn btn-primary">
+                    Найти другие вакансии
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

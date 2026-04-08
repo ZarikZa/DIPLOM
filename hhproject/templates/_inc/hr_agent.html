@@ -1,0 +1,237 @@
+﻿<style>
+:root {
+    --primary: #2563eb;
+    --accent: #f59e0b;
+    --dark: #1e293b;
+    --light: #f8fafc;
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+.hr-agents-section {
+    padding: 40px 0;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--dark) 100%);
+    min-height: calc(100vh - 115px);
+}
+
+.hr-agents-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.hr-agents-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    margin-bottom: 30px;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.hr-agents-card h1 {
+    color: var(--light);
+    margin: 0 0 20px 0;
+    font-size: 2rem;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+}
+
+.hr-agents-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.hr-agent-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.hr-agent-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: 0.5s;
+}
+
+.hr-agent-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(10px);
+    border-color: var(--accent);
+}
+
+.hr-agent-item:hover::before {
+    left: 100%;
+}
+
+.hr-agent-info {
+    flex-grow: 1;
+    color: var(--light);
+    font-family: 'Inter', sans-serif;
+}
+
+.hr-agent-info strong {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.hr-agent-info br + span {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.95rem;
+}
+
+.hr-agent-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, var(--accent), var(--primary));
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, var(--primary), var(--accent));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-danger {
+    background: linear-gradient(45deg, #ef4444, #f87171);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(45deg, #f87171, #ef4444);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.alert {
+    padding: 12px 20px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-family: 'Inter', sans-serif;
+    color: var(--light);
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.alert-success {
+    background: linear-gradient(45deg, #10b981, #34d399);
+}
+
+.alert-error {
+    background: linear-gradient(45deg, #ef4444, #f87171);
+}
+
+.empty-state {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 40px 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1rem;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Адаптивно��ь */
+@media (max-width: 768px) {
+    .hr-agents-section {
+        padding: 20px 0;
+    }
+
+    .hr-agents-container {
+        padding: 0 15px;
+    }
+
+    .hr-agents-card {
+        padding: 25px 20px;
+        border-radius: 15px;
+    }
+
+    .hr-agents-card h1 {
+        font-size: 1.6rem;
+    }
+
+    .hr-agent-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+        padding: 15px;
+    }
+
+    .hr-agent-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hr-agents-card {
+        padding: 20px 15px;
+    }
+
+    .hr-agent-item {
+        padding: 12px;
+    }
+
+    .hr-agent-info strong {
+        font-size: 1rem;
+    }
+
+    .hr-agent-info br + span {
+        font-size: 0.85rem;
+    }
+
+    .btn {
+        padding: 7px 14px;
+        font-size: 0.8rem;
+    }
+}
+</style>

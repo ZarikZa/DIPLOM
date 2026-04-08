@@ -1,0 +1,63 @@
+﻿{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}Контент-менеджер{% endblock %}
+
+{% block content %}
+<section style="max-width:1080px;margin:0 auto;padding:28px 16px 40px;">
+    {% if messages %}
+    <div style="margin-bottom:12px;">
+        {% for message in messages %}
+        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+            <h1 style="margin:0;">Контент-менеджер{% if company.name %} · {{ company.name }}{% endif %}</h1>
+            <div style="color:#64748b;">Всего: {{ content_managers|length }}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a class="btn btn-secondary" href="{% url 'hr_agents_list' %}">HR-агенты</a>
+            <a class="btn btn-primary" href="{% url 'content_manager_create' %}">Добавить контент-менеджер</a>
+        </div>
+    </div>
+
+    <form method="get" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="text" class="form-control" style="max-width:360px;" name="search" placeholder="Поиск по имени и email" value="{{ search }}">
+        <button class="btn btn-secondary" type="submit">Найти</button>
+        <a class="btn btn-secondary" href="{% url 'content_managers_list' %}">с</a>
+    </form>
+
+    <div style="margin-top:14px;display:grid;gap:10px;">
+        {% if content_managers %}
+            {% for manager in content_managers %}
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;">
+                <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                    <div>
+                        <div style="font-weight:700;">{{ manager.first_name }} {{ manager.last_name }}</div>
+                        <div style="color:#334155;">{{ manager.email }}</div>
+                        <div style="color:#64748b;">статус: {% if manager.is_active %}активен{% else %}выключен{% endif %}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <a class="btn btn-secondary" href="{% url 'content_manager_edit' manager.id %}">редактировать</a>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="employee_id" value="{{ manager.id }}">
+                            <input type="hidden" name="delete" value="true">
+                            <button class="btn btn-secondary" type="submit" onclick="return confirm('Удалить контент-менеджер?')">Удалить</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="padding:14px;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;">Контент-менеджер не найдены</div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,46 @@
+﻿{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}Импорт сотрудников{% endblock %}
+
+{% block content %}
+<section style="max-width:920px;margin:0 auto;padding:28px 16px 40px;">
+    {% if messages %}
+    <div style="margin-bottom:12px;">
+        {% for message in messages %}
+        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+        <h1 style="margin:0 0 8px;">Импорт сотрудников из CSV</h1>
+        <p style="margin:0 0 14px;color:#475569;">Поддерживаются колонки: <code>first_name,last_name,email</code>. Опционально: <code>role,password,is_active</code>.</p>
+
+        <form method="post" enctype="multipart/form-data" style="display:grid;gap:10px;">
+            {% csrf_token %}
+            <input class="form-control" type="file" name="csv_file" accept=".csv,text/csv" required>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-primary" type="submit">Импортировать</button>
+                <a class="btn btn-secondary" href="{% url 'hr_agents_list' %}">Назад</a>
+                <a class="btn btn-secondary" href="{% url 'export_hr_agents_csv' %}">скачать шаблон (CSV)</a>
+            </div>
+        </form>
+    </div>
+
+    {% if import_errors %}
+    <div style="margin-top:14px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
+        <h2 style="margin:0 0 10px;font-size:20px;">Ошибки импорта</h2>
+        <div style="display:grid;gap:8px;max-height:380px;overflow:auto;">
+            {% for error in import_errors %}
+            <div style="padding:8px 10px;border-radius:10px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;">{{ error }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

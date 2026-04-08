@@ -1,0 +1,75 @@
+from django.urls import path
+
+from compani.views import home_comp
+
+from .views import (
+    add_to_favorites,
+    applicant_chat_detail,
+    applicant_chat_send_message,
+    applicant_chats,
+    applicant_profile,
+    applicant_video_feed,
+    apply_to_vacancy,
+    brendbook,
+    check_existing_complaint,
+    complaint_success,
+    create_complaint,
+    custom_login,
+    custom_logout,
+    custom_register,
+    delete_applicant_profile,
+    edit_applicant_profile,
+    home_page,
+    open_chat_for_vacancy,
+    password_reset_new,
+    password_reset_request,
+    password_reset_verify,
+    remove_from_favorites,
+    send_metrics,
+    update_applicant_interests,
+    update_theme,
+    vakansii_page,
+    vacancy_detail,
+    video_toggle_like,
+    video_view_mark,
+)
+
+
+urlpatterns = [
+    path('', home_page, name='home_page'),
+    path('vakansii/', vakansii_page, name='vakansi_page'),
+    path('registration/', custom_register, name='registration_user'),
+    path('login/', custom_login, name='login_user'),
+    path('logout/', custom_logout, name='logout'),
+    path('compani/', home_comp, name='home_comp'),
+
+    path('profile/', applicant_profile, name='applicant_profile'),
+    path('profile/edit/', edit_applicant_profile, name='edit_applicant_profile'),
+    path('profile/delete/', delete_applicant_profile, name='delete_applicant_profile'),
+
+    path('feed/videos/', applicant_video_feed, name='applicant_video_feed'),
+    path('feed/videos/<int:video_id>/view/', video_view_mark, name='video_view_mark'),
+    path('feed/videos/<int:video_id>/like/', video_toggle_like, name='video_toggle_like'),
+
+    path('chats/', applicant_chats, name='applicant_chats'),
+    path('chats/<int:chat_id>/', applicant_chat_detail, name='applicant_chat_detail'),
+    path('chats/<int:chat_id>/send/', applicant_chat_send_message, name='applicant_chat_send_message'),
+
+    path('vacancy/<int:vacancy_id>/', vacancy_detail, name='vacancy_detail'),
+    path('vacancy/<int:vacancy_id>/apply/', apply_to_vacancy, name='apply_to_vacancy'),
+    path('vacancy/<int:vacancy_id>/add_to_favorites/', add_to_favorites, name='add_to_favorites'),
+    path('vacancy/<int:vacancy_id>/remove_from_favorites/', remove_from_favorites, name='remove_from_favorites'),
+    path('vacancy/<int:vacancy_id>/chat/', open_chat_for_vacancy, name='open_chat_for_vacancy'),
+    path('vacancy/<int:vacancy_id>/complaint/', create_complaint, name='create_complaint'),
+    path('vacancy/<int:vacancy_id>/complaint/success/', complaint_success, name='complaint_success'),
+    path('vacancy/<int:vacancy_id>/check-complaint/', check_existing_complaint, name='check_complaint'),
+
+    path('password-reset/', password_reset_request, name='password_reset_request'),
+    path('password-reset/verify/', password_reset_verify, name='password_reset_verify'),
+    path('password-reset/new/', password_reset_new, name='password_reset_new'),
+
+    path('update-theme/', update_theme, name='update_theme'),
+    path('profile/interests/update/', update_applicant_interests, name='update_applicant_interests'),
+    path('update-metrics/', send_metrics, name='update_metrics'),
+    path('brandbook/', brendbook, name='brandbook'),
+]

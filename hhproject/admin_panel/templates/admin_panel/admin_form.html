@@ -1,0 +1,694 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title_name %}{{ title }} - Панель управления{% endblock %}
+
+{% block style %}
+<style>
+/* Стили для страницы создания/редактирования админи��‚��то�� */
+.admin-wrapper {
+    min-height: calc(100vh - 115px);
+    background: var(--bg-primary);
+    padding: 30px 0;
+    display: flex;
+    gap: 30px;
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 20px 20px 0;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 115px;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.admin-main {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.admin-container {
+    max-width: 1000px;
+}
+
+/* ��йдбар */
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header h3 i {
+    color: var(--accent);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
+
+.badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
+/* Заголовок контента */
+.admin-content-header {
+    margin-bottom: 40px;
+}
+
+.header-actions {
+    margin-bottom: 20px;
+}
+
+.admin-content-header h1 {
+    color: var(--text-primary);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.admin-content-header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* Ка��‚очки */
+.admin-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+    margin-bottom: 30px;
+}
+
+.admin-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.admin-card-header {
+    padding: 25px 30px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.admin-card-header h3 {
+    color: var(--text-primary);
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-card-header h3 i {
+    color: var(--accent);
+}
+
+.admin-card-body {
+    padding: 30px;
+}
+
+/* Фо��ы */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+    margin-bottom: 25px;
+}
+
+.admin-form-group {
+    margin-bottom: 25px;
+}
+
+.admin-form-label {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.admin-form-control {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.admin-form-control:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: var(--bg-primary);
+}
+
+/* И����вление для выпадающих ��и��ов */
+.admin-form-control,
+.admin-form-control option {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.admin-form-control:focus {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Чекбокс */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.checkbox-group label {
+    margin-bottom: 0;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* Кнопки */
+.btn-admin {
+    padding: 14px 28px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+}
+
+.btn-admin-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-admin-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-admin-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-admin-success:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+/* Действия фо��ы */
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+/* Ошибки */
+.error-text {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 8px;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.error-text p {
+    margin: 0;
+}
+
+.alert {
+    padding: 16px 20px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    font-weight: 500;
+    border: 1px solid;
+    animation: slideInDown 0.5s ease-out;
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Анимации */
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.admin-card {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Адаптивно��‚ь */
+@media (max-width: 1024px) {
+    .admin-wrapper {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .admin-sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .admin-main {
+        padding-right: 0;
+    }
+    
+    .sidebar-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+    }
+    
+    .nav-item {
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        text-align: center;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .nav-item:hover {
+        transform: translateY(-3px);
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+    
+    .nav-item.active {
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-container {
+        padding: 0 15px;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 2rem;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .admin-card-header {
+        padding: 20px;
+    }
+    
+    .admin-card-body {
+        padding: 20px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .btn-admin {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .sidebar-nav {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-wrapper {
+        padding: 20px 0;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 1.7rem;
+    }
+    
+    .admin-card-header,
+    .admin-card-body {
+        padding: 15px;
+    }
+    
+    .admin-form-control {
+        padding: 12px 14px;
+    }
+}
+
+/* Ка��‚омный ����ллбар */
+.admin-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- Боковая панель -->
+  <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-cogs"></i> Панель управления</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Дашборд</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_company_moderation' %}" class="nav-item {% if 'company' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-building"></i>
+                    <span>Модерация компаний</span>
+                </div>
+                {% if pending_companies_count %}
+                    <span class="badge">{{ pending_companies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-flag"></i>
+                    <span>Жалобы на вакансии</span>
+                </div>
+                {% if pending_complaints_count %}
+                    <span class="badge">{{ pending_complaints_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_backup_management' %}" class="nav-item {% if 'backup' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-database"></i>
+                    <span>Управление бэкапами</span>
+                </div>
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'admin_management' %}" class="nav-item {% if 'site-admins' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Администраторы сайта</span>
+                </div>
+                {% if site_admins_count %}
+                    <span class="badge">{{ site_admins_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+            <a href="{% url 'admin_logs' %}" class="nav-item {% if 'logs' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Логи действий</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_profile' %}" class="nav-item {% if 'admin_profile' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Мой профиль</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_statistics' %}" class="nav-item {% if 'admin_statistics' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Статистика сайта</span>
+                </div>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Основной контент -->
+    <main class="admin-main">
+        <div class="admin-container">
+            <div class="admin-content-header">
+                <div class="header-actions">
+                    <a href="{% url 'admin_management' %}" class="btn-admin btn-admin-primary">
+                        <i class="fas fa-arrow-left"></i> Назад к иу
+                    </a>
+                </div>
+                <h1 class="animate__animated animate__fadeInDown">{{ title }}</h1>
+                <p class="animate__animated animate__fadeInUp">Заполните информацию об администратор сайта</p>
+            </div>
+            
+             {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} animate__animated animate__fadeIn">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="admin-card animate__animated animate__fadeInUp">
+                <div class="admin-card-header">
+                    <h3><i class="fas fa-user-cog"></i> Основная информация</h3>
+                </div>
+                <div class="admin-card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="form-row">
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">{{ form.first_name.label }} *</label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                <div class="error-text">
+                                    {% for error in form.first_name.errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">{{ form.last_name.label }} *</label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                <div class="error-text">
+                                    {% for error in form.last_name.errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">{{ form.email.label }} *</label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                <div class="error-text">
+                                    {% for error in form.email.errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">{{ form.phone.label }} *</label>
+                                {{ form.phone }}
+                                {% if form.phone.errors %}
+                                <div class="error-text">
+                                    {% for error in form.phone.errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% if form.password1 %}
+                        <div class="form-row">
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">{{ form.password1.label }} *</label>
+                                {{ form.password1 }}
+                                {% if form.password1.errors %}
+                                <div class="error-text">
+                                    {% for error in form.password1.errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">{{ form.password2.label }} *</label>
+                                {{ form.password2 }}
+                                {% if form.password2.errors %}
+                                <div class="error-text">
+                                    {% for error in form.password2.errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if form.is_active %}
+                        <div class="admin-form-group">
+                            <div class="checkbox-group">
+                                {{ form.is_active }}
+                                <label class="admin-form-label" for="{{ form.is_active.id_for_label }}">
+                                    {{ form.is_active.label }}
+                                </label>
+                            </div>
+                            {% if form.is_active.errors %}
+                            <div class="error-text">
+                                {% for error in form.is_active.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn-admin btn-admin-success">
+                                <i class="fas fa-save"></i>
+                                {% if admin %}Обновить{% else %}Создать администратора{% endif %}
+                            </button>
+                            <a href="{% url 'admin_management' %}" class="btn-admin btn-admin-primary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

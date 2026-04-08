@@ -1,0 +1,448 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title_name %}{% endblock %}</title>
+    
+    {% block link_style %}
+        <link rel="stylesheet" href="{% static 'css/bootstrap.css' %}">
+    {% endblock %}
+    
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    {% block style %}{% endblock %}
+    <style>
+        :root {
+            --app-font-scale: 1;
+        }
+
+        html {
+            font-size: calc(16px * var(--app-font-scale));
+        }
+
+        html[data-font-size="small"] {
+            --app-font-scale: 0.9375;
+        }
+
+        html[data-font-size="normal"] {
+            --app-font-scale: 1;
+        }
+
+        html[data-font-size="large"] {
+            --app-font-scale: 1.125;
+        }
+
+        body > main {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        body > main > :first-child {
+            margin-top: 0 !important;
+        }
+
+        .password-toggle-group {
+            position: relative;
+            width: 100%;
+        }
+
+        .password-toggle-group > input[type="password"],
+        .password-toggle-group > input[type="text"] {
+            padding-right: 42px !important;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            top: 50%;
+            right: 8px;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 2;
+        }
+
+        .password-toggle-btn:hover {
+            background: rgba(15, 23, 42, 0.08);
+            color: #0f172a;
+        }
+
+        [data-theme="dark"] .password-toggle-btn {
+            color: #cbd5e1;
+        }
+
+        [data-theme="dark"] .password-toggle-btn:hover {
+            background: rgba(148, 163, 184, 0.2);
+            color: #f8fafc;
+        }
+    </style>
+    {% if request.path|slice:":12" == "/admin_panel/" %}
+        <link rel="stylesheet" href="{% static 'css/admin-panel-redesign.css' %}">
+    {% endif %}
+    
+    <!-- рецепт инициализации темы в head для предотвращения меания -->
+    <script>
+        function normalizeTextSize(size) {
+            const allowedSizes = ['small', 'normal', 'large'];
+            return allowedSizes.includes(size) ? size : 'normal';
+        }
+
+        function updateTextSizeButtons(size) {
+            const currentSize = normalizeTextSize(size);
+            const buttons = document.querySelectorAll('[data-text-size-option]');
+            buttons.forEach(button => {
+                const isActive = button.dataset.textSizeOption === currentSize;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+        }
+
+        function setTextSize(size) {
+            const normalizedSize = normalizeTextSize(size);
+            document.documentElement.setAttribute('data-font-size', normalizedSize);
+            localStorage.setItem('font_size', normalizedSize);
+            updateTextSizeButtons(normalizedSize);
+        }
+
+        function initializeTextSize() {
+            const savedSize = normalizeTextSize(localStorage.getItem('font_size'));
+            document.documentElement.setAttribute('data-font-size', savedSize);
+        }
+
+        // Инициализация темы п�� загрузке ����ницы
+        function initializeTheme() {
+            // сначала проверкем ��х��ненную тему в localStorage
+            const savedTheme = localStorage.getItem('theme');
+            
+            // Если есть ��х��ненная тема - используем ее
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                updateThemeIcons(savedTheme);
+                return;
+            }
+            
+            // Если пользователь авто��зован, пытаемся получить тему из data-ат��бута
+            const htmlTheme = document.documentElement.getAttribute('data-theme');
+            if (htmlTheme && htmlTheme !== 'light') {
+                localStorage.setItem('theme', htmlTheme);
+                updateThemeIcons(htmlTheme);
+                return;
+            }
+            
+            // Если ничего нет, используем ����емную тему
+            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', systemTheme);
+            localStorage.setItem('theme', systemTheme);
+            updateThemeIcons(systemTheme);
+        }
+        
+        // Функция для обновления иконок темы
+        function updateThemeIcons(theme) {
+            const themeIcons = document.querySelectorAll('.theme-icon');
+            themeIcons.forEach(icon => {
+                icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            });
+        }
+        
+        // Запускаем сразу
+        initializeTextSize();
+        initializeTheme();
+    </script>
+</head>
+<body class="{% if request.path|slice:':12' == '/admin_panel/' %}admin-panel-page{% endif %}">
+    {% block body %}
+        <!-- Переключатель темы -->
+        <div class="theme-switcher">
+            <div class="theme-toggle" onclick="toggleTheme()" title="Переключить тему">
+                <span class="theme-icon">🌓</span>
+            </div>
+        </div>
+
+        {% block header %}
+            {% include '_inc/_header.html' %}
+        {% endblock header %}
+
+        <main>{% block content %}{% endblock %}</main>
+
+        {% block footer %}
+            {% include '_inc/_footer.html' %}
+        {% endblock footer %}
+
+    {% endblock %}
+    
+    {% block skripts %}
+    <style>
+        .hotkeys-help-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: #007bff;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+            z-index: 1000;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .hotkeys-help-btn:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+
+        .hotkeys-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .hotkeys-modal-content {
+            background: white;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .hotkeys-modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+
+        .hotkeys-modal-header h5 {
+            margin: 0;
+            flex: 1;
+        }
+
+        .hotkeys-modal-header button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+
+        .hotkeys-modal-body {
+            padding: 20px;
+        }
+
+        .hotkeys-modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #dee2e6;
+            text-align: right;
+        }
+
+        .hotkeys-modal-footer button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .hotkey-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+
+        .hotkey-item:last-child {
+            border-bottom: none;
+        }
+
+        kbd {
+            background: #6c757d;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin-right: 8px;
+            min-width: 40px;
+            display: inline-block;
+                text-align: center;
+            }
+        </style>
+    {% endblock skripts %}
+    
+    <!-- тое поле с CSRF токеном для вх ниц -->
+    <input type="hidden" id="csrf_token" value="{{ csrf_token }}">
+    
+    <!-- Глобальный рецепт для управления темой -->
+    <script>
+        function initializePasswordVisibilityToggles(rootNode) {
+            const root = rootNode || document;
+            const passwordInputs = root.querySelectorAll('input[type="password"]:not([data-no-password-toggle])');
+
+            passwordInputs.forEach((input) => {
+                if (input.dataset.passwordToggleReady === '1') {
+                    return;
+                }
+                if (input.closest('.input-group')) {
+                    return;
+                }
+
+                const parent = input.parentNode;
+                if (!parent) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'password-toggle-group';
+
+                parent.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+
+                const toggleBtn = document.createElement('button');
+                toggleBtn.type = 'button';
+                toggleBtn.className = 'password-toggle-btn';
+                toggleBtn.setAttribute('aria-label', 'Показать пароль');
+                toggleBtn.setAttribute('title', 'Показать пароль');
+                toggleBtn.innerHTML = '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
+
+                toggleBtn.addEventListener('click', function () {
+                    const isHidden = input.type === 'password';
+                    input.type = isHidden ? 'text' : 'password';
+                    toggleBtn.innerHTML = isHidden
+                        ? '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>'
+                        : '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
+                    toggleBtn.setAttribute('aria-label', isHidden ? 'Скрыть пароль' : 'Показать пароль');
+                    toggleBtn.setAttribute('title', isHidden ? 'Скрыть пароль' : 'Показать пароль');
+                });
+
+                wrapper.appendChild(toggleBtn);
+                input.dataset.passwordToggleReady = '1';
+            });
+        }
+
+        // Универсальная функция ��ены темы
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            console.log('Changing theme from', currentTheme, 'to', newTheme);
+            
+            // П��меняем новую тему
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Обновляем в�� иконки на ����нице
+            updateThemeIcons(newTheme);
+            
+            // Обновляем тему в базе данных (если пользователь авто��зован)
+            updateThemeInDatabase(newTheme);
+        }
+        
+        // Функция для обновления иконок темы
+        function updateThemeIcons(theme) {
+            const themeIcons = document.querySelectorAll('.theme-icon');
+            themeIcons.forEach(icon => {
+                icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            });
+        }
+        
+        // Функция для обновления темы в базе данных
+        async function updateThemeInDatabase(theme) {
+            // П��ве��ем, авто��зован ли пользователь
+            const csrfToken = document.getElementById('csrf_token');
+            if (!csrfToken) {
+                console.log('CSRF токен не найден, пользователь не авторизован');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/update-theme/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken.value
+                    },
+                    body: JSON.stringify({
+                        theme: theme
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    console.log('Тема успешно сохранена в БД:', result);
+                } else {
+                    console.error('Ошибка при сохранении темы в БД:', result);
+                }
+            } catch (error) {
+                console.error('Ошибка сети:', error);
+            }
+        }
+        
+        // Об��ботчик для ����емных изменений темы
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            // Только если пользователь явно не выбрал тему
+            if (!localStorage.getItem('theme')) {
+                const newTheme = e.matches ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcons(newTheme);
+            }
+        });
+        
+        // Дополнительная инициализация по��е полной загрузки DOM
+        document.addEventListener('DOMContentLoaded', function() {
+            // Убедим��, что тема ��нх��низи��вана
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const savedTheme = localStorage.getItem('theme');
+            
+            if (currentTheme !== savedTheme && savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                updateThemeIcons(savedTheme);
+            }
+
+            const savedFontSize = document.documentElement.getAttribute('data-font-size') || localStorage.getItem('font_size');
+            setTextSize(savedFontSize || 'normal');
+            initializePasswordVisibilityToggles(document);
+
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node instanceof HTMLElement) {
+                            initializePasswordVisibilityToggles(node);
+                        }
+                    });
+                });
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        });
+    </script>
+</body>
+</html>

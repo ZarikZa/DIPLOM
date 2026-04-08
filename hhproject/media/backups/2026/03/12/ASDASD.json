@@ -1,0 +1,988 @@
+{
+  "metadata": {
+    "created_at": "2026-03-12T13:49:42.083238",
+    "backup_type": "database",
+    "django_version": "5.2.2",
+    "models_backed_up": [
+      "auth.Group",
+      "auth.Permission"
+    ]
+  },
+  "data": {
+    "auth.Group": [],
+    "auth.Permission": [
+      {
+        "model": "auth.permission",
+        "pk": 1,
+        "fields": {
+          "name": "Can add log entry",
+          "content_type": 1,
+          "codename": "add_logentry"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 2,
+        "fields": {
+          "name": "Can change log entry",
+          "content_type": 1,
+          "codename": "change_logentry"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 3,
+        "fields": {
+          "name": "Can delete log entry",
+          "content_type": 1,
+          "codename": "delete_logentry"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 4,
+        "fields": {
+          "name": "Can view log entry",
+          "content_type": 1,
+          "codename": "view_logentry"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 21,
+        "fields": {
+          "name": "Can add Тип действия",
+          "content_type": 6,
+          "codename": "add_actiontype"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 22,
+        "fields": {
+          "name": "Can change Тип действия",
+          "content_type": 6,
+          "codename": "change_actiontype"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 23,
+        "fields": {
+          "name": "Can delete Тип действия",
+          "content_type": 6,
+          "codename": "delete_actiontype"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 24,
+        "fields": {
+          "name": "Can view Тип действия",
+          "content_type": 6,
+          "codename": "view_actiontype"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 57,
+        "fields": {
+          "name": "Can add Лог действий",
+          "content_type": 15,
+          "codename": "add_adminlog"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 58,
+        "fields": {
+          "name": "Can change Лог действий",
+          "content_type": 15,
+          "codename": "change_adminlog"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 59,
+        "fields": {
+          "name": "Can delete Лог действий",
+          "content_type": 15,
+          "codename": "delete_adminlog"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 60,
+        "fields": {
+          "name": "Can view Лог действий",
+          "content_type": 15,
+          "codename": "view_adminlog"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 41,
+        "fields": {
+          "name": "Can add Соискатель",
+          "content_type": 11,
+          "codename": "add_applicant"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 42,
+        "fields": {
+          "name": "Can change Соискатель",
+          "content_type": 11,
+          "codename": "change_applicant"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 43,
+        "fields": {
+          "name": "Can delete Соискатель",
+          "content_type": 11,
+          "codename": "delete_applicant"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 44,
+        "fields": {
+          "name": "Can view Соискатель",
+          "content_type": 11,
+          "codename": "view_applicant"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 101,
+        "fields": {
+          "name": "Can add Навык соискателя",
+          "content_type": 26,
+          "codename": "add_applicantskill"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 102,
+        "fields": {
+          "name": "Can change Навык соискателя",
+          "content_type": 26,
+          "codename": "change_applicantskill"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 103,
+        "fields": {
+          "name": "Can delete Навык соискателя",
+          "content_type": 26,
+          "codename": "delete_applicantskill"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 104,
+        "fields": {
+          "name": "Can view Навык соискателя",
+          "content_type": 26,
+          "codename": "view_applicantskill"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 45,
+        "fields": {
+          "name": "Can add Бэкап",
+          "content_type": 12,
+          "codename": "add_backup"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 46,
+        "fields": {
+          "name": "Can change Бэкап",
+          "content_type": 12,
+          "codename": "change_backup"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 47,
+        "fields": {
+          "name": "Can delete Бэкап",
+          "content_type": 12,
+          "codename": "delete_backup"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 48,
+        "fields": {
+          "name": "Can view Бэкап",
+          "content_type": 12,
+          "codename": "view_backup"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 53,
+        "fields": {
+          "name": "Can add Чат",
+          "content_type": 14,
+          "codename": "add_chat"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 54,
+        "fields": {
+          "name": "Can change Чат",
+          "content_type": 14,
+          "codename": "change_chat"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 55,
+        "fields": {
+          "name": "Can delete Чат",
+          "content_type": 14,
+          "codename": "delete_chat"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 56,
+        "fields": {
+          "name": "Can view Чат",
+          "content_type": 14,
+          "codename": "view_chat"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 49,
+        "fields": {
+          "name": "Can add Компания",
+          "content_type": 13,
+          "codename": "add_company"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 50,
+        "fields": {
+          "name": "Can change Компания",
+          "content_type": 13,
+          "codename": "change_company"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 51,
+        "fields": {
+          "name": "Can delete Компания",
+          "content_type": 13,
+          "codename": "delete_company"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 52,
+        "fields": {
+          "name": "Can view Компания",
+          "content_type": 13,
+          "codename": "view_company"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 85,
+        "fields": {
+          "name": "Can add Жалоба",
+          "content_type": 22,
+          "codename": "add_complaint"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 86,
+        "fields": {
+          "name": "Can change Жалоба",
+          "content_type": 22,
+          "codename": "change_complaint"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 87,
+        "fields": {
+          "name": "Can delete Жалоба",
+          "content_type": 22,
+          "codename": "delete_complaint"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 88,
+        "fields": {
+          "name": "Can view Жалоба",
+          "content_type": 22,
+          "codename": "view_complaint"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 61,
+        "fields": {
+          "name": "Can add employee",
+          "content_type": 16,
+          "codename": "add_employee"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 62,
+        "fields": {
+          "name": "Can change employee",
+          "content_type": 16,
+          "codename": "change_employee"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 63,
+        "fields": {
+          "name": "Can delete employee",
+          "content_type": 16,
+          "codename": "delete_employee"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 64,
+        "fields": {
+          "name": "Can view employee",
+          "content_type": 16,
+          "codename": "view_employee"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 81,
+        "fields": {
+          "name": "Can add Избранное",
+          "content_type": 21,
+          "codename": "add_favorites"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 82,
+        "fields": {
+          "name": "Can change Избранное",
+          "content_type": 21,
+          "codename": "change_favorites"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 83,
+        "fields": {
+          "name": "Can delete Избранное",
+          "content_type": 21,
+          "codename": "delete_favorites"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 84,
+        "fields": {
+          "name": "Can view Избранное",
+          "content_type": 21,
+          "codename": "view_favorites"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 73,
+        "fields": {
+          "name": "Can add Сообщение",
+          "content_type": 19,
+          "codename": "add_message"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 74,
+        "fields": {
+          "name": "Can change Сообщение",
+          "content_type": 19,
+          "codename": "change_message"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 75,
+        "fields": {
+          "name": "Can delete Сообщение",
+          "content_type": 19,
+          "codename": "delete_message"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 76,
+        "fields": {
+          "name": "Can view Сообщение",
+          "content_type": 19,
+          "codename": "view_message"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 105,
+        "fields": {
+          "name": "Can add password reset code",
+          "content_type": 27,
+          "codename": "add_passwordresetcode"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 106,
+        "fields": {
+          "name": "Can change password reset code",
+          "content_type": 27,
+          "codename": "change_passwordresetcode"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 107,
+        "fields": {
+          "name": "Can delete password reset code",
+          "content_type": 27,
+          "codename": "delete_passwordresetcode"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 108,
+        "fields": {
+          "name": "Can view password reset code",
+          "content_type": 27,
+          "codename": "view_passwordresetcode"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 69,
+        "fields": {
+          "name": "Can add Отклик",
+          "content_type": 18,
+          "codename": "add_response"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 70,
+        "fields": {
+          "name": "Can change Отклик",
+          "content_type": 18,
+          "codename": "change_response"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 71,
+        "fields": {
+          "name": "Can delete Отклик",
+          "content_type": 18,
+          "codename": "delete_response"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 72,
+        "fields": {
+          "name": "Can view Отклик",
+          "content_type": 18,
+          "codename": "view_response"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 97,
+        "fields": {
+          "name": "Can add Навык",
+          "content_type": 25,
+          "codename": "add_skill"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 98,
+        "fields": {
+          "name": "Can change Навык",
+          "content_type": 25,
+          "codename": "change_skill"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 99,
+        "fields": {
+          "name": "Can delete Навык",
+          "content_type": 25,
+          "codename": "delete_skill"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 100,
+        "fields": {
+          "name": "Can view Навык",
+          "content_type": 25,
+          "codename": "view_skill"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 25,
+        "fields": {
+          "name": "Can add Статус отклика",
+          "content_type": 7,
+          "codename": "add_statusresponse"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 26,
+        "fields": {
+          "name": "Can change Статус отклика",
+          "content_type": 7,
+          "codename": "change_statusresponse"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 27,
+        "fields": {
+          "name": "Can delete Статус отклика",
+          "content_type": 7,
+          "codename": "delete_statusresponse"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 28,
+        "fields": {
+          "name": "Can view Статус отклика",
+          "content_type": 7,
+          "codename": "view_statusresponse"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 29,
+        "fields": {
+          "name": "Can add Статус вакансии",
+          "content_type": 8,
+          "codename": "add_statusvacancies"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 30,
+        "fields": {
+          "name": "Can change Статус вакансии",
+          "content_type": 8,
+          "codename": "change_statusvacancies"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 31,
+        "fields": {
+          "name": "Can delete Статус вакансии",
+          "content_type": 8,
+          "codename": "delete_statusvacancies"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 32,
+        "fields": {
+          "name": "Can view Статус вакансии",
+          "content_type": 8,
+          "codename": "view_statusvacancies"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 37,
+        "fields": {
+          "name": "Can add Пользователь",
+          "content_type": 10,
+          "codename": "add_user"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 38,
+        "fields": {
+          "name": "Can change Пользователь",
+          "content_type": 10,
+          "codename": "change_user"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 39,
+        "fields": {
+          "name": "Can delete Пользователь",
+          "content_type": 10,
+          "codename": "delete_user"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 40,
+        "fields": {
+          "name": "Can view Пользователь",
+          "content_type": 10,
+          "codename": "view_user"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 65,
+        "fields": {
+          "name": "Can add Вакансия",
+          "content_type": 17,
+          "codename": "add_vacancy"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 66,
+        "fields": {
+          "name": "Can change Вакансия",
+          "content_type": 17,
+          "codename": "change_vacancy"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 67,
+        "fields": {
+          "name": "Can delete Вакансия",
+          "content_type": 17,
+          "codename": "delete_vacancy"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 68,
+        "fields": {
+          "name": "Can view Вакансия",
+          "content_type": 17,
+          "codename": "view_vacancy"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 77,
+        "fields": {
+          "name": "Can add Видео вакансии",
+          "content_type": 20,
+          "codename": "add_vacancyvideo"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 78,
+        "fields": {
+          "name": "Can change Видео вакансии",
+          "content_type": 20,
+          "codename": "change_vacancyvideo"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 79,
+        "fields": {
+          "name": "Can delete Видео вакансии",
+          "content_type": 20,
+          "codename": "delete_vacancyvideo"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 80,
+        "fields": {
+          "name": "Can view Видео вакансии",
+          "content_type": 20,
+          "codename": "view_vacancyvideo"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 89,
+        "fields": {
+          "name": "Can add vacancy video like",
+          "content_type": 23,
+          "codename": "add_vacancyvideolike"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 90,
+        "fields": {
+          "name": "Can change vacancy video like",
+          "content_type": 23,
+          "codename": "change_vacancyvideolike"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 91,
+        "fields": {
+          "name": "Can delete vacancy video like",
+          "content_type": 23,
+          "codename": "delete_vacancyvideolike"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 92,
+        "fields": {
+          "name": "Can view vacancy video like",
+          "content_type": 23,
+          "codename": "view_vacancyvideolike"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 93,
+        "fields": {
+          "name": "Can add vacancy video view",
+          "content_type": 24,
+          "codename": "add_vacancyvideoview"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 94,
+        "fields": {
+          "name": "Can change vacancy video view",
+          "content_type": 24,
+          "codename": "change_vacancyvideoview"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 95,
+        "fields": {
+          "name": "Can delete vacancy video view",
+          "content_type": 24,
+          "codename": "delete_vacancyvideoview"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 96,
+        "fields": {
+          "name": "Can view vacancy video view",
+          "content_type": 24,
+          "codename": "view_vacancyvideoview"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 33,
+        "fields": {
+          "name": "Can add Условие работы",
+          "content_type": 9,
+          "codename": "add_workconditions"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 34,
+        "fields": {
+          "name": "Can change Условие работы",
+          "content_type": 9,
+          "codename": "change_workconditions"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 35,
+        "fields": {
+          "name": "Can delete Условие работы",
+          "content_type": 9,
+          "codename": "delete_workconditions"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 36,
+        "fields": {
+          "name": "Can view Условие работы",
+          "content_type": 9,
+          "codename": "view_workconditions"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 9,
+        "fields": {
+          "name": "Can add group",
+          "content_type": 3,
+          "codename": "add_group"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 10,
+        "fields": {
+          "name": "Can change group",
+          "content_type": 3,
+          "codename": "change_group"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 11,
+        "fields": {
+          "name": "Can delete group",
+          "content_type": 3,
+          "codename": "delete_group"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 12,
+        "fields": {
+          "name": "Can view group",
+          "content_type": 3,
+          "codename": "view_group"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 5,
+        "fields": {
+          "name": "Can add permission",
+          "content_type": 2,
+          "codename": "add_permission"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 6,
+        "fields": {
+          "name": "Can change permission",
+          "content_type": 2,
+          "codename": "change_permission"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 7,
+        "fields": {
+          "name": "Can delete permission",
+          "content_type": 2,
+          "codename": "delete_permission"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 8,
+        "fields": {
+          "name": "Can view permission",
+          "content_type": 2,
+          "codename": "view_permission"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 13,
+        "fields": {
+          "name": "Can add content type",
+          "content_type": 4,
+          "codename": "add_contenttype"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 14,
+        "fields": {
+          "name": "Can change content type",
+          "content_type": 4,
+          "codename": "change_contenttype"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 15,
+        "fields": {
+          "name": "Can delete content type",
+          "content_type": 4,
+          "codename": "delete_contenttype"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 16,
+        "fields": {
+          "name": "Can view content type",
+          "content_type": 4,
+          "codename": "view_contenttype"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 17,
+        "fields": {
+          "name": "Can add session",
+          "content_type": 5,
+          "codename": "add_session"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 18,
+        "fields": {
+          "name": "Can change session",
+          "content_type": 5,
+          "codename": "change_session"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 19,
+        "fields": {
+          "name": "Can delete session",
+          "content_type": 5,
+          "codename": "delete_session"
+        }
+      },
+      {
+        "model": "auth.permission",
+        "pk": 20,
+        "fields": {
+          "name": "Can view session",
+          "content_type": 5,
+          "codename": "view_session"
+        }
+      }
+    ]
+  }
+}

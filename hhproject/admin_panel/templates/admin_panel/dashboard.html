@@ -1,0 +1,682 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title_name %}Дашборд - Админ панель{% endblock %}
+
+{% block style %}
+<style>
+/* Стили для админ панели */
+.admin-wrapper {
+    min-height: calc(100vh - 115px);
+    background: var(--bg-primary);
+    padding: 30px 0;
+    display: flex;
+    gap: 30px;
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 20px 20px 0;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 115px;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.admin-main {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.admin-container {
+    max-width: 1200px;
+}
+
+/* ��йдбар */
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header h3 i {
+    color: var(--accent);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
+
+.badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
+/* Основной контент */
+.admin-content-header {
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+.admin-content-header h1 {
+    color: var(--text-primary);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.admin-content-header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* ��тка стати��‚ики */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 25px;
+    margin-bottom: 50px;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+.stat-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+}
+
+.stat-number {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 10px;
+    display: block;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Основная ��тка контента */
+.admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+@media (max-width: 1200px) {
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Ка��‚очки */
+.admin-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.admin-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.admin-card-header {
+    padding: 25px 30px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.admin-card-header h3 {
+    color: var(--text-primary);
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-card-header h3 i {
+    color: var(--accent);
+}
+
+.admin-card-body {
+    padding: 30px;
+}
+
+/* ��и��к активно��‚ей */
+.activity-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.activity-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.3s ease;
+}
+
+.activity-item:hover {
+    background: var(--bg-secondary);
+    margin: 0 -30px;
+    padding: 20px 30px;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-content strong {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.activity-details {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 5px;
+    line-height: 1.4;
+}
+
+.activity-time {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    margin-left: 20px;
+}
+
+/* Статистика пользователей */
+.user-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.user-stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: var(--bg-primary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.user-stat-item:hover {
+    border-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.stat-label {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.stat-value {
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 1.2rem;
+}
+
+/* сообщения и уведомления */
+.messages {
+    margin-bottom: 25px;
+}
+
+.alert {
+    padding: 15px 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    font-weight: 500;
+    border: 1px solid;
+    animation: slideInDown 0.5s ease-out;
+}
+
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.alert-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.alert-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Анимации */
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Адаптивно��‚ь */
+@media (max-width: 1024px) {
+    .admin-wrapper {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .admin-sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .admin-main {
+        padding-right: 0;
+    }
+    
+    .sidebar-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+    }
+    
+    .nav-item {
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        text-align: center;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .nav-item:hover {
+        transform: translateY(-3px);
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+    
+    .nav-item.active {
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-container {
+        padding: 0 15px;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 2rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .stat-card {
+        padding: 25px 20px;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+    }
+    
+    .admin-card-body {
+        padding: 20px;
+    }
+    
+    .activity-item {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .activity-time {
+        margin-left: 0;
+        align-self: flex-end;
+    }
+    
+    .sidebar-nav {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-wrapper {
+        padding: 20px 0;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 1.7rem;
+    }
+    
+    .stat-card {
+        padding: 20px 15px;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+    }
+    
+    .admin-card-header {
+        padding: 20px;
+    }
+    
+    .admin-card-body {
+        padding: 15px;
+    }
+}
+
+/* Ка��‚омный ����ллбар */
+.activity-list::-webkit-scrollbar,
+.admin-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.activity-list::-webkit-scrollbar-track,
+.admin-sidebar::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 3px;
+}
+
+.activity-list::-webkit-scrollbar-thumb,
+.admin-sidebar::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+}
+
+.activity-list::-webkit-scrollbar-thumb:hover,
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- Боковая панель -->
+   <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-cogs"></i> Панель управления</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Дашборд</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_company_moderation' %}" class="nav-item {% if 'company' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-building"></i>
+                    <span>Модерация компаний</span>
+                </div>
+                {% if pending_companies_count %}
+                    <span class="badge">{{ pending_companies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_category_moderation' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tags"></i>
+                    <span>Категории вакансий</span>
+                </div>
+                {% if pending_category_suggestions_count %}
+                    <span class="badge">{{ pending_category_suggestions_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-flag"></i>
+                    <span>Жалобы на вакансии</span>
+                </div>
+                {% if pending_complaints_count %}
+                    <span class="badge">{{ pending_complaints_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_backup_management' %}" class="nav-item {% if 'backup' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-database"></i>
+                    <span>Управление бэкапами</span>
+                </div>
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'admin_management' %}" class="nav-item {% if 'site-admins' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Администраторы сайта</span>
+                </div>
+                {% if site_admins_count %}
+                    <span class="badge">{{ site_admins_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+            <a href="{% url 'admin_logs' %}" class="nav-item {% if 'logs' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Логи действий</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_profile' %}" class="nav-item {% if 'admin_profile' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Мой профиль</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_statistics' %}" class="nav-item {% if 'admin_statistics' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>статистика сайта</span>
+                </div>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Основной контент -->
+    <main class="admin-main">
+        <div class="admin-container">
+            <div class="admin-content-header">
+                <h1 class="animate__animated animate__fadeInDown">Дашборд</h1>
+                <p class="animate__animated animate__fadeInUp">Обзор системы и статистика</p>
+            </div>
+
+            <!-- сообщения -->
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} animate__animated animate__fadeIn">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Статистика -->
+            <div class="stats-grid">
+                <div class="stat-card animate__animated animate__fadeInLeft" style="animation-delay: 0.1s">
+                    <span class="stat-number">{{ pending_count }}</span>
+                    <div class="stat-label">Компаний на проверке</div>
+                </div>
+                <div class="stat-card animate__animated animate__fadeInLeft" style="animation-delay: 0.2s">
+                    <span class="stat-number">{{ total_companies }}</span>
+                    <div class="stat-label">Всего компаний</div>
+                </div>
+                <div class="stat-card animate__animated animate__fadeInRight" style="animation-delay: 0.3s">
+                    <span class="stat-number">{{ approved_companies }}</span>
+                    <div class="stat-label">Подтвержденных компаний</div>
+                </div>
+                <div class="stat-card animate__animated animate__fadeInRight" style="animation-delay: 0.4s">
+                    <span class="stat-number">{{ total_users }}</span>
+                    <div class="stat-label">Всего пользователей</div>
+                </div>
+            </div>
+
+            <!-- Основной контент -->
+            <div class="admin-grid">
+                <!-- Последние действия -->
+                <div class="admin-card animate__animated animate__fadeInUp" style="animation-delay: 0.5s">
+                    <div class="admin-card-header">
+                        <h3><i class="fas fa-history"></i> Последние действия</h3>
+                    </div>
+                    <div class="admin-card-body">
+                        {% if recent_logs %}
+                        <div class="activity-list">
+                            {% for log in recent_logs %}
+                            <div class="activity-item">
+                                <div class="activity-content">
+                                    <strong>{{ log.admin.username }}</strong> - {{ log.get_action_display }}
+                                    <div class="activity-details">{{ log.details }}</div>
+                                </div>
+                                <div class="activity-time">
+                                    {{ log.created_at|date:"d.m.Y H:i" }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p style="color: var(--text-secondary); text-align: center; padding: 40px 20px;">
+                            <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i><br>
+                            Нет последних действий
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Статистика пользователей -->
+                <div class="admin-card animate__animated animate__fadeInUp" style="animation-delay: 0.6s">
+                    <div class="admin-card-header">
+                        <h3><i class="fas fa-chart-pie"></i> Статистика пользователей</h3>
+                    </div>
+                    <div class="admin-card-body">
+                        <div class="user-stats">
+                            <div class="user-stat-item">
+                                <span class="stat-label">Компании:</span>
+                                <span class="stat-value">{{ company_users }}</span>
+                            </div>
+                            <div class="user-stat-item">
+                                <span class="stat-label">Соискатели:</span>
+                                <span class="stat-value">{{ applicant_users }}</span>
+                            </div>
+                            <div class="user-stat-item">
+                                <span class="stat-label">Отклоненные компании:</span>
+                                <span class="stat-value">{{ rejected_companies }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

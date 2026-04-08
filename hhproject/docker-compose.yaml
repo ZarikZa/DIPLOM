@@ -1,0 +1,31 @@
+services:
+  web:
+    build: .
+    command: >
+      sh -c "sleep 10 &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8675"
+    volumes:
+      - .:/djprogect
+    ports:
+      - "8675:8675"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: kursa2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

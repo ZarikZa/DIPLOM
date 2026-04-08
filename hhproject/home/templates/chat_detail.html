@@ -1,0 +1,172 @@
+﻿{% extends 'base.html' %}
+
+{% block title_name %}Чат{% endblock %}
+
+{% block content %}
+<section class="chat-room-wrap">
+    <div class="chat-room-head">
+        <a href="{% url 'applicant_chats' %}" class="chat-back">← Назад к чатам</a>
+        <h1>{{ chat.company_name|default:'Компания' }}</h1>
+        <a href="{% url 'vacancy_detail' chat.vacancy %}" class="chat-vacancy-link">{{ chat.vacancy_title|default:'Вакансия' }}</a>
+    </div>
+
+    {% if messages %}
+    <div class="chat-system-alerts">
+        {% for message in messages %}
+        <div class="chat-system-alert">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="chat-room" id="chatRoom">
+        {% if chat_messages %}
+            {% for msg in chat_messages %}
+            <div class="msg-row {% if msg.is_my_message %}msg-row-my{% endif %}">
+                <div class="msg-bubble {% if msg.is_my_message %}msg-bubble-my{% endif %}">
+                    <div class="msg-text">{{ msg.text|linebreaksbr }}</div>
+                    <div class="msg-meta">
+                        {{ msg.sender_name|default:msg.sender_email }} · {{ msg.created_at|slice:":16"|cut:"T" }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="chat-empty">сообщений пока нет. Начните диалог.</div>
+        {% endif %}
+    </div>
+
+    <form method="post" action="{% url 'applicant_chat_send_message' chat.id %}" class="chat-send-form">
+        {% csrf_token %}
+        <textarea name="text" rows="2" placeholder="Введите сообщение..." required></textarea>
+        <button type="submit">Отправить</button>
+    </form>
+</section>
+
+<style>
+.chat-room-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px 16px 30px;
+}
+.chat-room-head {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #fff;
+    padding: 12px 14px;
+}
+.chat-back {
+    text-decoration: none;
+    color: #1d4ed8;
+    font-weight: 700;
+    font-size: 14px;
+}
+.chat-room-head h1 {
+    margin: 6px 0 0;
+    font-size: 24px;
+}
+.chat-vacancy-link {
+    margin-top: 6px;
+    display: inline-block;
+    color: #334155;
+    text-decoration: none;
+    border-bottom: 1px dashed #94a3b8;
+}
+.chat-vacancy-link:hover {
+    color: #1e3a8a;
+}
+.chat-system-alerts {
+    margin-top: 10px;
+}
+.chat-system-alert {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #9f1239;
+    margin-bottom: 8px;
+}
+.chat-room {
+    margin-top: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    min-height: 56vh;
+    max-height: 65vh;
+    overflow: auto;
+    padding: 14px;
+}
+.msg-row {
+    display: flex;
+    margin-bottom: 10px;
+    justify-content: flex-start;
+}
+.msg-row-my {
+    justify-content: flex-end;
+}
+.msg-bubble {
+    max-width: min(78%, 640px);
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    padding: 10px 12px;
+    box-shadow: 0 4px 16px rgba(2, 6, 23, 0.06);
+}
+.msg-bubble-my {
+    background: #dbeafe;
+    border-color: #93c5fd;
+}
+.msg-text {
+    color: #0f172a;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.msg-meta {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 12px;
+}
+.chat-empty {
+    color: #64748b;
+}
+.chat-send-form {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+}
+.chat-send-form textarea {
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 10px 12px;
+    resize: vertical;
+}
+.chat-send-form button {
+    border: none;
+    border-radius: 12px;
+    padding: 0 18px;
+    font-weight: 800;
+    color: #fff;
+    background: #1d4ed8;
+    cursor: pointer;
+}
+@media (max-width: 640px) {
+    .chat-room {
+        min-height: 52vh;
+        max-height: 58vh;
+    }
+    .msg-bubble {
+        max-width: 90%;
+    }
+    .chat-send-form {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const room = document.getElementById('chatRoom');
+    room.scrollTop = room.scrollHeight;
+});
+</script>
+{% endblock %}

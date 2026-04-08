@@ -1,0 +1,522 @@
+﻿{% load static %}
+<style>
+    /* =================================== */
+    /* ОБЩИЕ Переменные */
+    /* =================================== */
+    :root {
+        --header-height: 70px;
+        --topbar-height: 30px;
+        --total-header-height: calc(var(--topbar-height) + var(--header-height));
+    }
+
+    /* =================================== */
+    /* Верхний МИНИ ХЕДЕР */
+    /* =================================== */
+    .user-type-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: var(--topbar-height);
+        background: #1e293b;
+        z-index: 1000;
+    }
+
+    .user-type-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 1rem;
+    }
+
+    .user-type-link {
+        color: white !important;
+        text-decoration: none;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 3px;
+        white-space: nowrap;
+    }
+
+    .user-type-link.active {
+        background: #f59e0b;
+    }
+
+    /* =================================== */
+    /* MAIN HEADER */
+    /* =================================== */
+    .header {
+        position: fixed;
+        top: var(--topbar-height);
+        left: 0;
+        right: 0;
+        height: var(--header-height);
+        background: linear-gradient(90deg, #2563eb, #1d4ed8);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    .header-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+        height: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .header-logo {
+        text-decoration: none;
+    }
+
+    .header-logo span {
+        font-size: 1.5rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, #f59e0b, #fff);
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    /* Де��топ меню */
+    .header-nav {
+        display: flex;
+        align-items: center;
+    }
+
+    .header-menu {
+        list-style: none;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        margin: 0;
+        padding: 0;
+    }
+
+    .header-link {
+        color: white !important;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 5px 10px;
+        border-radius: 4px;
+        transition: background 0.3s;
+    }
+
+    .header-link:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    /* Buttons */
+    .header-button {
+        padding: 6px 15px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+        color: white !important;
+        display: inline-block;
+        text-align: center;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .header-button--login {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .header-button--register {
+        background: #f59e0b;
+    }
+
+    .header-button--logout {
+        background: #dc2626;
+    }
+
+    /* =================================== */
+    /* БУ��ЕР */
+    /* =================================== */
+    .header-toggle {
+        display: none;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 25px;
+        height: 20px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        z-index: 1001;
+    }
+
+    .header-toggle span {
+        display: block;
+        width: 100%;
+        height: 2px;
+        background: white;
+        border-radius: 2px;
+        transition: all 0.3s ease;
+    }
+
+    /* Анимация бу��е�� → к����ик */
+    .header-toggle.active span:nth-child(1) {
+        transform: rotate(45deg) translate(5px, 5px);
+    }
+
+    .header-toggle.active span:nth-child(2) {
+        opacity: 0;
+    }
+
+    .header-toggle.active span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -6px);
+    }
+
+    /* =================================== */
+    /* МОБИЛЬНОЕ МЕНЮ */
+    /* =================================== */
+    @media (max-width: 768px) {
+        .header-toggle {
+            display: flex;
+        }
+
+        .header-nav {
+            display: none;
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: var(--total-header-height);
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            z-index: 999;
+            padding: 20px;
+            display: none;
+        }
+
+        .mobile-menu.active {
+            display: block;
+        }
+
+        .mobile-menu-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .mobile-link {
+            color: #333 !important;
+            text-decoration: none;
+            padding: 12px 15px;
+            display: block;
+            border-radius: 6px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s;
+        }
+
+        .mobile-link:hover {
+            background: #f1f5f9;
+        }
+
+        .mobile-button {
+            padding: 12px 15px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            display: block;
+            text-align: center;
+            margin: 5px 0;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .mobile-button--login {
+            background: #f1f5f9;
+            color: #333 !important;
+            border: 1px solid #cbd5e1;
+        }
+
+        .mobile-button--register {
+            background: #f59e0b;
+            color: white !important;
+        }
+
+        .mobile-button--logout {
+            background: #dc2626;
+            color: white !important;
+        }
+
+        /* Адаптация верхнего хедера */
+        .user-type-container {
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        .user-type-link {
+            font-size: 12px;
+            padding: 3px 10px;
+        }
+    }
+
+    /* На де��топе ����ваем мобильное меню */
+    @media (min-width: 769px) {
+        .mobile-menu {
+            display: none !important;
+        }
+    }
+
+    /* Отступ для контента */
+    body {
+        padding-top: var(--total-header-height) !important;
+        min-height: 100vh;
+        background: var(--bg-primary, #ffffff) !important;
+        margin: 0;
+    }
+
+    /* Dark theme fixes for company pages that use inline card styles */
+    [data-theme="dark"] .mobile-menu {
+        background: var(--bg-card, #1e293b);
+        box-shadow: 0 10px 24px rgba(2, 6, 23, 0.45);
+    }
+
+    [data-theme="dark"] .mobile-link {
+        color: var(--text-primary, #f8fafc) !important;
+        background: var(--bg-secondary, #0f172a);
+        border-color: var(--border-color, #334155);
+    }
+
+    [data-theme="dark"] .mobile-link:hover {
+        background: var(--bg-primary, #0f172a);
+    }
+
+    [data-theme="dark"] section [style*="background:#fff;"],
+    [data-theme="dark"] section [style*="background: #fff;"],
+    [data-theme="dark"] section [style*="background:#ffffff;"],
+    [data-theme="dark"] section [style*="background: #ffffff;"],
+    [data-theme="dark"] section [style*="background:white;"],
+    [data-theme="dark"] section [style*="background: white;"] {
+        background: var(--bg-card, #1e293b) !important;
+        border-color: var(--border-color, #334155) !important;
+    }
+
+    [data-theme="dark"] section [style*="border:1px solid #e2e8f0"],
+    [data-theme="dark"] section [style*="border: 1px solid #e2e8f0"],
+    [data-theme="dark"] section [style*="border:1px solid #cbd5e1"],
+    [data-theme="dark"] section [style*="border: 1px solid #cbd5e1"],
+    [data-theme="dark"] section [style*="border:1px dashed #cbd5e1"],
+    [data-theme="dark"] section [style*="border: 1px dashed #cbd5e1"] {
+        border-color: var(--border-color, #334155) !important;
+    }
+
+    [data-theme="dark"] section [style*="color:#0f172a"],
+    [data-theme="dark"] section [style*="color: #0f172a"],
+    [data-theme="dark"] section [style*="color:#334155"],
+    [data-theme="dark"] section [style*="color: #334155"] {
+        color: var(--text-primary, #f8fafc) !important;
+    }
+
+    [data-theme="dark"] section [style*="color:#475569"],
+    [data-theme="dark"] section [style*="color: #475569"],
+    [data-theme="dark"] section [style*="color:#64748b"],
+    [data-theme="dark"] section [style*="color: #64748b"] {
+        color: var(--text-secondary, #cbd5e1) !important;
+    }
+
+    [data-theme="dark"] section .form-control,
+    [data-theme="dark"] section input,
+    [data-theme="dark"] section select,
+    [data-theme="dark"] section textarea {
+        background: var(--bg-secondary, #0f172a) !important;
+        color: var(--text-primary, #f8fafc) !important;
+        border-color: var(--border-color, #334155) !important;
+    }
+
+    [data-theme="dark"] section input::placeholder,
+    [data-theme="dark"] section textarea::placeholder {
+        color: var(--text-secondary, #94a3b8) !important;
+    }
+
+    [data-theme="dark"] .feature-card-company,
+    [data-theme="dark"] .category-card-company,
+    [data-theme="dark"] .company-stats-chart-card {
+        background: var(--bg-card, #1e293b) !important;
+        border-color: var(--border-color, #334155) !important;
+        color: var(--text-primary, #f8fafc);
+    }
+
+    [data-theme="dark"] .company-stats,
+    [data-theme="dark"] .company-categories {
+        background: var(--bg-secondary, #0f172a) !important;
+    }
+
+    [data-theme="dark"] .stat-number-company {
+        color: #93c5fd !important;
+    }
+</style>
+
+<!-- HTML ХЕДЕ -->
+<div class="user-type-header">
+    <div class="user-type-container">
+        <a href="{% url 'home_page' %}" class="user-type-link {% if request.path == '/login/aplicant/' %}active{% endif %}">
+            Соискатель
+        </a>
+        <a href="{% url 'home_comp' %}" class="user-type-link {% if request.path == '/login/employee/' %}active{% endif %}">
+            Компания
+        </a>
+    </div>
+</div>
+
+<header class="header">
+    <div class="header-container">
+        <a href="{% url 'home_comp' %}" class="header-logo">
+            <span>HR-Lab</span>
+        </a>
+        
+        <!-- Детопное меню -->
+        <nav class="header-nav">
+            <ul class="header-menu">
+                <li><a href="{% url 'home_comp' %}" class="header-link">Главная</a></li>
+                
+                {% if api_user %}
+                    {% if api_user.user_type == "company" %}
+                        <li><a href="{% url 'vacancy_list' %}" class="header-link">Вакансии</a></li>
+                        <li><a href="{% url 'responses_list' %}" class="header-link">Отклики</a></li>
+                        <li><a href="{% url 'company_chats' %}" class="header-link">Чаты</a></li>
+                        <li><a href="{% url 'company_stats' %}" class="header-link">статистика</a></li>
+                    {% elif api_user.user_type == "staff" and api_user.employee_role == "hr" %}
+                        <li><a href="{% url 'vacancy_list' %}" class="header-link">Вакансии</a></li>
+                        <li><a href="{% url 'responses_list' %}" class="header-link">Отклики</a></li>
+                        <li><a href="{% url 'company_chats' %}" class="header-link">Чаты</a></li>
+                        <li><a href="{% url 'company_stats' %}" class="header-link">статистика</a></li>
+                    {% endif %}
+                    {% if api_user.user_type == "staff" %}
+                        <li><a href="{% url 'employee_profile' %}" class="header-link">Профиль</a></li>
+                        {% if api_user.employee_role == "content_manager" %}
+                            <li><a href="{% url 'content_manager_videos' %}" class="header-link">Видео</a></li>
+                            <li><a href="{% url 'content_manager_stats' %}" class="header-link">Моя статистика</a></li>
+                        {% endif %}
+                    {% endif %}
+                    {% if api_user.user_type == "company" %}
+                        <li><a href="{% url 'hr_agents_list' %}" class="header-link">HR-агенты</a></li>
+                        <li><a href="{% url 'content_managers_list' %}" class="header-link">Контент-менеджер</a></li>
+                        <li><a href="{% url 'company_profile' %}" class="header-link">Профиль</a></li>
+                    {% endif %}
+                
+                    <li><a href="{% url 'logout' %}" class="header-button header-button--logout">Выйти</a></li>
+                   
+                {% else %}
+                    <li><a href="{% url 'login_user' %}" class="header-button header-button--login">Войти</a></li>
+                    <li><a href="{% url 'reg_comp' %}" class="header-button header-button--register">регистрация</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        
+        <!-- Буер для мобильных -->
+        <button class="header-toggle" id="header-toggle" aria-label="Toggle menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </div>
+</header>
+
+<!-- Мобильное меню -->
+<div class="mobile-menu" id="mobile-menu">
+    <ul class="mobile-menu-list">
+        <li><a href="{% url 'home_comp' %}" class="mobile-link">Главная</a></li>
+        
+        {% if api_user %}
+            {% if api_user.user_type == "company" %}
+                <li><a href="{% url 'vacancy_list' %}" class="mobile-link">Вакансии</a></li>
+                <li><a href="{% url 'responses_list' %}" class="mobile-link">Отклики</a></li>
+                <li><a href="{% url 'company_chats' %}" class="mobile-link">Чаты</a></li>
+                <li><a href="{% url 'company_stats' %}" class="mobile-link">статистика</a></li>
+            {% elif api_user.user_type == "staff" and api_user.employee_role == "hr" %}
+                <li><a href="{% url 'vacancy_list' %}" class="mobile-link">Вакансии</a></li>
+                <li><a href="{% url 'responses_list' %}" class="mobile-link">Отклики</a></li>
+                <li><a href="{% url 'company_chats' %}" class="mobile-link">Чаты</a></li>
+                <li><a href="{% url 'company_stats' %}" class="mobile-link">статистика</a></li>
+            {% endif %}
+            {% if api_user.user_type == "staff" %}
+                <li><a href="{% url 'employee_profile' %}" class="mobile-link">Профиль</a></li>
+                {% if api_user.employee_role == "content_manager" %}
+                    <li><a href="{% url 'content_manager_videos' %}" class="mobile-link">Видео</a></li>
+                    <li><a href="{% url 'content_manager_stats' %}" class="mobile-link">Моя статистика</a></li>
+                {% endif %}
+            {% endif %}
+            {% if api_user.user_type == "company" %}
+                <li><a href="{% url 'hr_agents_list' %}" class="mobile-link">HR-агенты</a></li>
+                <li><a href="{% url 'content_managers_list' %}" class="mobile-link">Контент-менеджер</a></li>
+                <li><a href="{% url 'company_profile' %}" class="mobile-link">Профиль</a></li>
+            {% endif %}
+        
+            <li><a href="{% url 'logout' %}" class="mobile-button mobile-button--logout">Выйти</a></li>
+           
+        {% else %}
+            <li><a href="{% url 'login_user' %}" class="mobile-button mobile-button--login">Войти</a></li>
+            <li><a href="{% url 'reg_comp' %}" class="mobile-button mobile-button--register">регистрация</a></li>
+        {% endif %}
+    </ul>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const toggle = document.getElementById('header-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+    
+    // Функция переключения меню
+    function toggleMenu() {
+        mobileMenu.classList.toggle('active');
+        toggle.classList.toggle('active');
+        
+        // Блоки��ем/��зблоки��ем ����лл
+        if (mobileMenu.classList.contains('active')) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+    }
+    
+    // Клик по бу��е��
+    if (toggle) {
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleMenu();
+        });
+    }
+    
+    // Зак��тие п�� клике на ссылку
+    if (mobileMenu) {
+        mobileMenu.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', function() {
+                toggleMenu();
+            });
+        });
+    }
+    
+    // Зак��тие по клику вне меню
+    document.addEventListener('click', function(e) {
+        if (mobileMenu && mobileMenu.classList.contains('active') && 
+            !mobileMenu.contains(e.target) && 
+            toggle && !toggle.contains(e.target)) {
+            toggleMenu();
+        }
+    });
+    
+    // Зак��тие по Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && mobileMenu && mobileMenu.classList.contains('active')) {
+            toggleMenu();
+        }
+    });
+});
+</script>

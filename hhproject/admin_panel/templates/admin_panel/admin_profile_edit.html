@@ -1,0 +1,640 @@
+﻿<!-- templates/admin_panel/admin_profile_edit.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title_name %}редактирование профиля - CareerHub{% endblock %}
+
+{% block style %}
+<style>
+.admin-wrapper {
+    min-height: calc(100vh - 115px);
+    background: var(--bg-primary);
+    padding: 30px 0;
+    display: flex;
+    gap: 30px;
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 20px 20px 0;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 115px;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.admin-main {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.admin-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* ��йдбар (такой же как в основном профиле) */
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header h3 i {
+    color: var(--accent);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
+
+.badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
+/* Фо��а редактирования */
+.edit-profile-section {
+    padding: 0;
+    background: transparent;
+    min-height: auto;
+}
+
+.profile-edit-card {
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    margin-bottom: 30px;
+}
+
+.profile-edit-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.profile-edit-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, var(--accent), var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    font-weight: bold;
+    box-shadow: var(--shadow-lg);
+}
+
+.profile-edit-info h1 {
+    color: var(--text-primary);
+    margin: 0 0 5px 0;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.profile-edit-info .email {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+.admin-badge {
+    display: inline-block;
+    background: linear-gradient(45deg, var(--accent), var(--primary));
+    color: white;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+/* Фо��а */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-label {
+    display: block;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    transform: translateY(-2px);
+}
+
+.form-input:disabled {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+}
+
+.form-help {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+.form-help a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.form-help a:hover {
+    text-decoration: underline;
+}
+
+.form-errors {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 6px;
+}
+
+/* Кнопки */
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 20px;
+    border-top: 2px solid var(--border-color);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, var(--accent), var(--primary));
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, var(--primary), var(--accent));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: var(--border-color);
+    transform: translateY(-2px);
+}
+
+.btn-change-password {
+    background: transparent;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+}
+
+.btn-change-password:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* сообщения */
+.messages {
+    margin-bottom: 25px;
+}
+
+.alert {
+    padding: 15px 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border: 2px solid transparent;
+    font-weight: 500;
+}
+
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border-color: #10b981;
+}
+
+.alert-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+/* Адаптивно��‚ь */
+@media (max-width: 768px) {
+    .admin-wrapper {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .admin-sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .admin-main {
+        padding-right: 0;
+    }
+    
+    .profile-edit-card {
+        padding: 25px 20px;
+    }
+    
+    .profile-edit-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-edit-card {
+        padding: 20px 15px;
+        border-radius: 15px;
+    }
+    
+    .profile-edit-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+    
+    .profile-edit-info h1 {
+        font-size: 1.6rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- Боковая панель -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-cogs"></i> Панель управления</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'admin_dashboard' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Дашборд</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_company_moderation' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-building"></i>
+                    <span>Модерация компаний</span>
+                </div>
+                {% if pending_companies_count %}
+                    <span class="badge">{{ pending_companies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_complaints' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-flag"></i>
+                    <span>Жалобы на вакансии</span>
+                </div>
+                {% if pending_complaints_count %}
+                    <span class="badge">{{ pending_complaints_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_backup_management' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-database"></i>
+                    <span>Управление бэкапами</span>
+                </div>
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'admin_management' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Администраторы сайта</span>
+                </div>
+            </a>
+            {% endif %}
+            <a href="{% url 'admin_logs' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Логи действий</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_profile' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Мой профиль</span>
+                </div>
+            </a>
+         
+        </nav>
+    </aside>
+
+    <!-- Основной контент -->
+    <main class="admin-main">
+        <div class="admin-container">
+            <div class="edit-profile-section">
+                <div class="profile-edit-card">
+                    <div class="profile-edit-header">
+                        <div class="profile-edit-avatar">
+                            {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+                        </div>
+                        <div class="profile-edit-info">
+                            <h1>редактирование профиля</h1>
+                            <div class="email">{{ user.email }}</div>
+                            <div class="admin-badge">
+                                <i class="fas fa-shield-alt"></i>
+                                Администратор сайта
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- сообщения -->
+                    {% if messages %}
+                    <div class="messages">
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="form-grid">
+                            <!-- Левая колонка -->
+                            <div>
+                                <div class="form-group">
+                                    <label class="form-label" for="{{ form.email.id_for_label }}">
+                                        Email адрес *
+                                    </label>
+                                    {{ form.email }}
+                                    {% if form.email.errors %}
+                                        <div class="form-errors">
+                                            {% for error in form.email.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-help">
+                                        Используется для входа в систему
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="{{ form.phone.id_for_label }}">
+                                        Телефон *
+                                    </label>
+                                    {{ form.phone }}
+                                    {% if form.phone.errors %}
+                                        <div class="form-errors">
+                                            {% for error in form.phone.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Пвая колонка -->
+                            <div>
+                                <div class="form-group">
+                                    <label class="form-label" for="{{ form.first_name.id_for_label }}">
+                                        Имя
+                                    </label>
+                                    {{ form.first_name }}
+                                    {% if form.first_name.errors %}
+                                        <div class="form-errors">
+                                            {% for error in form.first_name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="{{ form.last_name.id_for_label }}">
+                                        Фамилия
+                                    </label>
+                                    {{ form.last_name }}
+                                    {% if form.last_name.errors %}
+                                        <div class="form-errors">
+                                            {% for error in form.last_name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <a href="{% url 'password_reset_request' %}" class="btn btn-change-password">
+                                <i class="fas fa-key"></i>
+                                Сменить пароль
+                            </a>
+                            <div style="flex: 1"></div>
+                            <a href="{% url 'admin_profile' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                Отмена
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i>
+                                сохранить изменения
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Скрытое поле с CSRF токеном -->
+<input type="hidden" id="csrf_token" value="{{ csrf_token }}">
+
+<script>
+// Функция для ��ены темы
+function toggleTheme() {
+    const html = document.documentElement;
+    const currentTheme = html.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    
+    // П��меняем новую тему
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    // Обновляем иконку
+    const themeIcons = document.querySelectorAll('.theme-icon');
+    themeIcons.forEach(icon => {
+        icon.textContent = newTheme === 'dark' ? '🌙' : '☀️';
+    });
+    
+    // Обновляем тему в базе данных
+    updateThemeInDatabase(newTheme);
+}
+
+// Функция для обновления темы в базе данных
+async function updateThemeInDatabase(theme) {
+    console.log('Отправка темы в БД:', theme);
+    
+    try {
+        const csrfToken = document.getElementById('csrf_token').value;
+        
+        const response = await fetch('/update-theme/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                theme: theme,
+                user_type: 'adminsite'
+            })
+        });
+
+        const result = await response.json();
+        console.log('Ответ сервера:', result);
+        
+        if (response.ok) {
+            console.log('Тема успешно сохранена в БД');
+        } else {
+            console.error('Ошибка при сохранении темы в БД:', result);
+        }
+    } catch (error) {
+        console.error('Ошибка сети:', error);
+    }
+}
+
+// П�� загрузке страницы у��‚анавливаем правильную иконку
+document.addEventListener('DOMContentLoaded', function() {
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    const themeIcons = document.querySelectorAll('.theme-icon');
+    themeIcons.forEach(icon => {
+        icon.textContent = currentTheme === 'dark' ? '🌙' : '☀️';
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,33 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Аккаунт на проверке - CareerHub{% endblock %}
+
+{% block content %}
+<div class="login-section">
+    <div class="login-container-wrapper">
+        <div class="login-container">
+            <div class="pending-content">
+                <div class="pending-icon">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                    </svg>
+                </div>
+                
+                <h2>Аккаунт на проверке</h2>
+                
+                <div class="instruction-text">
+                    Ваш аккаунт компании находится на проверке администраторым.
+                    Это обычно занимает 1-2 рабочих дня.
+                </div>
+                
+                <div class="pending-info">
+                    <p>Мы проверкем предоставленные документы и информацию о компании.</p>
+                    <p>Вы получите уведомление по email, как только ваш аккаунт будет подтвержден.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

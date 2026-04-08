@@ -1,0 +1,445 @@
+﻿<style>
+   /* ��или для админ панели */
+.admin-wrapper {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    padding-top: 115px; /* Увеличиваем от��уп для header */
+    color: #ffffff; /* Белый текст по умолчанию */
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: #1e293b;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    position: fixed;
+    top: 115px; /* Пе��мещаем ниже header */
+    left: 0;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    z-index: 900;
+}
+
+.admin-main {
+    margin-left: 280px;
+    min-height: calc(100vh - 115px);
+    padding: 30px;
+    color: #ffffff; /* Белый текст */
+}
+
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(30, 41, 59, 0.8);
+}
+
+.sidebar-header h3 {
+    color: #ffffff; /* Белый текст */
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 25px;
+    color: #ffffff; /* Белый текст */
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+    font-weight: 500;
+}
+
+.nav-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    border-left-color: #3b82f6;
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border-left-color: #3b82f6;
+}
+
+.badge {
+    background: #ef4444;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Карточки */
+.admin-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    margin-bottom: 24px;
+    overflow: hidden;
+    color: #ffffff; /* Белый текст */
+}
+
+.admin-card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-card-header h3 {
+    color: #ffffff; /* Белый текст */
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.admin-card-body {
+    padding: 24px;
+    color: #ffffff; /* Белый текст */
+}
+
+/* статистика */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.1));
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    transition: transform 0.3s ease;
+    color: #ffffff; /* Белый текст */
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #3b82f6;
+    margin-bottom: 8px;
+}
+
+.stat-label {
+    color: #ffffff; /* Белый текст */
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Таблицы */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    overflow: hidden;
+    color: #ffffff; /* Белый текст */
+}
+
+.admin-table th {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    padding: 16px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-table td {
+    padding: 16px;
+    color: #ffffff; /* Белый текст */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.admin-table tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Кнопки админки */
+.btn-admin {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn-admin-primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.btn-admin-primary:hover {
+    background: #2563eb;
+    color: white;
+}
+
+.btn-admin-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-admin-success:hover {
+    background: #059669;
+}
+
+.btn-admin-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-admin-warning:hover {
+    background: #d97706;
+}
+
+.btn-admin-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-admin-danger:hover {
+    background: #dc2626;
+}
+
+.btn-admin-sm {
+    padding: 6px 12px;
+    font-size: 0.875rem;
+}
+
+/* Фо��ы */
+.admin-form-group {
+    margin-bottom: 20px;
+}
+
+.admin-form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #ffffff; /* Белый текст */
+    font-weight: 500;
+}
+
+.admin-form-control {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #ffffff; /* Белый текст */
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.admin-form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ��ату�� */
+.status-pending {
+    background: #fef3c7;
+    color: #d97706;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-approved {
+    background: #d1fae5;
+    color: #065f46;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-rejected {
+    background: #fee2e2;
+    color: #dc2626;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Дополнительные ��или для текста */
+.admin-content-header h1,
+.admin-content-header p,
+.text-muted,
+.activity-content,
+.activity-details,
+.activity-time,
+.user-stat-item,
+.company-description,
+.document-info p,
+.alert,
+.test-result,
+.filter-form label,
+.info-item label,
+.info-item span {
+    color: #ffffff !important; /* Белый текст */
+}
+
+.text-muted {
+    color: rgba(255, 255, 255, 0.7) !important; /* Полуп��з��чный белый */
+}
+
+/* Адаптивно��ь */
+@media (max-width: 1024px) {
+    .admin-sidebar {
+        width: 240px;
+    }
+    
+    .admin-main {
+        margin-left: 240px;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        top: 115px; /* сохраняем позицию на мобильных */
+    }
+    
+    .admin-sidebar.mobile-open {
+        transform: translateX(0);
+    }
+    
+    .admin-main {
+        margin-left: 0;
+        padding: 20px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .sidebar-toggle {
+        display: block;
+        position: fixed;
+        top: 125px; /* Ко��екти��ем позицию кнопки */
+        left: 20px;
+        z-index: 1000;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px;
+        cursor: pointer;
+    }
+}
+
+/* ��ецифичные ��или для элементов */
+.activity-item {
+    color: #ffffff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 15px 0;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.user-stats {
+    color: #ffffff;
+}
+
+.info-grid {
+    color: #ffffff;
+}
+
+.company-description {
+    color: #ffffff;
+    line-height: 1.6;
+}
+
+.confirmation-actions {
+    color: #ffffff;
+}
+
+.procedure-tests {
+    color: #ffffff;
+}
+
+/* ��или для выпадающих ��и��ов с черным текстом */
+.admin-form-control option {
+    background: #ffffff;
+    color: #000000 !important; /* Черный текст */
+    padding: 8px 12px;
+}
+
+.admin-form-control select {
+    color: #ffffff; /* Белый текст для выбранного значения */
+}
+
+.admin-form-control select option {
+    background: #ffffff;
+    color: #000000 !important; /* Черный текст для вариантов */
+    padding: 8px 12px;
+}
+
+/* ��или для в��х select элементов */
+select.admin-form-control {
+    color: #ffffff; /* Белый текст для выбранного значения */
+}
+
+select.admin-form-control option {
+    background: #ffffff;
+    color: #000000 !important;
+    padding: 8px 12px;
+}
+
+/* ��или для ��анда��ных select элементов */
+select {
+    color: #ffffff; /* Белый текст для выбранного значения */
+}
+
+select option {
+    background: #ffffff;
+    color: #000000 !important;
+    padding: 8px 12px;
+}
+
+/* ��ецифичные ��или для фо�� моде��ции */
+form select {
+    color: #ffffff;
+}
+
+form select option {
+    background: #ffffff;
+    color: #000000 !important;
+    padding: 8px 12px;
+}
+
+/* Для inline select в таблицах */
+.action-buttons select {
+    color: #ffffff;
+}
+
+.action-buttons select option {
+    background: #ffffff;
+    color: #000000 !important;
+    padding: 8px 12px;
+}
+
+</style>

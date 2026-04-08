@@ -1,0 +1,59 @@
+﻿{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}Диалог{% endblock %}
+
+{% block content %}
+<section style="max-width:980px;margin:0 auto;padding:20px 16px 32px;">
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 14px;">
+        <a href="{% url 'company_chats' %}" style="text-decoration:none;color:#1d4ed8;font-weight:700;font-size:14px;">← Назад к чатам</a>
+        <h1 style="margin:6px 0 0;font-size:24px;">{{ chat.applicant_info.full_name|default:chat.applicant_name|default:'Соискатель' }}</h1>
+        {% if chat.vacancy %}
+        <a href="{% url 'edit_vacancy' chat.vacancy %}" style="margin-top:6px;display:inline-block;color:#334155;text-decoration:none;border-bottom:1px dashed #94a3b8;">{{ chat.vacancy_title|default:'Вакансия' }}</a>
+        {% else %}
+        <div style="margin-top:6px;color:#64748b;">{{ chat.vacancy_title|default:'Вакансия' }}</div>
+        {% endif %}
+    </div>
+
+    {% if messages %}
+    <div style="margin-top:10px;">
+        {% for message in messages %}
+        <div style="padding:10px 12px;border-radius:10px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;margin-bottom:8px;">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div id="chatRoom" style="margin-top:12px;border:1px solid #e2e8f0;border-radius:14px;background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);min-height:56vh;max-height:65vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;">
+        {% if chat_messages %}
+            {% for msg in chat_messages %}
+            <div style="display:flex;justify-content:{% if msg.is_my_message %}flex-end{% else %}flex-start{% endif %};">
+                <div style="max-width:min(78%,640px);border-radius:12px;padding:10px 12px;border:1px solid {% if msg.is_my_message %}#93c5fd{% else %}#e2e8f0{% endif %};background:{% if msg.is_my_message %}#dbeafe{% else %}#fff{% endif %};box-shadow:0 4px 16px rgba(2,6,23,.06);">
+                    <div style="white-space:pre-wrap;word-wrap:break-word;color:#0f172a;">{{ msg.text|linebreaksbr }}</div>
+                    <div style="margin-top:6px;color:#64748b;font-size:12px;">{{ msg.sender_name|default:msg.sender_email }} · {{ msg.created_at|slice:":16"|cut:"T" }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="color:#64748b;">сообщений пока нет. Начните диалог.</div>
+        {% endif %}
+    </div>
+
+    <form method="post" action="{% url 'company_chat_send_message' chat.id %}" style="margin-top:12px;display:grid;grid-template-columns:1fr auto;gap:10px;">
+        {% csrf_token %}
+        <textarea class="form-control" name="text" rows="2" placeholder="Введите сообщение..." required></textarea>
+        <button class="btn btn-primary" type="submit" style="padding:0 18px;">Отправить</button>
+    </form>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const room = document.getElementById('chatRoom');
+    if (room) {
+        room.scrollTop = room.scrollHeight;
+    }
+});
+</script>
+{% endblock %}

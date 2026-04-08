@@ -1,0 +1,882 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title_name %}Логи действий - Админ панель{% endblock %}
+
+{% block style %}
+<style>
+/* Стили для страницы логов действий */
+.admin-wrapper {
+    min-height: calc(100vh - 115px);
+    background: var(--bg-primary);
+    padding: 30px 0;
+    display: flex;
+    gap: 30px;
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 20px 20px 0;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 115px;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.admin-main {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.admin-container {
+    max-width: 1400px;
+}
+
+/* ��йдбар */
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header h3 i {
+    color: var(--accent);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
+
+.badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
+/* Заголовок контента */
+.admin-content-header {
+    margin-bottom: 40px;
+}
+
+.admin-content-header h1 {
+    color: var(--text-primary);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.admin-content-header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* Ка��‚очки */
+.admin-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+    margin-bottom: 30px;
+}
+
+.admin-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.admin-card-header {
+    padding: 25px 30px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.admin-card-header h3 {
+    color: var(--text-primary);
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-card-header h3 i {
+    color: var(--accent);
+}
+
+.admin-card-body {
+    padding: 30px;
+}
+
+/* Фо��ы фильтров */
+.filter-form {
+    margin-bottom: 0;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 25px;
+    align-items: end;
+}
+
+.admin-form-group {
+    margin-bottom: 0;
+}
+
+.admin-form-label {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.admin-form-control {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.admin-form-control:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* И����вление для выпадающих ��и��ов */
+.admin-form-control,
+.admin-form-control option {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.admin-form-control:focus {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Кнопки */
+.btn-admin {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.btn-admin-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-admin-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-admin-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-admin-warning:hover {
+    background: #d97706;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-admin-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-admin-danger:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+/* Таблицы */
+.table-responsive {
+    overflow-x: auto;
+    border-radius: 12px;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.admin-table th {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 18px 20px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.admin-table td {
+    padding: 18px 20px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.95rem;
+    vertical-align: top;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tr:hover {
+    background: var(--bg-secondary);
+}
+
+/* Бейджи действий */
+.action-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+/* Станда��‚ные цвета для типов действий */
+.action-company_approved,
+.action-company_registered,
+.action-admin_login,
+.action-user_registered,
+.action-vacancy_created,
+.action-backup_created,
+.action-backup_downloaded,
+.action-backup_uploaded,
+.action-admin_created,
+.action-admin_activated,
+.action-vacancy_unarchived,
+.action-password_reset_success,
+.action-user_login {
+    background: rgba(16, 185, 129, 0.1);
+    color: #065f46;
+}
+
+.action-company_rejected,
+.action-company_deleted,
+.action-profile_deleted,
+.action-backup_deleted,
+.action-admin_deleted,
+.action-admin_deactivated,
+.action-vacancy_archived,
+.action-vacancy_archived_admin {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.action-company_updated,
+.action-company_profile_updated,
+.action-profile_updated,
+.action-employee_profile_updated,
+.action-admin_updated,
+.action-vacancy_updated,
+.action-user_logout,
+.action-theme_changed {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1e40af;
+}
+
+.action-backup_restored,
+.action-logs_cleared,
+.action-admin_logout {
+    background: rgba(245, 158, 11, 0.1);
+    color: #854d0e;
+}
+
+.action-vacancy_viewed,
+.action-admin_dashboard_viewed,
+.action-company_moderation_viewed,
+.action-company_detail_viewed,
+.action-vacancy_management_viewed,
+.action-backup_dashboard_viewed,
+.action-admin_logs_viewed,
+.action-admin_management_viewed,
+.action-statistics_viewed,
+.action-complaints_viewed,
+.action-complaint_detail_viewed,
+.action-admin_profile_viewed {
+    background: rgba(139, 92, 246, 0.1);
+    color: #7c3aed;
+}
+
+.action-vacancy_applied,
+.action-favorite_added,
+.action-favorite_removed,
+.action-complaint_created,
+.action-password_reset_requested,
+.action-response_status_updated,
+.action-complaint_status_updated,
+.action-hr_agent_created,
+.action-hr_agent_updated,
+.action-hr_agent_deleted,
+.action-hr_agents_exported,
+.action-hr_agents_imported,
+.action-statistics_exported_pdf,
+.action-statistics_exported_excel {
+    background: rgba(236, 72, 153, 0.1);
+    color: #be185d;
+}
+
+/* По умолчанию для неизве��‚ных действий */
+.action-default {
+    background: rgba(100, 116, 139, 0.1);
+    color: #475569;
+}
+
+/* Текст‚ */
+.text-muted {
+    color: var(--text-secondary) !important;
+    font-size: 0.875rem;
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.admin-card {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Адаптивно��‚ь */
+@media (max-width: 1024px) {
+    .admin-wrapper {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .admin-sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .admin-main {
+        padding-right: 0;
+    }
+    
+    .sidebar-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+    }
+    
+    .nav-item {
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        text-align: center;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .nav-item:hover {
+        transform: translateY(-3px);
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+    
+    .nav-item.active {
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-container {
+        padding: 0 15px;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 2rem;
+    }
+    
+    .filter-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .admin-card-header {
+        padding: 20px;
+    }
+    
+    .admin-card-body {
+        padding: 20px;
+    }
+    
+    .admin-table th,
+    .admin-table td {
+        padding: 12px 8px;
+        font-size: 0.85rem;
+    }
+    
+    .sidebar-nav {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-wrapper {
+        padding: 20px 0;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 1.7rem;
+    }
+    
+    .admin-card-header,
+    .admin-card-body {
+        padding: 15px;
+    }
+    
+    .btn-admin {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .filter-grid .btn-admin {
+        width: auto;
+    }
+}
+
+/* Ка��‚омный ����ллбар */
+.admin-sidebar::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track,
+.table-responsive::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover,
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+/* Счетчик логов */
+.count-badge {
+    background: var(--primary);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* ����‚ояние загрузки */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- Боковая панель -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-cogs"></i> Панель управления</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Дашборд</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_company_moderation' %}" class="nav-item {% if 'company' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-building"></i>
+                    <span>Модерация компаний</span>
+                </div>
+                {% if pending_companies_count %}
+                    <span class="badge">{{ pending_companies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-flag"></i>
+                    <span>Жалобы на вакансии</span>
+                </div>
+                {% if pending_complaints_count %}
+                    <span class="badge">{{ pending_complaints_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_backup_management' %}" class="nav-item {% if 'backup' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-database"></i>
+                    <span>Управление бэкапами</span>
+                </div>
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'admin_management' %}" class="nav-item {% if 'site-admins' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Администраторы сайта</span>
+                </div>
+                {% if site_admins_count %}
+                    <span class="badge">{{ site_admins_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+            <a href="{% url 'admin_logs' %}" class="nav-item active">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Логи действий</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_profile' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Мой профиль</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_statistics' %}" class="nav-item {% if 'admin_statistics' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Статистика сайта</span>
+                </div>
+            </a>
+        </nav>
+    </aside>
+
+    <main class="admin-main">
+        <div class="admin-container">
+            <div class="admin-content-header">
+                <h1 class="animate__animated animate__fadeInDown">Логи действий</h1>
+                <p class="animate__animated animate__fadeInUp">История действий всех пользователей системы</p>
+            </div>
+            
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} animate__animated animate__fadeIn">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="admin-card animate__animated animate__fadeInUp">
+                <div class="admin-card-header">
+                    <h3><i class="fas fa-filter"></i> Фильтры</h3>
+                </div>
+                <div class="admin-card-body">
+                    <form method="get" class="filter-form">
+                        <div class="filter-grid">
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">Тип действия:</label>
+                                <select name="action" class="admin-form-control">
+                                    <option value="">Все действия</option>
+                                    {% for action_type in action_types %}
+                                    <option value="{{ action_type.id }}" {% if current_action == action_type.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ action_type.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">Поиск:</label>
+                                <input type="text" name="search" value="{{ search_query }}" class="admin-form-control" placeholder="Поиск по описанию или пользователю...">
+                            </div>
+                            <div class="admin-form-group">
+                                <label class="admin-form-label">&nbsp;</label>
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    <button type="submit" class="btn-admin btn-admin-primary">
+                                        <i class="fas fa-check"></i> Применить фильтры
+                                    </button>
+                                    <a href="{% url 'admin_logs' %}" class="btn-admin btn-admin-warning">
+                                        <i class="fas fa-undo"></i> ть
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Очистка логов -->
+            <div class="admin-card animate__animated animate__fadeInUp" style="animation-delay: 0.1s">
+                <div class="admin-card-header">
+                    <h3><i class="fas fa-broom"></i> Очистка логов</h3>
+                </div>
+                <div class="admin-card-body">
+                    <form method="post" action="{% url 'admin_clear_logs' %}">
+                        {% csrf_token %}
+                        <div class="admin-form-group" style="max-width: 300px;">
+                            <label class="admin-form-label">Удалить логи ста€е:</label>
+                            <select name="days_old" class="admin-form-control">
+                                <option value="7">7 дней</option>
+                                <option value="30" selected>30 дней</option>
+                                <option value="90">90 дней</option>
+                                <option value="365">1 года</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-admin btn-admin-danger" onclick="return confirm('Вы уверены что хотите удалить старые логи?')">
+                            <i class="fas fa-trash"></i> Очистить логи
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ик логов -->
+            <div class="admin-card animate__animated animate__fadeInUp" style="animation-delay: 0.2s">
+                <div class="admin-card-header">
+                    <h3><i class="fas fa-history"></i> История действий</h3>
+                    <span class="count-badge">
+                        {{ logs.count }}
+                    </span>
+                </div>
+                <div class="admin-card-body">
+                    {% if logs %}
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Дата и время</th>
+                                    <th>Пользователь</th>
+                                    <th>Тип пользователя</th>
+                                    <th>Действие</th>
+                                    <th>Компания</th>
+                                    <th>Описание</th>
+                                    <th>IP-адрес</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ log.created_at|date:"d.m.Y H:i" }}</strong>
+                                    </td>
+                                    <td>
+                                        <strong>{{ log.admin.username }}</strong>
+                                        {% if log.admin.email %}
+                                        <div class="text-muted">{{ log.admin.email }}</div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.admin.is_superuser %}
+                                            <span class="action-badge action-default">Суперпользователь</span>
+                                        {% elif log.admin.user_type == 'adminsite' %}
+                                            <span class="action-badge action-default">Администратор</span>
+                                        {% elif log.admin.user_type == 'company' %}
+                                            <span class="action-badge action-default">Компания</span>
+                                        {% elif log.admin.user_type == 'hragent' %}
+                                            <span class="action-badge action-default">HR-агент</span>
+                                        {% elif log.admin.user_type == 'applicant' %}
+                                            <span class="action-badge action-default">Соискатель</span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="action-badge action-{{ log.action }} action-default">
+                                            {{ log.action }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if log.target_company %}
+                                            <strong>{{ log.target_company.name }}</strong>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ log.details }}
+                                        {% if log.target_content_type and log.target_object_id %}
+                                            <div class="text-muted">
+                                                Объект: {{ log.target_content_type }} #{{ log.target_object_id }}
+                                            </div>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.ip_address %}
+                                            <code>{{ log.ip_address }}</code>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted" style="text-align: center; padding: 40px 20px;">
+                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i><br>
+                        Логи не найдены
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Автоматическое обновление страницы каждые 30 секунд для актуальных логов
+setTimeout(function() {
+    window.location.reload();
+}, 30000);
+
+// Подтверждение очи��‚ки логов
+document.addEventListener('DOMContentLoaded', function() {
+    const clearForm = document.querySelector('form[action*="clear_logs"]');
+    if (clearForm) {
+        clearForm.addEventListener('submit', function(e) {
+            if (!confirm('Вы уверены, что хотите удалить старые логи? Это действие нельзя отменить.')) {
+                e.preventDefault();
+            }
+        });
+    }
+});
+
+// Фильтрация по типу действия с сохранением ����‚ояния
+const actionFilter = document.querySelector('select[name="action"]');
+if (actionFilter) {
+    actionFilter.addEventListener('change', function() {
+        this.form.submit();
+    });
+}
+
+// Поиск с задержкой
+let searchTimeout;
+const searchInput = document.querySelector('input[name="search"]');
+if (searchInput) {
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            this.form.submit();
+        }, 500);
+    });
+}
+
+// Подсветка новых логов
+document.addEventListener('DOMContentLoaded', function() {
+    const logs = document.querySelectorAll('.admin-table tr');
+    logs.forEach((log, index) {
+        if (index < 5) { // Подечиваем первые 5 записей как новые
+            log.style.backgroundColor = 'rgba(59, 130, 246, 0.05)';
+            setTimeout(() => {
+                log.style.transition = 'background-color 1s ease';
+                log.style.backgroundColor = '';
+            }, 3000);
+        }
+    });
+});
+
+// Эк��о��‚ логов (дополнительная функция)
+function exportLogs() {
+    alert('Функция экспорта логов будет реализована в будущем обновлении');
+}
+</script>
+{% endblock %}

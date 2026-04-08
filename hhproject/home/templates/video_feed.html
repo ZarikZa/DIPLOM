@@ -1,0 +1,703 @@
+﻿{% extends 'base.html' %}
+
+{% block title_name %}Видео-лента{% endblock %}
+
+{% block content %}
+<section class="shorts-page">
+    {% if api_user and api_user.user_type == 'applicant' %}
+    <div class="feed-top-controls">
+        <div class="feed-mode-switch">
+            <a href="{% url 'applicant_video_feed' %}" class="{% if not show_all_videos and not has_video_filters %}active{% endif %}">Рекомендованные</a>
+            <a href="{% url 'applicant_video_feed' %}?all=1" class="{% if show_all_videos %}active{% endif %}">Все видео</a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if messages %}
+    <div class="feed-messages">
+        {% for message in messages %}
+        <div class="feed-alert">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if videos %}
+    <div class="shorts-track" id="shortsTrack">
+        <div class="shorts-floating-controls">
+            <button id="soundToggle" class="sound-toggle" type="button" aria-pressed="false">🔇 Без звука</button>
+        </div>
+        {% for video in videos %}
+        <article class="short-card" data-video-id="{{ video.id }}">
+            <video class="short-video" src="{{ video.video }}" playsinline muted loop preload="metadata"></video>
+            <button class="play-overlay" type="button">▶</button>
+
+            <div class="short-meta">
+                <h3>{{ video.vacancy.position|default:'Вакансия' }}</h3>
+                <p>{{ video.vacancy.company_name|default:'Компания' }}{% if video.vacancy.city %} · {{ video.vacancy.city }}{% endif %}</p>
+                {% if video.description %}
+                <p class="short-desc">{{ video.description }}</p>
+                {% endif %}
+
+                <div class="short-actions-row">
+                    <a href="{% url 'vacancy_detail' video.vacancy.id %}" class="btn-open">Открыть вакансию</a>
+                    {% if api_user and api_user.user_type == 'applicant' %}
+                        {% if video.vacancy.has_applied %}
+                            <span class="btn-applied">Отклик отправлен</span>
+                        {% else %}
+                            <a href="{% url 'apply_to_vacancy' video.vacancy.id %}?next={{ request.get_full_path|urlencode }}" class="btn-apply">Откликнуться</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="short-side-actions">
+                <button type="button" class="btn-like {% if video.is_liked %}liked{% endif %}" data-liked="{% if video.is_liked %}1{% else %}0{% endif %}" data-count="{{ video.likes_count|default:0 }}">
+                    ❤
+                    <span class="like-count">{{ video.likes_count|default:0 }}</span>
+                </button>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    <div class="shorts-nav">
+        <button id="prevVideoBtn" type="button" class="nav-btn">↑ Предыдущее</button>
+        <div id="videoCounter" class="video-counter">1 / {{ videos|length }}</div>
+        <button id="nextVideoBtn" type="button" class="nav-btn">Следующее ↓</button>
+    </div>
+    {% else %}
+    <div class="video-empty">Пока нет активных видео для показа. Проверьте, что в API есть активные ролики.</div>
+    {% endif %}
+</section>
+
+<input type="hidden" id="csrf_token_feed" value="{{ csrf_token }}">
+
+<style>
+html,
+body {
+    height: 100%;
+    overflow: hidden;
+}
+
+main {
+    overflow: hidden;
+}
+
+.shorts-page {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 10px 12px 10px;
+    height: calc(100dvh - 56px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.feed-top-controls {
+    margin-bottom: 10px;
+}
+.feed-mode-switch {
+    display: flex;
+    gap: 8px;
+}
+.feed-mode-switch a {
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    background: #fff;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.feed-mode-switch a.active {
+    border-color: #0f766e;
+    background: #0f766e;
+    color: #fff;
+}
+.sound-toggle {
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: rgba(15, 23, 42, 0.55);
+    color: #fff;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-weight: 700;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+}
+.sound-toggle.active {
+    background: rgba(15, 118, 110, 0.92);
+    color: #fff;
+    border-color: rgba(15, 118, 110, 0.92);
+}
+.feed-messages {
+    margin-bottom: 10px;
+}
+.feed-alert {
+    padding: 10px 12px;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #9f1239;
+    border-radius: 10px;
+    margin-bottom: 8px;
+}
+.shorts-track {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: clamp(420px, 66dvh, 760px);
+    overflow: hidden;
+    border-radius: 16px;
+    touch-action: pan-y;
+}
+.shorts-floating-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 8;
+}
+.short-card {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    background: #0b1220;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+    position: absolute;
+    inset: 0;
+    opacity: 0.98;
+    pointer-events: none;
+    transform: translateY(102%);
+    will-change: transform, opacity;
+}
+.short-card.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+    z-index: 3;
+}
+.short-card.off-top {
+    transform: translateY(-102%);
+    opacity: 0.98;
+}
+.short-card.off-bottom {
+    transform: translateY(102%);
+    opacity: 0.98;
+}
+.short-card.anim-enter-up {
+    animation: enter-up 0.36s cubic-bezier(0.24, 0.76, 0.2, 1) forwards;
+    z-index: 4;
+}
+.short-card.anim-enter-down {
+    animation: enter-down 0.36s cubic-bezier(0.24, 0.76, 0.2, 1) forwards;
+    z-index: 4;
+}
+.short-card.anim-leave-up {
+    animation: leave-up 0.36s cubic-bezier(0.24, 0.76, 0.2, 1) forwards;
+    z-index: 2;
+}
+.short-card.anim-leave-down {
+    animation: leave-down 0.36s cubic-bezier(0.24, 0.76, 0.2, 1) forwards;
+    z-index: 2;
+}
+@keyframes enter-up {
+    from {
+        transform: translateY(102%);
+        opacity: 0.98;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+@keyframes enter-down {
+    from {
+        transform: translateY(-102%);
+        opacity: 0.98;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+@keyframes leave-up {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-102%);
+        opacity: 0.98;
+    }
+}
+@keyframes leave-down {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(102%);
+        opacity: 0.98;
+    }
+}
+.short-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.play-overlay {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 72px;
+    height: 72px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.58);
+    color: #fff;
+    font-size: 30px;
+    cursor: pointer;
+}
+.play-overlay.hidden {
+    display: none;
+}
+.short-meta {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    color: #fff;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.45);
+}
+.short-meta h3 {
+    margin: 0;
+    font-size: 24px;
+}
+.short-meta p {
+    margin: 6px 0 0;
+}
+.short-desc {
+    max-width: 92%;
+}
+.short-actions-row {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.btn-open,
+.btn-apply,
+.btn-applied {
+    border-radius: 999px;
+    padding: 9px 13px;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+}
+.btn-open {
+    background: rgba(255, 255, 255, 0.88);
+    color: #0f172a;
+}
+.btn-apply {
+    background: rgba(15, 118, 110, 0.92);
+    color: #fff;
+}
+.btn-applied {
+    background: rgba(220, 252, 231, 0.94);
+    color: #166534;
+    border-color: #86efac;
+}
+.short-side-actions {
+    position: absolute;
+    right: 10px;
+    bottom: 112px;
+    z-index: 4;
+}
+.btn-like {
+    width: 56px;
+    height: 56px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(15,23,42,0.44);
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    gap: 2px;
+}
+.btn-like.liked {
+    background: #be123c;
+    border-color: #be123c;
+}
+.like-count {
+    font-size: 11px;
+}
+.video-empty {
+    margin-top: 16px;
+    padding: 18px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    color: #475569;
+}
+.shorts-nav {
+    margin-top: 6px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+}
+.nav-btn {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #0f172a;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.video-counter {
+    color: #334155;
+    font-weight: 700;
+    min-width: 74px;
+    text-align: center;
+}
+@media (max-width: 640px) {
+    .shorts-page {
+        height: calc(100dvh - 48px);
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    .short-meta h3 {
+        font-size: 21px;
+    }
+    .shorts-nav {
+        gap: 6px;
+    }
+    .nav-btn {
+        padding: 7px 10px;
+        font-size: 13px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const csrf = document.getElementById('csrf_token_feed').value;
+    const track = document.getElementById('shortsTrack');
+    const cards = Array.from(document.querySelectorAll('.short-card'));
+    const prevVideoBtn = document.getElementById('prevVideoBtn');
+    const nextVideoBtn = document.getElementById('nextVideoBtn');
+    const videoCounter = document.getElementById('videoCounter');
+    const viewed = new Set();
+    const soundToggle = document.getElementById('soundToggle');
+    let soundEnabled = false;
+    let activeIndex = 0;
+    let wheelLocked = false;
+    let touchStartY = 0;
+    let isAnimating = false;
+
+    const postJson = async (url) => {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        try {
+            return await response.json();
+        } catch (e) {
+            return { ok: false };
+        }
+    };
+
+    const updateSoundButton = () => {
+        if (!soundToggle) {
+            return;
+        }
+        soundToggle.classList.toggle('active', soundEnabled);
+        soundToggle.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
+        soundToggle.textContent = soundEnabled ? '🔊 Со звуком' : '🔇 Без звука';
+    };
+
+    const updateCounter = () => {
+        if (!videoCounter) {
+            return;
+        }
+        videoCounter.textContent = `${activeIndex + 1} / ${cards.length}`;
+    };
+
+    const clearMotionClasses = (card) => {
+        card.classList.remove(
+            'anim-enter-up',
+            'anim-enter-down',
+            'anim-leave-up',
+            'anim-leave-down',
+            'off-top',
+            'off-bottom'
+        );
+    };
+
+    const placeCards = (index) => {
+        cards.forEach((card, cardIndex) => {
+            clearMotionClasses(card);
+            card.classList.remove('active');
+            if (cardIndex < index) {
+                card.classList.add('off-top');
+            } else if (cardIndex > index) {
+                card.classList.add('off-bottom');
+            } else {
+                card.classList.add('active');
+            }
+        });
+    };
+
+    const pauseAllExcept = (activeCard) => {
+        cards.forEach((card) => {
+            if (card === activeCard) {
+                return;
+            }
+            const video = card.querySelector('.short-video');
+            const overlay = card.querySelector('.play-overlay');
+            if (video) {
+                video.pause();
+            }
+            if (overlay) {
+                overlay.classList.remove('hidden');
+            }
+        });
+    };
+
+    const markViewed = (videoId) => {
+        if (!videoId || viewed.has(videoId)) {
+            return;
+        }
+        viewed.add(videoId);
+        postJson(`/feed/videos/${videoId}/view/`);
+    };
+
+    const activateCard = async (card) => {
+        if (!card) {
+            return;
+        }
+        const video = card.querySelector('.short-video');
+        const overlay = card.querySelector('.play-overlay');
+        const videoId = card.dataset.videoId;
+        if (!video || !overlay) {
+            return;
+        }
+
+        activeIndex = Math.max(0, cards.indexOf(card));
+        placeCards(activeIndex);
+        updateCounter();
+        pauseAllExcept(card);
+
+        video.muted = !soundEnabled;
+        if (soundEnabled) {
+            video.volume = 1;
+        }
+
+        try {
+            await video.play();
+            overlay.classList.add('hidden');
+        } catch (e) {
+            overlay.classList.remove('hidden');
+        }
+
+        markViewed(videoId);
+    };
+
+    const moveCard = (direction) => {
+        if (!cards.length || isAnimating) {
+            return;
+        }
+        const nextIndex = Math.max(0, Math.min(cards.length - 1, activeIndex + direction));
+        if (nextIndex === activeIndex) {
+            return;
+        }
+
+        const currentCard = cards[activeIndex];
+        const nextCard = cards[nextIndex];
+        if (!currentCard || !nextCard) {
+            return;
+        }
+
+        isAnimating = true;
+        const movingDown = direction > 0;
+
+        clearMotionClasses(currentCard);
+        clearMotionClasses(nextCard);
+        nextCard.classList.remove('active');
+        nextCard.classList.add(movingDown ? 'off-bottom' : 'off-top');
+
+        const currentVideo = currentCard.querySelector('.short-video');
+        const currentOverlay = currentCard.querySelector('.play-overlay');
+        if (currentVideo) {
+            currentVideo.pause();
+        }
+        if (currentOverlay) {
+            currentOverlay.classList.remove('hidden');
+        }
+
+        void nextCard.offsetWidth;
+        currentCard.classList.add(movingDown ? 'anim-leave-up' : 'anim-leave-down');
+        nextCard.classList.add('active', movingDown ? 'anim-enter-up' : 'anim-enter-down');
+
+        let finalized = false;
+        const finishMove = () => {
+            if (finalized) {
+                return;
+            }
+            finalized = true;
+            activeIndex = nextIndex;
+            activateCard(cards[activeIndex]);
+            isAnimating = false;
+        };
+
+        nextCard.addEventListener('animationend', finishMove, { once: true });
+        window.setTimeout(finishMove, 420);
+    };
+
+    cards.forEach((card) => {
+        const video = card.querySelector('.short-video');
+        const overlay = card.querySelector('.play-overlay');
+        const likeBtn = card.querySelector('.btn-like');
+        const videoId = card.dataset.videoId;
+
+        const togglePlay = async () => {
+            const isActiveCard = cards[activeIndex] === card;
+            if (!isActiveCard) {
+                await activateCard(card);
+                return;
+            }
+
+            if (video.paused) {
+                try {
+                    await video.play();
+                    overlay.classList.add('hidden');
+                } catch (e) {}
+            } else {
+                video.pause();
+                overlay.classList.remove('hidden');
+            }
+        };
+
+        overlay.addEventListener('click', togglePlay);
+        video.addEventListener('click', togglePlay);
+        video.muted = true;
+
+        if (likeBtn) {
+            likeBtn.addEventListener('click', async () => {
+                const result = await postJson(`/feed/videos/${videoId}/like/`);
+                if (!result || !result.ok) {
+                    return;
+                }
+
+                const countNode = likeBtn.querySelector('.like-count');
+                let count = parseInt(likeBtn.dataset.count || '0', 10);
+                if (Number.isNaN(count)) {
+                    count = 0;
+                }
+
+                if (result.liked) {
+                    likeBtn.classList.add('liked');
+                    likeBtn.dataset.liked = '1';
+                    count += 1;
+                } else {
+                    likeBtn.classList.remove('liked');
+                    likeBtn.dataset.liked = '0';
+                    count = Math.max(0, count - 1);
+                }
+
+                likeBtn.dataset.count = String(count);
+                if (countNode) {
+                    countNode.textContent = String(count);
+                }
+            });
+        }
+    });
+
+    if (track) {
+        track.addEventListener('wheel', (event) => {
+            if (Math.abs(event.deltaY) < 30) {
+                return;
+            }
+            event.preventDefault();
+            if (wheelLocked) {
+                return;
+            }
+            wheelLocked = true;
+            moveCard(event.deltaY > 0 ? 1 : -1);
+            window.setTimeout(() => {
+                wheelLocked = false;
+            }, 380);
+        }, { passive: false });
+
+        track.addEventListener('touchstart', (event) => {
+            if (!event.changedTouches || !event.changedTouches.length) {
+                return;
+            }
+            touchStartY = event.changedTouches[0].clientY;
+        }, { passive: true });
+
+        track.addEventListener('touchend', (event) => {
+            if (!event.changedTouches || !event.changedTouches.length) {
+                return;
+            }
+            const touchEndY = event.changedTouches[0].clientY;
+            const deltaY = touchStartY - touchEndY;
+            if (Math.abs(deltaY) < 45) {
+                return;
+            }
+            moveCard(deltaY > 0 ? 1 : -1);
+        }, { passive: true });
+    }
+
+    if (prevVideoBtn) {
+        prevVideoBtn.addEventListener('click', () => moveCard(-1));
+    }
+    if (nextVideoBtn) {
+        nextVideoBtn.addEventListener('click', () => moveCard(1));
+    }
+
+    window.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'PageDown') {
+            moveCard(1);
+        } else if (event.key === 'ArrowUp' || event.key === 'PageUp') {
+            moveCard(-1);
+        }
+    });
+
+    if (soundToggle) {
+        soundToggle.addEventListener('click', async () => {
+            soundEnabled = !soundEnabled;
+            updateSoundButton();
+            const activeCard = cards[activeIndex];
+            const activeVideo = activeCard ? activeCard.querySelector('.short-video') : null;
+            if (activeVideo) {
+                activeVideo.muted = !soundEnabled;
+                if (soundEnabled) {
+                    activeVideo.volume = 1;
+                    try {
+                        await activeVideo.play();
+                    } catch (e) {}
+                }
+            }
+        });
+    }
+
+    updateSoundButton();
+    if (cards.length) {
+        placeCards(0);
+        activateCard(cards[0]);
+    }
+});
+</script>
+{% endblock %}
+
+{% block footer %}{% endblock footer %}

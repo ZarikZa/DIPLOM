@@ -1,0 +1,487 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Брендбук - CareerHub{% endblock %}
+
+{% block content %}
+    <style>
+        /* специальные ��или для б��ндбука */
+        .brandbook-section {
+            padding: 120px 0 60px;
+            background: var(--bg-primary);
+        }
+        
+        .brandbook-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .brandbook-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .brandbook-header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .brandbook-header p {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .brand-section {
+            margin-bottom: 80px;
+        }
+        
+        .section-title {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 30px;
+            color: var(--text-primary);
+            position: relative;
+            padding-bottom: 10px;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 2px;
+        }
+        
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+        }
+        
+        .color-card {
+            background: var(--bg-card);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .color-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .color-sample {
+            width: 100%;
+            height: 120px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .color-info h3 {
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+        
+        .color-info p {
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        
+        .typography-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .typography-card {
+            background: var(--bg-card);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        
+        .typography-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .typography-sample {
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+        
+        .typography-sample:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .typography-name {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .typography-preview {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+        }
+        
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .component-card {
+            background: var(--bg-card);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        
+        .component-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .component-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+        
+        .component-demo {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .component-description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+        
+        .logo-section {
+            text-align: center;
+            padding: 40px;
+            background: var(--bg-secondary);
+            border-radius: 15px;
+            margin-bottom: 40px;
+        }
+        
+        .logo-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 30px;
+        }
+        
+        .logo-variant {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-box {
+            width: 200px;
+            height: 100px;
+            background: var(--bg-card);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+        }
+        
+        .logo-dark {
+            background: var(--text-primary);
+        }
+        
+        .logo-light {
+            background: var(--bg-primary);
+        }
+        
+        .logo-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        @media (max-width: 768px) {
+            .brandbook-header h1 {
+                font-size: 2.2rem;
+            }
+            
+            .section-title {
+                font-size: 1.7rem;
+            }
+            
+            .color-grid,
+            .typography-grid,
+            .component-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .logo-container {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Переключатель темы -->
+   
+
+    <!-- Основной контент -->
+    <section class="brandbook-section">
+        <div class="brandbook-container">
+            <div class="brandbook-header">
+                <h1>Брендбук сайта</h1>
+                <p>руководство по использованию фирменного иля, цветов, типогфики и компонентов</p>
+            </div>
+            
+            
+            <!-- Цветовая палит -->
+            <div class="brand-section">
+                <h2 class="section-title">Цветовая палит</h2>
+                <div class="color-grid">
+                    <div class="color-card">
+                        <div class="color-sample" style="background-color: var(--primary);">
+                            Основной
+                        </div>
+                        <div class="color-info">
+                            <h3>Основной цвет</h3>
+                            <p>HEX: #2563eb</p>
+                            <p>RGB: 37, 99, 235</p>
+                            <p>Используется для основных кнопок, ссылок и акцентных элементов</p>
+                        </div>
+                    </div>
+                    
+                    <div class="color-card">
+                        <div class="color-sample" style="background-color: var(--accent); color: #000;">
+                            Акцентный
+                        </div>
+                        <div class="color-info">
+                            <h3>Акцентный цвет</h3>
+                            <p>HEX: #f59e0b</p>
+                            <p>RGB: 245, 158, 11</p>
+                            <p>Используется для призыва к действию, выделения важных элементов</p>
+                        </div>
+                    </div>
+                    
+                    <div class="color-card">
+                        <div class="color-sample" style="background-color: var(--text-primary);">
+                            Основной текст
+                        </div>
+                        <div class="color-info">
+                            <h3>Основной текст</h3>
+                            <p>HEX: #1f2937</p>
+                            <p>RGB: 31, 41, 55</p>
+                            <p>Используется для основного текста, заголовков</p>
+                        </div>
+                    </div>
+                    
+                    <div class="color-card">
+                        <div class="color-sample" style="background-color: var(--text-secondary);">
+                            Вторичный текст
+                        </div>
+                        <div class="color-info">
+                            <h3>Вторичный текст</h3>
+                            <p>HEX: #6b7280</p>
+                            <p>RGB: 107, 114, 128</p>
+                            <p>Используется для подписей, дополнительной информации</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Логотип -->
+            <div class="brand-section">
+                <h2 class="section-title">Логотип</h2>
+                <div class="logo-section">
+                    <h3>Варианты логотипа</h3>
+                    <div class="logo-container">
+                        <div class="logo-variant">
+                            <div class="logo-box logo-light">
+                                <!-- Здесь будет ваш логотип -->
+                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">LOGO</div>
+                            </div>
+                            <span class="logo-name">светлый вариант</span>
+                        </div>
+                        
+                        <div class="logo-variant">
+                            <div class="logo-box logo-dark">
+                                <!-- Здесь будет ваш логотип -->
+                                <div style="font-size: 1.5rem; font-weight: bold; color: white;">LOGO</div>
+                            </div>
+                            <span class="logo-name">Тёмный вариант</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Типогфика -->
+            <div class="brand-section">
+                <h2 class="section-title">Типогфика</h2>
+                <div class="typography-grid">
+                    <div class="typography-card">
+                        <div class="typography-sample">
+                            <div class="typography-name">Заголовок H1</div>
+                            <div class="typography-preview" style="font-size: 2.5rem; font-weight: 700;">
+                                Основной заголовок
+                            </div>
+                        </div>
+                        
+                        <div class="typography-sample">
+                            <div class="typography-name">Заголовок H2</div>
+                            <div class="typography-preview" style="font-size: 2rem; font-weight: 600;">
+                                Второстепенный заголовок
+                            </div>
+                        </div>
+                        
+                        <div class="typography-sample">
+                            <div class="typography-name">Заголовок H3</div>
+                            <div class="typography-preview" style="font-size: 1.5rem; font-weight: 600;">
+                                Подзаголовок секции
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="typography-card">
+                        <div class="typography-sample">
+                            <div class="typography-name">Основной текст</div>
+                            <div class="typography-preview" style="font-size: 1rem; line-height: 1.6;">
+                                Это пример основного текста, который используется для основного контента на сайте. Он имеет оптимальную читаемость и подходит для длинных текстов.
+                            </div>
+                        </div>
+                        
+                        <div class="typography-sample">
+                            <div class="typography-name">Втоепенный текст</div>
+                            <div class="typography-preview" style="font-size: 0.9rem; color: var(--text-secondary);">
+                                Это пример второстепенного текста, который используется для подписей, дополнительной информации и менее важного контента.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Компоненты -->
+            <div class="brand-section">
+                <h2 class="section-title">Компоненты</h2>
+                <div class="component-grid">
+                    <div class="component-card">
+                        <h3 class="component-title">Кнопки</h3>
+                        <div class="component-demo">
+                            <button class="btn btn-primary" style="margin-right: 10px;">Основная кнопка</button>
+                            <button class="btn" style="background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-color);">Вторичная кнопка</button>
+                        </div>
+                        <p class="component-description">Основные кнопки используются для главных действий, вторичные - для дополнительных.</p>
+                    </div>
+                    
+                    <div class="component-card">
+                        <h3 class="component-title">Карточки</h3>
+                        <div class="component-demo">
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <h3>Заголовок карточки</h3>
+                                <p>Это пример карточки, которая используется для представления функций, услуг или продуктов.</p>
+                            </div>
+                        </div>
+                        <p class="component-description">Карточки используются для представления информации в ктуванном виде.</p>
+                    </div>
+                    
+                    <div class="component-card">
+                        <h3 class="component-title">Формы</h3>
+                        <div class="component-demo">
+                            <div class="form-group">
+                                <label for="exampleInput">Поле ввода</label>
+                                <input type="text" class="form-control" id="exampleInput" placeholder="Введите текст">
+                            </div>
+                            <div class="form-group">
+                                <label for="exampleSelect">Выпадающий список</label>
+                                <select class="form-control" id="exampleSelect">
+                                    <option>Вариант 1</option>
+                                    <option>Вариант 2</option>
+                                    <option>Вариант 3</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="component-description">Формы используются для сбора информации от пользователей.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Переключение темы
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            
+            // Обновление иконки
+            const icon = this.querySelector('i');
+            if (newTheme === 'dark') {
+                icon.className = 'fas fa-sun';
+            } else {
+                icon.className = 'fas fa-moon';
+            }
+        });
+        
+        // Анимация появления элементов п�� ����лле
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animated');
+                }
+            });
+        }, observerOptions);
+        
+        // Наблюдаем за всеми элементами с кла��ом animate-on-scroll
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+{% endblock %}

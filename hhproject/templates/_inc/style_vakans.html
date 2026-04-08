@@ -1,0 +1,477 @@
+﻿<style>
+.vacancy-title-link {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.3s ease;
+}
+
+.vacancy-title-link:hover {
+    color: var(--primary);
+}
+
+.vacancy-title-link:hover .vacancy-title {
+    color: var(--primary);
+}
+:root {
+    --primary: #3b82f6;
+    --accent: #f59e0b;
+    --light-bg: #f8fafc;
+    --card-bg: rgba(255, 255, 255, 0.95);
+    --text-dark: #1e293b;
+    --text-light: #64748b;
+    --border-light: rgba(59, 130, 246, 0.1);
+    --shadow: rgba(0, 0, 0, 0.08);
+}
+
+.vacancies-section {
+    padding: 100px 0;
+    background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 50%, #f8fafc 100%);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Заголовок и поиск */
+.page-header {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: fade-in-up 0.6s ease-out;
+}
+
+.page-title {
+    color: var(--text-dark);
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.page-subtitle {
+    color: var(--text-light);
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+}
+
+.search-box {
+    background: var(--card-bg);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 8px 30px var(--shadow);
+    border: 1px solid var(--border-light);
+    margin-bottom: 30px;
+    animation: scale-in 0.6s ease-out;
+}
+
+.search-box .form-control,
+.search-box .form-select {
+    background: white;
+    border: 2px solid #e2e8f0;
+    color: var(--text-dark);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-box .form-control::placeholder {
+    color: #94a3b8;
+}
+
+.search-box .form-control:focus,
+.search-box .form-select:focus {
+    background: white;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    color: var(--text-dark);
+}
+
+.search-box .btn-primary {
+    background: linear-gradient(135deg, var(--primary), #1d4ed8);
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.search-box .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+}
+
+/* Боковая панель фильтров */
+.filter-sidebar {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 8px 30px var(--shadow);
+    border: 1px solid var(--border-light);
+    margin-bottom: 30px;
+    animation: slide-in-left 0.6s ease-out;
+}
+
+.filter-sidebar h5 {
+    color: var(--text-dark);
+    font-weight: 600;
+    margin-bottom: 25px;
+    font-size: 1.3rem;
+}
+
+.filter-sidebar h6 {
+    color: var(--primary);
+    font-weight: 600;
+    margin-bottom: 15px;
+    font-size: 1rem;
+}
+
+.form-check {
+    margin-bottom: 12px;
+    transition: transform 0.3s ease;
+}
+
+.form-check:hover {
+    transform: translateX(5px);
+}
+
+.form-check-input {
+    border: 2px solid #cbd5e1;
+}
+
+.form-check-input:checked {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.form-check-label {
+    color: var(--text-dark);
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.form-check-input:checked + .form-check-label {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Поля зарплаты */
+.filter-sidebar .form-control {
+    background: white;
+    border: 2px solid #e2e8f0;
+    color: var(--text-dark);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.filter-sidebar .form-control::placeholder {
+    color: #94a3b8;
+}
+
+.filter-sidebar .btn-outline-primary {
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    border-radius: 12px;
+    padding: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.filter-sidebar .btn-outline-primary:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* Панель ����и��вки */
+.sorting-options {
+    background: var(--card-bg);
+    border-radius: 15px;
+    padding: 20px 25px;
+    margin-bottom: 25px;
+    border: 1px solid var(--border-light);
+    box-shadow: 0 4px 20px var(--shadow);
+    animation: slide-in-right 0.6s ease-out;
+}
+
+.sorting-options .text-muted {
+    color: var(--text-light) !important;
+    font-weight: 500;
+}
+
+.sorting-options strong {
+    color: var(--primary);
+}
+
+.sorting-options .form-select {
+    background: white;
+    border: 2px solid #e2e8f0;
+    color: var(--text-dark);
+    border-radius: 10px;
+    padding: 8px 12px;
+    max-width: 200px;
+}
+
+.sorting-options .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Карточки вакансий */
+.vacancy-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 30px var(--shadow);
+    border: 1px solid var(--border-light);
+    transition: all 0.3s ease;
+    animation: fade-in-up 0.6s ease-out;
+    animation-delay: calc(var(--index) * 0.1s);
+    animation-fill-mode: both;
+    position: relative;
+    overflow: hidden;
+}
+
+.vacancy-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.05), transparent);
+    transition: 0.5s;
+}
+
+.vacancy-card:hover::before {
+    left: 100%;
+}
+
+.vacancy-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+    border-color: var(--primary);
+}
+
+.vacancy-title {
+    color: var(--text-dark);
+    font-weight: 700;
+    margin-bottom: 12px;
+    font-size: 1.4rem;
+}
+
+.company-name {
+    color: var(--text-light);
+    font-weight: 500;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+}
+
+.salary {
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 1.3rem;
+    margin-bottom: 10px;
+}
+
+.vacancy-card .text-muted {
+    color: #94a3b8 !important;
+}
+
+/* Бейджи */
+.badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+}
+
+.badge:hover {
+    transform: scale(1.05);
+}
+
+.bg-primary {
+    background: linear-gradient(45deg, var(--primary), #60a5fa) !important;
+    color: white !important;
+}
+
+.bg-secondary {
+    background: linear-gradient(45deg, #94a3b8, #cbd5e1) !important;
+    color: white !important;
+}
+
+.badge-remote {
+    background: linear-gradient(45deg, #10b981, #34d399) !important;
+    color: white !important;
+}
+
+/* Кнопка отклика */
+.vacancy-card .btn-primary {
+    background: linear-gradient(135deg, var(--primary), #1d4ed8);
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    width: 100%;
+    max-width: 150px;
+}
+
+.vacancy-card .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+/* Пагинация */
+.pagination {
+    margin-top: 40px;
+}
+
+.page-link {
+    background: white;
+    border: 2px solid #e2e8f0;
+    color: var(--text-dark);
+    border-radius: 12px;
+    margin: 0 5px;
+    padding: 12px 20px;
+    transition: all 0.3s ease;
+}
+
+.page-link:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.page-item.active .page-link {
+    background: linear-gradient(135deg, var(--primary), #1d4ed8);
+    border-color: var(--primary);
+    color: white;
+    font-weight: 600;
+}
+
+.page-item.disabled .page-link {
+    background: #f1f5f9;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+}
+
+/* Анимации */
+@keyframes slide-in-left {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-on-scroll {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s ease;
+}
+
+.animate-on-scroll.animated {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Адаптивно��ь */
+@media (max-width: 768px) {
+    .vacancies-section {
+        padding: 80px 0;
+    }
+    
+    .page-title {
+        font-size: 2.2rem;
+    }
+    
+    .search-box {
+        padding: 20px;
+    }
+    
+    .filter-sidebar {
+        padding: 25px 20px;
+    }
+    
+    .vacancy-card {
+        padding: 25px 20px;
+    }
+    
+    .vacancy-title {
+        font-size: 1.2rem;
+    }
+    
+    .salary {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    .page-title {
+        font-size: 1.8rem;
+    }
+    
+    .search-box {
+        padding: 15px;
+    }
+    
+    .vacancy-card {
+        padding: 20px 15px;
+    }
+    
+    .badge {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+}
+</style>

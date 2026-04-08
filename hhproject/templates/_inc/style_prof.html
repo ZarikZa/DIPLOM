@@ -1,0 +1,521 @@
+﻿<style>
+
+    
+:root {
+    --primary: #2563eb;
+    --accent: #f59e0b;
+    --dark: #1e293b;
+    --light: #f8fafc;
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+.profile-section {
+    padding: 40px 0;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--dark) 100%);
+    min-height: calc(100vh - 115px);
+}
+
+.profile-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.profile-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    margin-bottom: 30px;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, var(--accent), var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.profile-info h1 {
+    color: var(--light);
+    margin: 0 0 5px 0;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.profile-info .email {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+}
+
+.profile-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.detail-item {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
+}
+
+.detail-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.detail-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.detail-value {
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.profile-sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+.section-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 30px;
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.section-card h3 {
+    color: var(--light);
+    margin: 0 0 25px 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.section-card h3 svg {
+    width: 24px;
+    height: 24px;
+    color: var(--accent);
+}
+
+.favorite-item, .response-item {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.favorite-item::before, .response-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: 0.5s;
+}
+
+.favorite-item:hover::before, .response-item:hover::before {
+    left: 100%;
+}
+
+.favorite-item:hover, .response-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(10px);
+    border-color: var(--accent);
+}
+
+.vacancy-title {
+    color: white;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+}
+
+.vacancy-company {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+}
+
+.response-status {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-pending {
+    background: linear-gradient(45deg, #f59e0b, #fbbf24);
+    color: white;
+}
+
+.status-accepted {
+    background: linear-gradient(45deg, #10b981, #34d399);
+    color: white;
+}
+
+.status-rejected {
+    background: linear-gradient(45deg, #ef4444, #f87171);
+    color: white;
+}
+
+.status-new {
+    background: linear-gradient(45deg, #3b82f6, #60a5fa);
+    color: white;
+}
+
+.empty-state {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 50px 20px;
+}
+
+.empty-state svg {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.profile-card, .section-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.detail-item {
+    animation: fadeInUp 0.6s ease-out;
+    animation-delay: calc(var(--index) * 0.1s);
+    animation-fill-mode: both;
+}
+
+/* Адаптивно��ь */
+@media (max-width: 768px) {
+    .profile-sections {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+    
+    .profile-card {
+        padding: 25px 20px;
+    }
+    
+    .section-card {
+        padding: 20px;
+    }
+    
+    .profile-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .favorite-item:hover, .response-item:hover {
+        transform: translateX(5px);
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-container {
+        padding: 0 15px;
+    }
+    
+    .profile-card {
+        padding: 20px 15px;
+        border-radius: 15px;
+    }
+    
+    .profile-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+    
+    .profile-info h1 {
+        font-size: 1.6rem;
+    }
+}
+.profile-actions {
+    margin-top: 20px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background: linear-gradient(45deg, var(--accent), var(--primary));
+    color: white;
+    border: none;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: linear-gradient(45deg, var(--primary), var(--accent));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* ��или для кликабельных элементов */
+.clickable-item {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.clickable-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: 0.5s;
+}
+
+.clickable-item:hover::before {
+    left: 100%;
+}
+
+.clickable-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(10px);
+    border-color: var(--accent);
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Уби��ем ��а��е ��или для отдельных элементов */
+.favorite-item, .response-item {
+    /* Уби��ем ��а��е ��или, так как они теперь применяются через .clickable-item */
+}
+
+/* Адаптивно��ь для кликабельных элементов */
+@media (max-width: 768px) {
+    .clickable-item:hover {
+        transform: translateX(5px);
+    }
+}
+
+/* ��или для кнопок действий */
+.profile-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-edit {
+    background: linear-gradient(45deg, #10b981, #34d399);
+}
+
+.btn-delete {
+    background: linear-gradient(45deg, #ef4444, #f87171);
+}
+
+.btn-cancel {
+    background: linear-gradient(45deg, #6b7280, #9ca3af);
+}
+
+.btn-delete-confirm {
+    background: linear-gradient(45deg, #ef4444, #f87171);
+}
+
+/* ��или для раздела резюме */
+.resume-section {
+    margin-top: 30px;
+    padding-top: 25px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.resume-section h3 {
+    color: var(--light);
+    margin: 0 0 15px 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.resume-content {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+}
+
+.no-resume {
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+    margin: 0;
+}
+
+/* ��или для модального окна */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 15px;
+    margin: 10% auto;
+    padding: 0;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 20px 25px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    color: var(--light);
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.close {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: var(--accent);
+}
+
+.modal-body {
+    padding: 25px;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+}
+
+.modal-actions {
+    padding: 20px 25px;
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+/* Адаптивно��ь */
+@media (max-width: 768px) {
+    .profile-actions {
+        margin-left: 0;
+        margin-top: 15px;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .modal-content {
+        margin: 20% auto;
+        width: 95%;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+    }
+}
+</style>

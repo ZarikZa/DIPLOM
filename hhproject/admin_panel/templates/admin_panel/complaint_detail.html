@@ -1,0 +1,877 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title_name %}Жалоба #{{ complaint.id }} - Админ панель{% endblock %}
+
+{% block style %}
+<style>
+/* Стили для админ панели */
+.admin-wrapper {
+    min-height: calc(100vh - 115px);
+    background: var(--bg-primary);
+    padding: 30px 0;
+    display: flex;
+    gap: 30px;
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 20px 20px 0;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 115px;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.admin-main {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.admin-container {
+    max-width: 1200px;
+}
+
+/* ��йдбар */
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header h3 i {
+    color: var(--accent);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
+
+.badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
+/* Основной контент */
+.admin-content-header {
+    margin-bottom: 40px;
+}
+
+.admin-content-header h1 {
+    color: var(--text-primary);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.admin-content-header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* сообщения */
+.messages {
+    margin-bottom: 25px;
+}
+
+.alert {
+    padding: 15px 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    font-weight: 500;
+    border: 1px solid;
+}
+
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.alert-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.alert-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+/* Детальная информация о жалобе */
+.complaint-detail-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+@media (max-width: 1024px) {
+    .complaint-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.complaint-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.card-header {
+    padding: 25px 30px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.card-header h3 {
+    color: var(--text-primary);
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.card-header h3 i {
+    color: var(--accent);
+}
+
+.status-badge-large {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-pending {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 2px solid rgba(245, 158, 11, 0.3);
+}
+
+.status-reviewed {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--primary);
+    border: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.status-resolved {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 2px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-rejected {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 2px solid rgba(239, 68, 68, 0.3);
+}
+
+.card-body {
+    padding: 30px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.info-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.info-value a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.info-value a:hover {
+    text-decoration: underline;
+}
+
+.complaint-type-badge {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(139, 92, 246, 0.2);
+    color: #8b5cf6;
+}
+
+/* Описание жалобы */
+.description-section {
+    margin-top: 30px;
+}
+
+.section-title {
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.description-content {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.description-content.empty {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Действия админи��‚��то�� */
+.action-section {
+    margin-top: 30px;
+}
+
+.action-form {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 25px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.form-select, .form-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color 0.3s;
+}
+
+.form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 120px;
+    font-family: inherit;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    margin-top: 25px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.btn-outline:hover {
+    background: var(--bg-secondary);
+    border-color: var(--text-secondary);
+}
+
+.btn-back {
+    background: transparent;
+    color: var(--text-primary);
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    font-weight: 500;
+}
+
+.btn-back:hover {
+    color: var(--primary);
+}
+
+/* Информация о вакансии */
+.vacancy-info {
+    background: var(--bg-card);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.vacancy-preview {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.vacancy-title {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.vacancy-company {
+    color: var(--primary);
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 15px;
+}
+
+.vacancy-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.meta-item i {
+    width: 16px;
+    color: var(--accent);
+}
+
+.vacancy-actions {
+    padding: 20px 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Мета-информация */
+.meta-info {
+    background: var(--bg-secondary);
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+}
+
+.meta-item-small {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.meta-item-small:last-child {
+    border-bottom: none;
+}
+
+.meta-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.meta-value {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Адаптивно��‚ь */
+@media (max-width: 768px) {
+    .admin-container {
+        padding: 0 15px;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 2rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-wrapper {
+        padding: 20px 0;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 1.7rem;
+    }
+    
+    .card-body {
+        padding: 20px;
+    }
+    
+    .status-badge-large {
+        font-size: 0.9rem;
+        padding: 8px 16px;
+    }
+}
+
+/* Ка��‚омный ����ллбар */
+.admin-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- Боковая панель -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-cogs"></i> Панель управления</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Дашборд</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_company_moderation' %}" class="nav-item {% if 'company' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-building"></i>
+                    <span>Модерация компаний</span>
+                </div>
+                {% if pending_companies_count %}
+                    <span class="badge">{{ pending_companies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-flag"></i>
+                    <span>Жалобы на вакансии</span>
+                </div>
+                {% if pending_complaints_count %}
+                    <span class="badge">{{ pending_complaints_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_backup_management' %}" class="nav-item {% if 'backup' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-database"></i>
+                    <span>Управление бэкапами</span>
+                </div>
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'admin_management' %}" class="nav-item {% if 'site-admins' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Администраторы сайта</span>
+                </div>
+                {% if site_admins_count %}
+                    <span class="badge">{{ site_admins_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+            <a href="{% url 'admin_logs' %}" class="nav-item {% if 'logs' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Логи действий</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_profile' %}" class="nav-item {% if 'admin_profile' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Мой профиль</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_statistics' %}" class="nav-item {% if 'admin_statistics' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Статистика сайта</span>
+                </div>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Основной контент -->
+    <main class="admin-main">
+        <div class="admin-container">
+            <!-- Хлебные крошки -->
+            <a href="{% url 'admin_complaints' %}" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+                Назад к списку жалоб
+            </a>
+
+            <div class="admin-content-header">
+                <h1>
+                    Жалоба #{{ complaint.id }}
+                    <span class="status-badge-large status-{{ complaint.status }}">
+                        {{ complaint.get_status_display }}
+                    </span>
+                </h1>
+                <p>Детальная информация о жалобе пользователя</p>
+            </div>
+
+            <!-- сообщения -->
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="complaint-detail-grid">
+                <!-- Основная информация -->
+                <div class="complaint-card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-info-circle"></i> Информация о жалобе</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Тип жалобы</span>
+                                <span class="complaint-type-badge">{{ complaint.get_complaint_type_display }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Пользователь</span>
+                                <span class="info-value">{{ complaint.complainant.email }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Дата подачи</span>
+                                <span class="info-value">{{ complaint.created_at|date:"d.m.Y H:i" }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Вакансия</span>
+                                <span class="info-value">
+                                    <strong>{{ complaint.vacancy.position }}</strong><br>
+                                    {{ complaint.vacancy.company.name }}
+                                </span>
+                            </div>
+                            {% if complaint.resolved_at %}
+                            <div class="info-item">
+                                <span class="info-label">Дата шения</span>
+                                <span class="info-value">{{ complaint.resolved_at|date:"d.m.Y H:i" }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Описание жалобы -->
+                        <div class="description-section">
+                            <h4 class="section-title">
+                                <i class="fas fa-comment"></i>
+                                Описание проблемы
+                            </h4>
+                            <div class="description-content {% if not complaint.description %}empty{% endif %}">
+                                {% if complaint.description %}
+                                    {{ complaint.description|linebreaks }}
+                                {% else %}
+                                    Пользователь не предоставил дополнительное описание
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Действия администратор -->
+                        <div class="action-section">
+                            <h4 class="section-title">
+                                <i class="fas fa-cog"></i>
+                                Действия
+                            </h4>
+                            <form method="post" action="{% url 'update_complaint_status' complaint.id %}" class="action-form">
+                                {% csrf_token %}
+                                <div class="form-group">
+                                    <label class="form-label">Изменить статус</label>
+                                    <select name="status" class="form-select" required>
+                                        {% for status_value, status_name in complaint.STATUS_CHOICES %}
+                                            <option value="{{ status_value }}" {% if complaint.status == status_value %}selected{% endif %}>
+                                                {{ status_name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Заметки администратор</label>
+                                    <textarea name="admin_notes" class="form-textarea" placeholder="Добавьте заметки по обработке жалобы...">{{ complaint.admin_notes }}</textarea>
+                                </div>
+                                <div class="form-actions">
+                                    <a href="{% url 'admin_complaints' %}" class="btn btn-outline">
+                                        <i class="fas fa-times"></i>
+                                        Отмена
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i>
+                                        сохранить изменения
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="vacancy-action-section" style="margin-top: 30px; padding-top: 30px; border-top: 1px solid var(--border-color);">
+    <h4 class="section-title">
+        <i class="fas fa-archive"></i>
+        Действия с вакансией
+    </h4>
+    
+    {% if complaint.vacancy.status.status_vacancies_name != 'Архивирована' %}
+    <form method="post" action="{% url 'archive_vacancy' complaint.vacancy.id %}" style="margin-top: 20px;">
+        {% csrf_token %}
+        <div class="form-group">
+            <label class="form-label">Причина архивации</label>
+            <textarea name="archive_reason" class="form-textarea" placeholder="Укажите причину архивации вакансии..." required></textarea>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-warning" onclick="return confirm('Вы уверены, что хотите архивировать эту вакансию?')">
+                <i class="fas fa-archive"></i>
+                Архивировать вакансию
+            </button>
+        </div>
+    </form>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        Эта вакансия уже архивирована. 
+        <a href="{% url 'unarchive_vacancy' complaint.vacancy.id %}" class="btn btn-outline" style="margin-left: 15px;">
+            <i class="fas fa-undo"></i>
+            Восстановить
+        </a>
+    </div>
+    {% endif %}
+</div>
+                    </div>
+                </div>
+
+                <!-- Боковая панель с информацией -->
+                <div class="sidebar-info">
+                    <!-- Информация о вакансии -->
+                    <div class="vacancy-info">
+                        <div class="vacancy-preview">
+                            <h3 class="vacancy-title">{{ complaint.vacancy.position }}</h3>
+                            <div class="vacancy-company">{{ complaint.vacancy.company.name }}</div>
+                            <div class="vacancy-meta">
+                                <div class="meta-item">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                    <span>{{ complaint.vacancy.salary_min }} - {{ complaint.vacancy.salary_max }} руб</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>{{ complaint.vacancy.city }}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-briefcase"></i>
+                                    <span>{{ complaint.vacancy.work_conditions.work_conditions_name }}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fas fa-chart-line"></i>
+                                    <span>{{ complaint.vacancy.experience|default:"Опыт не указан" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="vacancy-actions">
+                            <a href="{% url 'vacancy_detail' complaint.vacancy.id %}" target="_blank" class="btn btn-outline">
+                                <i class="fas fa-external-link-alt"></i>
+                                Открыть вакансию
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Мета-информация -->
+                    <div class="meta-info">
+                        <h4 style="color: var(--text-primary); margin-bottom: 15px; font-size: 1.1rem;">
+                            <i class="fas fa-database"></i>
+                            Мета-информация
+                        </h4>
+                        <div class="meta-item-small">
+                            <span class="meta-label">ID жалобы:</span>
+                            <span class="meta-value">#{{ complaint.id }}</span>
+                        </div>
+                        <div class="meta-item-small">
+                            <span class="meta-label">создана:</span>
+                            <span class="meta-value">{{ complaint.created_at|date:"d.m.Y H:i" }}</span>
+                        </div>
+                        <div class="meta-item-small">
+                            <span class="meta-label">Обновлена:</span>
+                            <span class="meta-value">{{ complaint.updated_at|date:"d.m.Y H:i" }}</span>
+                        </div>
+                        {% if complaint.admin_notes %}
+                        <div class="meta-item-small">
+                            <span class="meta-label">Заметки:</span>
+                            <span class="meta-value">{{ complaint.admin_notes|truncatewords:10 }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

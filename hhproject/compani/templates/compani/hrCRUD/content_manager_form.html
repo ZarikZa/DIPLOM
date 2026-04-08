@@ -1,0 +1,52 @@
+﻿{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}{{ title }}{% endblock %}
+
+{% block content %}
+<section style="max-width:760px;margin:0 auto;padding:28px 16px 40px;">
+    {% if messages %}
+    <div style="margin-bottom:12px;">
+        {% for message in messages %}
+        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+        <h1 style="margin:0 0 12px;">{{ title }}</h1>
+        <form method="post">
+            {% csrf_token %}
+            <label>Имя</label>
+            <input class="form-control" name="first_name" value="{{ form_data.first_name|default:'' }}" required>
+
+            <label style="margin-top:10px;">Фамилия</label>
+            <input class="form-control" name="last_name" value="{{ form_data.last_name|default:'' }}" required>
+
+            <label style="margin-top:10px;">Email</label>
+            <input class="form-control" type="email" name="email" value="{{ form_data.email|default:'' }}" {% if is_edit %}disabled{% endif %} required>
+
+            {% if not is_edit %}
+            <label style="margin-top:10px;">Пароль</label>
+            <input class="form-control" type="password" name="password1" minlength="8" required>
+
+            <label style="margin-top:10px;">Подтверждение пароля</label>
+            <input class="form-control" type="password" name="password2" minlength="8" required>
+            {% else %}
+            <label style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+                <input type="checkbox" name="is_active" {% if form_data.is_active %}checked{% endif %}>
+                <span>Активный аккаунт</span>
+            </label>
+            {% endif %}
+
+            <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-primary" type="submit">{% if is_edit %}сохранить{% else %}создать{% endif %}</button>
+                <a class="btn btn-secondary" href="{% url 'content_managers_list' %}">Отмена</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

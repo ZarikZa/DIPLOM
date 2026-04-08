@@ -1,0 +1,192 @@
+﻿{% extends 'base.html' %}
+
+{% block title_name %}Чаты{% endblock %}
+
+{% block content %}
+<section class="chat-list-wrap">
+    <div class="chat-list-head">
+        <h1>Чаты с компаниями</h1>
+        <form method="get" action="{% url 'applicant_chats' %}" class="chat-search">
+            <input type="text" name="q" placeholder="Поиск по компании или вакансии" value="{{ query|default:'' }}">
+            <button type="submit">Найти</button>
+        </form>
+    </div>
+
+    {% if messages %}
+    <div class="chat-alerts">
+        {% for message in messages %}
+        <div class="chat-alert">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if chats %}
+    <div class="chat-list">
+        {% for chat in chats %}
+        <a href="{% url 'applicant_chat_detail' chat.id %}" class="chat-item">
+            <div class="chat-main">
+                <h3>{{ chat.company_name|default:'Компания' }}</h3>
+                <p class="chat-vacancy">{{ chat.vacancy_title|default:'Вакансия' }}</p>
+                {% if chat.last_message %}
+                <p class="chat-preview">{{ chat.last_message.text }}</p>
+                {% else %}
+                <p class="chat-preview chat-preview-empty">сообщений пока нет</p>
+                {% endif %}
+            </div>
+            <div class="chat-meta">
+                {% if chat.last_message and chat.last_message.created_at %}
+                <div class="chat-time">{{ chat.last_message.created_at|slice:":16"|cut:"T" }}</div>
+                {% endif %}
+                {% if chat.unread_count %}
+                <span class="chat-unread">{{ chat.unread_count }}</span>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="chat-empty">
+        <h3>Чатов пока нет</h3>
+        <p>После отклика на вакансию чат появится автоматически.</p>
+        <a href="{% url 'vakansi_page' %}">Перейти к вакансиям</a>
+    </div>
+    {% endif %}
+</section>
+
+<style>
+.chat-list-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 28px 16px 40px;
+}
+.chat-list-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.chat-list-head h1 {
+    margin: 0;
+    font-size: 30px;
+}
+.chat-search {
+    display: flex;
+    gap: 8px;
+}
+.chat-search input {
+    min-width: 260px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+.chat-search button {
+    border: none;
+    border-radius: 10px;
+    background: #1d4ed8;
+    color: #fff;
+    font-weight: 700;
+    padding: 10px 16px;
+    cursor: pointer;
+}
+.chat-alerts {
+    margin-top: 14px;
+}
+.chat-alert {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #9f1239;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+.chat-list {
+    margin-top: 16px;
+    display: grid;
+    gap: 10px;
+}
+.chat-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+    text-decoration: none;
+    color: inherit;
+    background: #fff;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    transition: 0.2s ease;
+}
+.chat-item:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 10px 24px rgba(2, 6, 23, 0.06);
+}
+.chat-main h3 {
+    margin: 0;
+    font-size: 18px;
+}
+.chat-vacancy {
+    margin: 4px 0 0;
+    color: #0f172a;
+    font-weight: 600;
+}
+.chat-preview {
+    margin: 8px 0 0;
+    color: #334155;
+}
+.chat-preview-empty {
+    color: #64748b;
+}
+.chat-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+.chat-time {
+    color: #64748b;
+    font-size: 13px;
+}
+.chat-unread {
+    min-width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-weight: 700;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 12px;
+}
+.chat-empty {
+    margin-top: 18px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 20px;
+}
+.chat-empty h3 {
+    margin: 0;
+}
+.chat-empty p {
+    margin: 8px 0 14px;
+    color: #475569;
+}
+.chat-empty a {
+    text-decoration: none;
+    color: #1d4ed8;
+    font-weight: 700;
+}
+@media (max-width: 640px) {
+    .chat-search {
+        width: 100%;
+    }
+    .chat-search input {
+        min-width: 0;
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+

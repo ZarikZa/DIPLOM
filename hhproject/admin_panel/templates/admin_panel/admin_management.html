@@ -1,0 +1,679 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title_name %}Администраторы сайта - Панель управления{% endblock %}
+
+{% block style %}
+<style>
+/* Стили для страницы админи��‚��то��в сайта */
+.admin-wrapper {
+    min-height: calc(100vh - 115px);
+    background: var(--bg-primary);
+    padding: 30px 0;
+    display: flex;
+    gap: 30px;
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 20px 20px 0;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 115px;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.admin-main {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.admin-container {
+    max-width: 1400px;
+}
+
+/* ��йдбар */
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header h3 i {
+    color: var(--accent);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
+
+.badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
+/* Заголовок контента */
+.admin-content-header {
+    margin-bottom: 40px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.admin-content-header h1 {
+    color: var(--text-primary);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.admin-content-header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* Ка��‚очки */
+.admin-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+    margin-bottom: 30px;
+}
+
+.admin-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.admin-card-header {
+    padding: 25px 30px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.admin-card-header h3 {
+    color: var(--text-primary);
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-card-header h3 i {
+    color: var(--accent);
+}
+
+.count-badge {
+    background: var(--primary);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.admin-card-body {
+    padding: 30px;
+}
+
+/* Таблицы */
+.table-responsive {
+    overflow-x: auto;
+    border-radius: 12px;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.admin-table th {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 18px 20px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.admin-table td {
+    padding: 18px 20px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.95rem;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tr:hover {
+    background: var(--bg-secondary);
+}
+
+/* Стату��‹ */
+.status-approved {
+    background: rgba(16, 185, 129, 0.1);
+    color: #065f46;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-rejected {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Кнопки */
+.btn-admin {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.btn-admin-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-admin-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-admin-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-admin-success:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-admin-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-admin-warning:hover {
+    background: #d97706;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-admin-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-admin-danger:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-admin-sm {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+}
+
+/* Кнопки действий */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* ����‚ояние пу��‚ого ��и��а */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state h3 {
+    color: var(--text-primary);
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.empty-state p {
+    margin-bottom: 25px;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* Текст‚ */
+.text-muted {
+    color: var(--text-secondary) !important;
+    font-size: 0.875rem;
+    font-style: italic;
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.admin-card {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Адаптивно��‚ь */
+@media (max-width: 1024px) {
+    .admin-wrapper {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .admin-sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .admin-main {
+        padding-right: 0;
+    }
+    
+    .sidebar-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+    }
+    
+    .nav-item {
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        text-align: center;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .nav-item:hover {
+        transform: translateY(-3px);
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+    
+    .nav-item.active {
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-container {
+        padding: 0 15px;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 2rem;
+    }
+    
+    .header-actions {
+        flex-direction: column;
+    }
+    
+    .admin-card-header {
+        padding: 20px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .admin-card-body {
+        padding: 20px;
+    }
+    
+    .admin-table th,
+    .admin-table td {
+        padding: 12px 8px;
+        font-size: 0.85rem;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .sidebar-nav {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-wrapper {
+        padding: 20px 0;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 1.7rem;
+    }
+    
+    .admin-card-header,
+    .admin-card-body {
+        padding: 15px;
+    }
+    
+    .btn-admin {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .header-actions .btn-admin {
+        width: 100%;
+    }
+}
+
+/* Ка��‚омный ����ллбар */
+.admin-sidebar::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track,
+.table-responsive::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover,
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- Боковая панель -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-cogs"></i> Панель управления</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Дашборд</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_company_moderation' %}" class="nav-item {% if 'company' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-building"></i>
+                    <span>Модерация компаний</span>
+                </div>
+                {% if pending_companies_count %}
+                    <span class="badge">{{ pending_companies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-flag"></i>
+                    <span>Жалобы на вакансии</span>
+                </div>
+                {% if pending_complaints_count %}
+                    <span class="badge">{{ pending_complaints_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_backup_management' %}" class="nav-item {% if 'backup' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-database"></i>
+                    <span>Управление бэкапами</span>
+                </div>
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'admin_management' %}" class="nav-item {% if 'site-admins' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Администраторы сайта</span>
+                </div>
+                {% if site_admins_count %}
+                    <span class="badge">{{ site_admins_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+            <a href="{% url 'admin_logs' %}" class="nav-item {% if 'logs' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Логи действий</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_profile' %}" class="nav-item {% if 'admin_profile' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Мой профиль</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_statistics' %}" class="nav-item {% if 'admin_statistics' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Статистика сайта</span>
+                </div>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Основной контент -->
+    <main class="admin-main">
+        <div class="admin-container">
+            <div class="admin-content-header">
+                <div class="header-actions">
+                    <a href="{% url 'create_site_admin' %}" class="btn-admin btn-admin-success">
+                        <i class="fas fa-plus"></i> создать администратор
+                    </a>
+                </div>
+                <h1 class="animate__animated animate__fadeInDown">Администраторы сайта</h1>
+                <p class="animate__animated animate__fadeInUp">Управление администраторми системы</p>
+            </div>
+             {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} animate__animated animate__fadeIn">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="admin-card animate__animated animate__fadeInUp">
+                <div class="admin-card-header">
+                    <h3><i class="fas fa-users-cog"></i> ик администраторв</h3>
+                    <span class="count-badge">{{ site_admins.count }}</span>
+                </div>
+                <div class="admin-card-body">
+                    {% if site_admins %}
+                    <div class="table-responsive">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>ФИО</th>
+                                    <th>Email</th>
+                                    <th>Телефон</th>
+                                    <th>Статус</th>
+                                    <th>Дата создания</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for admin in site_admins %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ admin.get_full_name }}</strong>
+                                    </td>
+                                    <td>{{ admin.email }}</td>
+                                    <td>{{ admin.phone }}</td>
+                                    <td>
+                                        {% if admin.is_active %}
+                                            <span class="status-approved">Активен</span>
+                                        {% else %}
+                                            <span class="status-rejected">Неактивен</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ admin.date_joined|date:"d.m.Y H:i" }}</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <a href="{% url 'edit_site_admin' admin.id %}" class="btn-admin btn-admin-primary btn-admin-sm">
+                                                <i class="fas fa-edit"></i> редактировать
+                                            </a>
+                                            {% if admin != user %}
+                                                {% if admin.is_active %}
+                                                    <a href="{% url 'toggle_site_admin_status' admin.id %}" class="btn-admin btn-admin-warning btn-admin-sm"
+                                                       onclick="return confirm('Вы уверены что хотите деактивировать администратора?')">
+                                                        <i class="fas fa-user-slash"></i> Деактививать
+                                                    </a>
+                                                {% else %}
+                                                    <a href="{% url 'toggle_site_admin_status' admin.id %}" class="btn-admin btn-admin-success btn-admin-sm">
+                                                        <i class="fas fa-user-check"></i> Активировать
+                                                    </a>
+                                                {% endif %}
+                                                <a href="{% url 'delete_site_admin' admin.id %}" class="btn-admin btn-admin-danger btn-admin-sm"
+                                                   onclick="return confirm('Вы уверены что хотите удалить администратора? Это действие нельзя отменить.')">
+                                                    <i class="fas fa-trash"></i> Удалить
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">Текущий пользователь</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-users-cog" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.5;"></i>
+                        <h3>Нет администраторв сайта</h3>
+                        <p>создайте первого администратор для управления системой</p>
+                        <a href="{% url 'create_site_admin' %}" class="btn-admin btn-admin-success">
+                            <i class="fas fa-plus"></i> создать администратор
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

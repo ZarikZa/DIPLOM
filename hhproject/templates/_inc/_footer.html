@@ -1,0 +1,32 @@
+﻿{% load static %}
+<footer class="footer">
+    <div class="footer-container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>CareerHub</h3>
+                <p>Лучшая платформа для поиска работы и развития карьеры. Мы соединяем таланты с возможностями.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Для соискателей</h4>
+                <ul class="footer-links">
+                    <li><a href="{% url 'vakansi_page' %}">Поиск вакансий</a></li>
+                    <li><a href="{% url 'edit_applicant_profile' %}">создать резюме</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Для работодателей</h4>
+                <ul class="footer-links">
+                    <li><a href="{% url 'vacancy_list' %}">Разместить вакансию</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 CareerHub. Все права защищены.</p>
+            <div class="footer-links-bottom">
+                <a href="/media/docki/politika.pdf" target="_blank">Политика конфиденциальности</a>
+                <a href="/media/docki/usloviya.pdf" target="_blank">Условия использования</a>
+                <a href="{% url 'brandbook'%}">Брендбук</a>
+            </div>
+        </div>
+    </div>
+</footer>

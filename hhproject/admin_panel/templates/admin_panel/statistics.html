@@ -1,0 +1,1197 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title_name %}Статистика сайта - Админ панель{% endblock %}
+
+{% block style %}
+<style>
+.admin-wrapper {
+    min-height: calc(100vh - 115px);
+    background: var(--bg-primary);
+    padding: 30px 0;
+    display: flex;
+    gap: 30px;
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 20px 20px 0;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 115px;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.admin-main {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.admin-container {
+    max-width: 1400px;
+}
+
+/* ��йдбар */
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header h3 i {
+    color: var(--accent);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
+
+.badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
+/* Заголовок контента */
+.admin-content-header {
+    margin-bottom: 40px;
+}
+
+.admin-content-header h1 {
+    color: var(--text-primary);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.admin-content-header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+}
+
+/* Ка��‚очки стати��‚ики */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-bottom: 40px;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+
+.stat-card.primary::before {
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.stat-card.success::before {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.stat-card.warning::before {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.stat-card.danger::before {
+    background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+}
+
+.stat-card.success .stat-icon {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.stat-card.warning .stat-icon {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.stat-card.danger .stat-icon {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.stat-change {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+.stat-change.positive {
+    color: #10b981;
+}
+
+.stat-change.negative {
+    color: #ef4444;
+}
+
+/* Контейне��‹ для графиков */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.chart-wrapper {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: var(--shadow);
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.chart-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chart-header h3 i {
+    color: var(--accent);
+}
+
+.chart-canvas-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* Фо��а выбо�� периода */
+.period-form {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: var(--shadow);
+}
+
+.period-form h3 {
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.period-form h3 i {
+    color: var(--accent);
+}
+
+.period-fields {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.period-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.period-field label {
+    display: block;
+    color: var(--text-primary);
+    font-weight: 500;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.period-field input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.period-field input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.period-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-period {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    background: var(--primary);
+    color: white;
+}
+
+.btn-period:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.btn-period-reset {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-period-reset:hover {
+    background: var(--border-color);
+}
+
+/* Кнопки эк��о��‚а */
+.export-buttons {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+
+.btn-export {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.btn-export-pdf {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-export-pdf:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-export-excel {
+    background: #10b981;
+    color: white;
+}
+
+.btn-export-excel:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.export-info {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.export-info i {
+    color: var(--primary);
+    margin-right: 8px;
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Адаптивно��‚ь */
+@media (max-width: 1024px) {
+    .admin-wrapper {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .admin-sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-radius: 0 0 20px 20px;
+    }
+    
+    .admin-main {
+        padding-right: 0;
+    }
+    
+    .sidebar-nav {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+    }
+    
+    .nav-item {
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        text-align: center;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .nav-item:hover {
+        transform: translateY(-3px);
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+    
+    .nav-item.active {
+        border-left: none;
+        border-bottom-color: var(--primary);
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .period-fields {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .period-field {
+        min-width: 100%;
+    }
+    
+    .period-actions {
+        width: 100%;
+    }
+    
+    .btn-period {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-container {
+        padding: 0 15px;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 2rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+    }
+    
+    .chart-canvas-container {
+        height: 250px;
+    }
+    
+    .export-buttons {
+        flex-direction: column;
+    }
+    
+    .btn-export {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-wrapper {
+        padding: 20px 0;
+    }
+    
+    .admin-content-header h1 {
+        font-size: 1.7rem;
+    }
+    
+    .stat-card {
+        padding: 20px;
+    }
+    
+    .chart-wrapper {
+        padding: 20px;
+    }
+    
+    .chart-canvas-container {
+        height: 200px;
+    }
+}
+
+/* Ка��‚омный ����ллбар */
+.admin-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- Боковая панель -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-cogs"></i> Панель управления</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Дашборд</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_company_moderation' %}" class="nav-item {% if 'company' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-building"></i>
+                    <span>Модерация компаний</span>
+                </div>
+                {% if pending_companies_count %}
+                    <span class="badge">{{ pending_companies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-flag"></i>
+                    <span>Жалобы на вакансии</span>
+                </div>
+                {% if pending_complaints_count %}
+                    <span class="badge">{{ pending_complaints_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_backup_management' %}" class="nav-item {% if 'backup' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-database"></i>
+                    <span>Управление бэкапами</span>
+                </div>
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'admin_management' %}" class="nav-item {% if 'site-admins' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Администраторы сайта</span>
+                </div>
+                {% if site_admins_count %}
+                    <span class="badge">{{ site_admins_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+            <a href="{% url 'admin_logs' %}" class="nav-item {% if 'logs' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Логи действий</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_profile' %}" class="nav-item">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Мой профиль</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_statistics' %}" class="nav-item {% if 'admin_statistics' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Статистика сайта</span>
+                </div>
+            </a>
+        </nav>
+    </aside>
+
+    <main class="admin-main">
+        <div class="admin-container">
+            <!-- Заголовок -->
+            <div class="admin-content-header">
+                <h1>Статистика платформы</h1>
+                <p>Обзор ключевых метк и аналитика платформы трудоустройства</p>
+            </div>
+
+            <!-- Фоа выбо периода -->
+            <div class="period-form">
+                <h3><i class="fas fa-calendar-alt"></i> Экспорт за период</h3>
+                <form method="get" action="" id="periodForm">
+                    <div class="period-fields">
+                        <div class="period-field">
+                            <label for="start_date">Дата начала</label>
+                            <input type="date" id="start_date" name="start_date" value="{{ start_date|default:'' }}">
+                        </div>
+                        <div class="period-field">
+                            <label for="end_date">Дата окончания</label>
+                            <input type="date" id="end_date" name="end_date" value="{{ end_date|default:'' }}">
+                        </div>
+                        <div class="period-actions">
+                            <button type="submit" class="btn-period">
+                                <i class="fas fa-filter"></i>
+                                Применить период
+                            </button>
+                            <a href="{% url 'admin_statistics' %}" class="btn-period btn-period-reset">
+                                <i class="fas fa-times"></i>
+                                Сбросить
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Информация о периоде -->
+            {% if start_date and end_date %}
+            <div class="export-info">
+                <i class="fas fa-info-circle"></i>
+                Отобжена статистика за период: <strong>{{ start_date }}</strong> - <strong>{{ end_date }}</strong>
+            </div>
+            {% endif %}
+
+            <!-- Кнопки экспорта -->
+            <div class="export-buttons">
+                <a href="{% url 'export_statistics_pdf' %}{% if start_date and end_date %}?start_date={{ start_date }}&end_date={{ end_date }}{% endif %}" 
+                   class="btn-export btn-export-pdf" target="_blank">
+                    <i class="fas fa-file-pdf"></i>
+                    Экспорт в PDF
+                </a>
+                <a href="{% url 'export_statistics_excel' %}{% if start_date and end_date %}?start_date={{ start_date }}&end_date={{ end_date }}{% endif %}" 
+                   class="btn-export btn-export-excel">
+                    <i class="fas fa-file-excel"></i>
+                    Экспорт в Excel
+                </a>
+            </div>
+
+            <!-- Основная статистика -->
+            <div class="stats-grid">
+                <div class="stat-card primary">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-value">{{ main_stats.total_users }}</div>
+                            <div class="stat-label">Всего пользователей</div>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    {% if main_stats.new_users_week %}
+                    <div class="stat-change positive">
+                        <i class="fas fa-arrow-up"></i>
+                        +{{ main_stats.new_users_week }} за неделю
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="stat-card success">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-value">{{ main_stats.total_companies }}</div>
+                            <div class="stat-label">Всего компаний</div>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-building"></i>
+                        </div>
+                    </div>
+                    {% if main_stats.new_companies_week %}
+                    <div class="stat-change positive">
+                        <i class="fas fa-arrow-up"></i>
+                        +{{ main_stats.new_companies_week }} за неделю
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="stat-card warning">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-value">{{ main_stats.total_vacancies }}</div>
+                            <div class="stat-label">Всего вакансий</div>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-briefcase"></i>
+                        </div>
+                    </div>
+                    {% if main_stats.new_vacancies_week %}
+                    <div class="stat-change positive">
+                        <i class="fas fa-arrow-up"></i>
+                        +{{ main_stats.new_vacancies_week }} за неделю
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="stat-card danger">
+                    <div class="stat-header">
+                        <div>
+                            <div class="stat-value">{{ main_stats.total_responses }}</div>
+                            <div class="stat-label">Всего откликов</div>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-paper-plane"></i>
+                        </div>
+                    </div>
+                    {% if main_stats.new_responses_week %}
+                    <div class="stat-change positive">
+                        <i class="fas fa-arrow-up"></i>
+                        +{{ main_stats.new_responses_week }} за неделю
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <!-- деление пользователей -->
+                <div class="chart-wrapper">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-user-friends"></i> деление пользователей</h3>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="usersChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Статусы компаний -->
+                <div class="chart-wrapper">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-building"></i> Статусы компаний</h3>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="companiesChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Категории вакансий -->
+                <div class="chart-wrapper">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-briefcase"></i> Категории вакансий</h3>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="vacanciesChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Активность откликов -->
+                <div class="chart-wrapper">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-line"></i> Активность откликов (7 дней)</h3>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="responsesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Дополнительная статистика -->
+            <div class="charts-grid" style="margin-top: 30px;">
+                <!-- Статусы откликов -->
+                <div class="chart-wrapper">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-paper-plane"></i> Статусы откликов</h3>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="responseStatusChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Типы жалоб -->
+                <div class="chart-wrapper">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-flag"></i> Типы жалоб</h3>
+                    </div>
+                    <div class="chart-canvas-container">
+                        <canvas id="complaintsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Данные из Django контекст‚а
+const chartData = {
+    users: {
+        labels: [{% for item in user_chart_data %}"{{ item.label }}",{% endfor %}],
+        data: [{% for item in user_chart_data %}{{ item.count }},{% endfor %}],
+        colors: [{% for item in user_chart_data %}"{{ item.color }}",{% endfor %}],
+        percentages: [{% for item in user_chart_data %}{{ item.percentage }},{% endfor %}]
+    },
+    companies: {
+        labels: [{% for item in company_chart_data %}"{{ item.label }}",{% endfor %}],
+        data: [{% for item in company_chart_data %}{{ item.count }},{% endfor %}],
+        colors: [{% for item in company_chart_data %}"{{ item.color }}",{% endfor %}],
+        percentages: [{% for item in company_chart_data %}{{ item.percentage }},{% endfor %}]
+    },
+    vacancies: {
+        labels: [
+            {% for label, count, color, height in vacancy_data %}
+                "{{ label }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        data: [
+            {% for label, count, color, height in vacancy_data %}
+                {{ count }}{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        colors: [
+            {% for label, count, color, height in vacancy_data %}
+                "{{ color }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    },
+    responses: {
+        labels: [
+            {% for date, count, height in response_daily_data %}
+                "{{ date }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        data: [
+            {% for date, count, height in response_daily_data %}
+                {{ count }}{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    },
+    responseStatus: {
+        labels: [{% for item in response_chart_data %}"{{ item.label }}",{% endfor %}],
+        data: [{% for item in response_chart_data %}{{ item.count }},{% endfor %}],
+        colors: [{% for item in response_chart_data %}"{{ item.color }}",{% endfor %}],
+        percentages: [{% for item in response_chart_data %}{{ item.percentage }},{% endfor %}]
+    },
+    complaints: {
+        labels: [
+            {% for label, count, color, height in complaint_data %}
+                "{{ label }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        data: [
+            {% for label, count, color, height in complaint_data %}
+                {{ count }}{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        colors: [
+            {% for label, count, color, height in complaint_data %}
+                "{{ color }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    }
+};
+
+// Инициализация графиков по��е загрузки DOM
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. ������деление пользователей (Doughnut)
+    if (chartData.users.data.length > 0) {
+        new Chart(document.getElementById('usersChart'), {
+            type: 'doughnut',
+            data: {
+                labels: chartData.users.labels,
+                datasets: [{
+                    data: chartData.users.data,
+                    backgroundColor: chartData.users.colors,
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const percentage = chartData.users.percentages[context.dataIndex];
+                                return `${context.label}: ${context.parsed} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Стату��‹ компаний (Doughnut)
+    if (chartData.companies.data.length > 0) {
+        new Chart(document.getElementById('companiesChart'), {
+            type: 'doughnut',
+            data: {
+                labels: chartData.companies.labels,
+                datasets: [{
+                    data: chartData.companies.data,
+                    backgroundColor: chartData.companies.colors,
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const percentage = chartData.companies.percentages[context.dataIndex];
+                                return `${context.label}: ${context.parsed} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 3. Категории вакансий (Bar)
+    if (chartData.vacancies.data.length > 0) {
+        new Chart(document.getElementById('vacanciesChart'), {
+            type: 'bar',
+            data: {
+                labels: chartData.vacancies.labels,
+                datasets: [{
+                    label: 'Количество вакансий',
+                    data: chartData.vacancies.data,
+                    backgroundColor: chartData.vacancies.colors,
+                    borderWidth: 0,
+                    borderRadius: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: { font: { size: 11 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { 
+                            font: { size: 11 },
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        document.getElementById('vacanciesChart').parentElement.innerHTML = 
+            '<div class="chart-loading">Нет данных о вакансиях</div>';
+    }
+
+    // 4. Активно��‚ь откликов (Line)
+    if (chartData.responses.data.length > 0) {
+        new Chart(document.getElementById('responsesChart'), {
+            type: 'line',
+            data: {
+                labels: chartData.responses.labels,
+                datasets: [{
+                    label: 'Количество откликов',
+                    data: chartData.responses.data,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: { font: { size: 11 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    } else {
+        document.getElementById('responsesChart').parentElement.innerHTML = 
+            '<div class="chart-loading">Нет данных об откликах</div>';
+    }
+
+    // 5. Стату��‹ откликов (Pie)
+    if (chartData.responseStatus.data.length > 0) {
+        new Chart(document.getElementById('responseStatusChart'), {
+            type: 'pie',
+            data: {
+                labels: chartData.responseStatus.labels,
+                datasets: [{
+                    data: chartData.responseStatus.data,
+                    backgroundColor: chartData.responseStatus.colors,
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                    hoverOffset: 15
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            usePointStyle: true,
+                            font: { size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const percentage = chartData.responseStatus.percentages[context.dataIndex];
+                                return `${context.label}: ${context.parsed} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 6. Типы жалоб (Bar горизонтальный)
+    if (chartData.complaints.data.length > 0) {
+        new Chart(document.getElementById('complaintsChart'), {
+            type: 'bar',
+            data: {
+                labels: chartData.complaints.labels,
+                datasets: [{
+                    label: 'Количество жалоб',
+                    data: chartData.complaints.data,
+                    backgroundColor: chartData.complaints.colors,
+                    borderWidth: 0,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.1)' },
+                        ticks: { font: { size: 11 } }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    } else {
+        document.getElementById('complaintsChart').parentElement.innerHTML = 
+            '<div class="chart-loading">Нет данных о жалобах</div>';
+    }
+});
+
+// Автоматическая у��‚ановка дат по умолчанию (последние 30 дней)
+document.addEventListener('DOMContentLoaded', function() {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    
+    if (!startDateInput.value && !endDateInput.value) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+        
+        endDateInput.value = endDate.toISOString().split('T')[0];
+        startDateInput.value = startDate.toISOString().split('T')[0];
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,302 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}регистрация - CareerHub{% endblock %}
+
+{% block content %}
+<div class="register-section">
+    <div class="register-container-wrapper">
+        <div class="register-container">
+            <h2>создать аккаунт</h2>
+            <form method="post" action="{% url 'registration_user' %}" id="registrationForm">
+                {% csrf_token %}
+                
+                <!-- Остальные поля фоы оают без изменений -->
+                <div class="form-group" style="--index: 1;">
+                    <label for="id_first_name">Имя</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.first_name.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group" style="--index: 2;">
+                    <label for="id_last_name">Фамилия</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.last_name.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group" style="--index: 3;">
+                    <label for="id_phone">Телефон</label>
+                    {{ form.phone }}
+                    {% if form.phone.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.phone.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group" style="--index: 4;">
+                    <label for="id_email">Email</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.email.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group" style="--index: 5;">
+                    <label for="id_birth_date">Дата рождения</label>
+                    {{ form.birth_date }}
+                    <div class="errorlist" id="birthDateError" style="display: none; color: #dc3545; font-size: 0.875em; margin-top: 0.25rem;"></div>
+                    {% if form.birth_date.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.birth_date.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group" style="--index: 6;">
+                    <label for="id_password1">Пароль</label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.password1.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group" style="--index: 7;">
+                    <label for="id_password2">Подтверждение пароля</label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}
+                        <ul class="errorlist">
+                            {% for error in form.password2.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+                
+                <!-- согласие на обработку персональных данных -->
+                <div class="form-group agreement-group" style="--index: 8;">
+                    <label class="agreement-label">
+                        <input type="checkbox" name="personal_data_agreement" id="id_personal_data_agreement" required>
+                        <span class="checkmark"></span>
+                        Я соглашаюсь на обработку моих персональных данных в соответствии с 
+                        <a href="/media/docki/politika.pdf" target="_blank" class="agreement-link">Политикой конфиденциальности</a>
+                        и 
+                        <a href="/media/docki/usloviya.pdf" target="_blank" class="agreement-link">Условиями использования</a>
+                    </label>
+                    <div class="agreement-error" id="agreementError" style="display: none;">
+                        Необходимо согласие на обработку персональных данных
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="submitButton" disabled>
+                    Зарегистрироваться
+                </button>
+            </form>
+            
+            <div class="login-link-container">
+                <a href="{% url 'login_user' %}" class="login-link">Уже есть аккаунт? Войти</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const agreementCheckbox = document.getElementById('id_personal_data_agreement');
+    const submitButton = document.getElementById('submitButton');
+    const agreementError = document.getElementById('agreementError');
+    const form = document.getElementById('registrationForm');
+    const birthDateInput = document.getElementById('id_birth_date');
+    const birthDateError = document.getElementById('birthDateError');
+
+    // Устанавливаем максимальную дату (сегодня) и минимальную (��зумное значение)
+    function setDateLimits() {
+        const today = new Date();
+        
+        // Формати��ем сегодняшнюю дату для максимального значения
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const maxDate = `${year}-${month}-${day}`;
+        
+        // Устанавливаем максимальную дату (сегодня)
+        birthDateInput.setAttribute('max', maxDate);
+        
+        // Устанавливаем минимальную дату (например, 100 лет назад)
+        const minYear = today.getFullYear() - 100;
+        const minDate = `${minYear}-${month}-${day}`;
+        birthDateInput.setAttribute('min', minDate);
+    }
+
+    // П��ве��а даты рождения
+    function validateBirthDate() {
+        const birthDate = new Date(birthDateInput.value);
+        if (!birthDateInput.value) {
+            birthDateError.style.display = 'none';
+            birthDateInput.style.borderColor = '';
+            return true;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Уби��ем время для точного ��авнения
+
+        // П��ве��а что дата не в будущем
+        if (birthDate > today) {
+            birthDateError.textContent = 'Дата рождения не может быть в будущем.';
+            birthDateError.style.display = 'block';
+            birthDateInput.style.borderColor = '#dc3545';
+            return false;
+        }
+
+        // П��ве��а воз����а (16 лет)
+        const minAgeDate = new Date();
+        minAgeDate.setFullYear(today.getFullYear() - 16);
+        minAgeDate.setDate(today.getDate() + 1); // Добавляем 1 день для точного ����ета
+
+        if (birthDate > minAgeDate) {
+            birthDateError.textContent = 'Для регистрации вам должно быть не менее 16 лет.';
+            birthDateError.style.display = 'block';
+            birthDateInput.style.borderColor = '#dc3545';
+            return false;
+        }
+
+        // Если в�� п��весли п��йдены
+        birthDateError.style.display = 'none';
+        birthDateInput.style.borderColor = '#28a745';
+        return true;
+    }
+
+    // П��ве��ем состояние галочки п�� изменении
+    agreementCheckbox.addEventListener('change', function() {
+        checkFormValidity();
+    });
+
+    // П��ве��а даты рождения п�� изменении
+    birthDateInput.addEventListener('change', function() {
+        validateBirthDate();
+        checkFormValidity();
+    });
+
+    // П��ве��а п�� вводе (для мгновенной валидации)
+    birthDateInput.addEventListener('input', function() {
+        if (birthDateInput.value) {
+            validateBirthDate();
+        }
+    });
+
+    // П��ве��а п�� отправке фо��ы
+    form.addEventListener('submit', function(event) {
+        let formIsValid = true;
+
+        if (!agreementCheckbox.checked) {
+            event.preventDefault();
+            agreementError.style.display = 'block';
+            agreementCheckbox.parentElement.style.animation = 'shake 0.5s ease-in-out';
+            setTimeout(() => {
+                agreementCheckbox.parentElement.style.animation = '';
+            }, 500);
+            formIsValid = false;
+        }
+
+        if (!validateBirthDate()) {
+            event.preventDefault();
+            formIsValid = false;
+        }
+
+        if (!formIsValid) {
+            // П��к��чиваем к пе��ой ошибке
+            const firstError = document.querySelector('.errorlist:not([style*="display: none"]), [style*="display: block"]');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    });
+
+    // Динамическая п��ве��а в��х полей фо��ы
+    const formInputs = form.querySelectorAll('input[required]');
+    formInputs.forEach(input => {
+        input.addEventListener('input', checkFormValidity);
+    });
+
+    function checkFormValidity() {
+        let allValid = true;
+        
+        // П��ве��ем в�� обязательные поля
+        formInputs.forEach(input => {
+            if (!input.value.trim()) {
+                allValid = false;
+            }
+        });
+
+        // П��ве��ем согласие
+        if (!agreementCheckbox.checked) {
+            allValid = false;
+        }
+
+        // П��ве��ем дату рождения
+        if (!validateBirthDate()) {
+            allValid = false;
+        }
+
+        // Обновляем состояние кнопки
+        if (allValid && agreementCheckbox.checked) {
+            submitButton.disabled = false;
+            submitButton.classList.remove('btn-disabled');
+            submitButton.classList.add('btn-primary');
+        } else {
+            submitButton.disabled = true;
+            submitButton.classList.remove('btn-primary');
+            submitButton.classList.add('btn-disabled');
+        }
+    }
+
+    // Инициализация п�� загрузке
+    setDateLimits();
+    checkFormValidity();
+});
+
+// Добавляем CSS анимацию для т����и
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+    
+    /* ��или для валидации */
+    input:valid {
+        border-color: #28a745 !important;
+    }
+    
+    input:invalid {
+        border-color: #dc3545 !important;
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

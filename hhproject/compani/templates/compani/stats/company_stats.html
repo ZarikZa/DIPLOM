@@ -1,0 +1,169 @@
+﻿{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}статистика компании{% endblock %}
+
+{% block content %}
+<style>
+.company-stats-chart-grid {
+    margin-top: 14px;
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+}
+
+.company-stats-chart-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 14px;
+}
+
+.company-stats-chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 280px;
+    min-height: 220px;
+}
+
+.company-stats-chart-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+@media (max-width: 920px) {
+    .company-stats-chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .company-stats-chart-wrap {
+        height: 240px;
+    }
+}
+</style>
+
+<section style="max-width:1120px;margin:0 auto;padding:28px 16px 40px;">
+    {% if messages %}
+    <div style="margin-bottom:12px;">
+        {% for message in messages %}
+        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+            <h1 style="margin:0;">Аналитика{% if company.name %} · {{ company.name }}{% endif %}</h1>
+            <div style="color:#64748b;margin-top:4px;">Ключевые метрики компании</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a class="btn btn-secondary" href="{% url 'export_company_stats_csv' %}">Скачать CSV</a>
+            <a class="btn btn-primary" href="{% url 'export_company_stats_pdf' %}">Скачать PDF</a>
+        </div>
+    </div>
+
+    <div style="margin-top:14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Вакансии</div><div style="font-size:28px;font-weight:800;">{{ summary.vacancies_total|default:0 }}</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Активные вакансии</div><div style="font-size:28px;font-weight:800;">{{ summary.vacancies_active|default:0 }}</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Отклики</div><div style="font-size:28px;font-weight:800;">{{ summary.responses_total|default:0 }}</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">HR-агенты</div><div style="font-size:28px;font-weight:800;">{{ summary.hr_agents_total|default:0 }}</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Контент-менеджер</div><div style="font-size:28px;font-weight:800;">{{ summary.content_managers_total|default:0 }}</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Чаты</div><div style="font-size:28px;font-weight:800;">{{ summary.chats_total|default:0 }}</div></div>
+    </div>
+
+    <div class="company-stats-chart-grid">
+        <div class="company-stats-chart-card">
+            <h2 style="margin:0 0 10px;font-size:20px;">Активность откликов (по месяцам)</h2>
+            <div class="company-stats-chart-wrap">
+                <canvas id="activityChart"></canvas>
+            </div>
+        </div>
+        <div class="company-stats-chart-card">
+            <h2 style="margin:0 0 10px;font-size:20px;">Статусы откликов</h2>
+            <div class="company-stats-chart-wrap">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top:14px;display:grid;gap:14px;grid-template-columns:1fr 1fr;">
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
+            <h2 style="margin:0 0 10px;font-size:20px;">Топ вакансий по откликам</h2>
+            {% if top_vacancies %}
+                <div style="display:grid;gap:8px;">
+                    {% for item in top_vacancies %}
+                    <div style="display:flex;justify-content:space-between;gap:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;">
+                        <div>{{ item.name }}</div>
+                        <strong>{{ item.responses_count }}</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="color:#64748b;">Пока нет данных</div>
+            {% endif %}
+        </div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
+            <h2 style="margin:0 0 10px;font-size:20px;">Разбивка по статусам</h2>
+            {% if status_items %}
+                <div style="display:grid;gap:8px;">
+                    {% for item in status_items %}
+                    <div style="display:flex;justify-content:space-between;gap:8px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;">
+                        <div>{{ item.name }}</div>
+                        <strong>{{ item.count }}</strong>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="color:#64748b;">Пока нет откликов</div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const activityLabels = [{% for p in activity_points %}'{{ p.label }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+const activityValues = [{% for p in activity_points %}{{ p.count|default:0 }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+
+const statusLabels = [{% for s in status_items %}'{{ s.name|escapejs }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
+const statusValues = [{% for s in status_items %}{{ s.count|default:0 }}{% if not forloop.last %}, {% endif %}{% endfor %}];
+
+const activityCtx = document.getElementById('activityChart');
+if (activityCtx) {
+    new Chart(activityCtx, {
+        type: 'line',
+        data: {
+            labels: activityLabels,
+            datasets: [{
+                label: 'Отклики',
+                data: activityValues,
+                borderColor: '#1d4ed8',
+                backgroundColor: 'rgba(29, 78, 216, 0.14)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+const statusCtx = document.getElementById('statusChart');
+if (statusCtx) {
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                data: statusValues,
+                backgroundColor: ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6']
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+</script>
+{% endblock %}

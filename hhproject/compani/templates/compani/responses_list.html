@@ -1,0 +1,514 @@
+{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}Отклики{% endblock %}
+
+{% block content %}
+<style>
+.responses-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 16px 40px;
+}
+
+.responses-page h1 {
+    margin: 0;
+}
+
+.responses-summary {
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.responses-filter {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.responses-list {
+    margin-top: 14px;
+    display: grid;
+    gap: 12px;
+}
+
+.response-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+}
+
+.response-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(200px, 1.6fr) minmax(200px, 1.6fr) minmax(140px, 1fr) minmax(230px, 1.2fr);
+    align-items: start;
+}
+
+.response-title {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.response-subtitle {
+    color: #334155;
+    margin-top: 4px;
+}
+
+.response-muted {
+    color: #64748b;
+    margin-top: 4px;
+    font-size: 14px;
+}
+
+.response-actions {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.response-actions .btn {
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+.response-status-form {
+    display: grid;
+    gap: 8px;
+}
+
+.response-empty {
+    padding: 14px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    color: #64748b;
+}
+
+.response-message {
+    margin-bottom: 12px;
+}
+
+.response-alert {
+    padding: 10px 12px;
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+    border-radius: 10px;
+    margin-bottom: 8px;
+}
+
+.response-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.65);
+}
+
+.response-modal.is-open {
+    display: flex;
+}
+
+.response-modal-dialog {
+    width: min(760px, 96vw);
+    max-height: 90vh;
+    overflow: auto;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 30px 60px rgba(2, 6, 23, 0.25);
+}
+
+.response-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 18px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.response-modal-title {
+    margin: 0;
+    font-size: 20px;
+    color: #0f172a;
+}
+
+.response-modal-close {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.response-modal-body {
+    padding: 16px 18px 18px;
+    display: grid;
+    gap: 12px;
+}
+
+.response-modal-row {
+    display: grid;
+    gap: 6px;
+}
+
+.response-modal-label {
+    color: #64748b;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.response-modal-value {
+    color: #0f172a;
+    word-break: break-word;
+}
+
+.response-modal-text {
+    margin: 0;
+    white-space: normal;
+    color: #0f172a;
+}
+
+.response-modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+}
+
+.response-chat-disabled {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    color: #64748b;
+}
+
+@media (max-width: 980px) {
+    .response-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-theme="dark"] .responses-summary,
+[data-theme="dark"] .response-muted,
+[data-theme="dark"] .response-modal-label,
+[data-theme="dark"] .response-chat-disabled {
+    color: var(--text-secondary, #cbd5e1);
+}
+
+[data-theme="dark"] .response-card,
+[data-theme="dark"] .response-modal-dialog {
+    background: var(--bg-card, #1e293b);
+    border-color: var(--border-color, #334155);
+}
+
+[data-theme="dark"] .response-title,
+[data-theme="dark"] .response-subtitle,
+[data-theme="dark"] .response-modal-title,
+[data-theme="dark"] .response-modal-value,
+[data-theme="dark"] .response-modal-text {
+    color: var(--text-primary, #f8fafc);
+}
+
+[data-theme="dark"] .response-modal-header {
+    border-color: var(--border-color, #334155);
+}
+
+[data-theme="dark"] .response-modal-close {
+    background: var(--bg-secondary, #0f172a);
+    border-color: var(--border-color, #334155);
+    color: var(--text-primary, #f8fafc);
+}
+
+[data-theme="dark"] .response-empty {
+    border-color: var(--border-color, #334155);
+    color: var(--text-secondary, #cbd5e1);
+}
+
+[data-theme="dark"] .response-alert {
+    border-color: #7f1d1d;
+    background: rgba(127, 29, 29, 0.25);
+    color: #fecaca;
+}
+</style>
+
+<section class="responses-page">
+    {% if messages %}
+    <div class="response-message">
+        {% for message in messages %}
+        <div class="response-alert">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <h1>Отклики{% if company.name %} · {{ company.name }}{% endif %}</h1>
+    <div class="responses-summary">
+        Всего: {{ counts.total }} · Новые: {{ counts.new }} · Просмотренные: {{ counts.viewed }} · Приглашенные: {{ counts.invited }} · Отклоненные: {{ counts.rejected }}
+    </div>
+
+    <form method="get" class="responses-filter">
+        <input
+            type="text"
+            class="form-control"
+            style="max-width: 360px;"
+            name="search"
+            placeholder="Поиск по кандидату, вакансии или email"
+            value="{{ search }}"
+        >
+        <select class="form-control" style="max-width: 210px;" name="status">
+            <option value="all" {% if current_status == 'all' %}selected{% endif %}>Все статусы</option>
+            <option value="new" {% if current_status == 'new' %}selected{% endif %}>Новые</option>
+            <option value="viewed" {% if current_status == 'viewed' %}selected{% endif %}>Просмотренные</option>
+            <option value="invited" {% if current_status == 'invited' %}selected{% endif %}>Приглашенные</option>
+            <option value="rejected" {% if current_status == 'rejected' %}selected{% endif %}>Отклоненные</option>
+            {% for status in statuses %}
+            <option value="{{ status.id }}" {% if current_status == status.id|stringformat:'s' %}selected{% endif %}>{{ status.status_response_name }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-secondary" type="submit">Применить</button>
+        <a class="btn btn-secondary" href="{% url 'responses_list' %}">Сбросить</a>
+    </form>
+
+    <div class="responses-list">
+        {% if responses %}
+            {% for response in responses %}
+            <div class="response-card">
+                <div class="response-grid">
+                    <div>
+                        <div class="response-title">{{ response.vacancy_position|default:response.vacancy.position|default:'Вакансия' }}</div>
+                        <div class="response-subtitle">{{ response.vacancy.city|default:'Город не указан' }}</div>
+                        <div class="response-actions">
+                            <button type="button" class="btn btn-secondary" data-modal-target="applicant-modal-{{ response.id }}">
+                                Соискатель и резюме
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-modal-target="vacancy-modal-{{ response.id }}">
+                                Детали вакансии
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="response-title">
+                            {% firstof response.applicant_name response.applicant.first_name "Соискатель" %}
+                            {% if response.applicant.last_name %} {{ response.applicant.last_name }}{% endif %}
+                        </div>
+                        <div class="response-subtitle">{{ response.applicant.user.email|default:'Email не указан' }}</div>
+                        {% if response.applicant.resume %}
+                        <div class="response-muted">{{ response.applicant.resume|truncatechars:120 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <div class="response-title">{{ response.status_name }}</div>
+                        <div class="response-muted">{{ response.response_date|default:''|slice:":16"|cut:"T" }}</div>
+                        {% if response.chat_id %}
+                        <div class="response-actions" style="margin-top: 8px;">
+                            <a class="btn btn-primary" href="{% url 'company_chat_detail' response.chat_id %}">Перейти в чат</a>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <form method="post" class="response-status-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="response_id" value="{{ response.id }}">
+                            <select class="form-control" name="status">
+                                {% for status in statuses %}
+                                <option value="{{ status.id }}" {% if response.status == status.id %}selected{% endif %}>{{ status.status_response_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-primary" type="submit">Обновить статус</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="response-modal" id="applicant-modal-{{ response.id }}" aria-hidden="true">
+                <div class="response-modal-dialog">
+                    <div class="response-modal-header">
+                        <h2 class="response-modal-title">Соискатель и резюме</h2>
+                        <button type="button" class="response-modal-close" data-modal-close="applicant-modal-{{ response.id }}" aria-label="Закрыть">
+                            ×
+                        </button>
+                    </div>
+                    <div class="response-modal-body">
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">ФИО</div>
+                            <div class="response-modal-value">
+                                {% firstof response.applicant.first_name response.applicant_name "Не указано" %}
+                                {% if response.applicant.last_name %} {{ response.applicant.last_name }}{% endif %}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Email</div>
+                            <div class="response-modal-value">{{ response.applicant.user.email|default:'Не указан' }}</div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Телефон</div>
+                            <div class="response-modal-value">{{ response.applicant.user.phone|default:'Не указан' }}</div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Дата рождения</div>
+                            <div class="response-modal-value">{{ response.applicant.birth_date|default:'Не указана' }}</div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Резюме</div>
+                            <div class="response-modal-value response-modal-text">
+                                {{ response.applicant.resume|default:'Резюме не заполнено'|linebreaksbr }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="response-modal" id="vacancy-modal-{{ response.id }}" aria-hidden="true">
+                <div class="response-modal-dialog">
+                    <div class="response-modal-header">
+                        <h2 class="response-modal-title">Подробно о вакансии</h2>
+                        <button type="button" class="response-modal-close" data-modal-close="vacancy-modal-{{ response.id }}" aria-label="Закрыть">
+                            ×
+                        </button>
+                    </div>
+                    <div class="response-modal-body">
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Должность</div>
+                            <div class="response-modal-value">{{ response.vacancy.position|default:response.vacancy_position|default:'Не указана' }}</div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Город</div>
+                            <div class="response-modal-value">{{ response.vacancy.city|default:'Не указан' }}</div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Категория</div>
+                            <div class="response-modal-value">{{ response.vacancy.category|default:'Не указана' }}</div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Опыт</div>
+                            <div class="response-modal-value">{{ response.vacancy.experience|default:'Не указан' }}</div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Зарплата</div>
+                            <div class="response-modal-value">
+                                {% if response.vacancy.salary_min or response.vacancy.salary_max %}
+                                    {{ response.vacancy.salary_min|default:'0' }} - {{ response.vacancy.salary_max|default:'0' }}
+                                {% else %}
+                                    Не указана
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Требования</div>
+                            <div class="response-modal-value response-modal-text">
+                                {{ response.vacancy.requirements|default:'Не указаны'|linebreaksbr }}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Описание</div>
+                            <div class="response-modal-value response-modal-text">
+                                {{ response.vacancy.description|default:'Не указано'|linebreaksbr }}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">Условия</div>
+                            <div class="response-modal-value response-modal-text">
+                                {{ response.vacancy.work_conditions_details|default:'Не указаны'|linebreaksbr }}
+                            </div>
+                        </div>
+                        <div class="response-modal-footer">
+                            {% if response.chat_id %}
+                            <a class="btn btn-primary" href="{% url 'company_chat_detail' response.chat_id %}">
+                                Перейти в чат
+                            </a>
+                            {% else %}
+                            <span class="response-chat-disabled">Чат пока недоступен</span>
+                            {% endif %}
+                            {% if response.vacancy.id %}
+                            <a class="btn btn-secondary" href="{% url 'edit_vacancy' response.vacancy.id %}">
+                                Редактировать вакансию
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="response-empty">Отклики не найдены</div>
+        {% endif %}
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    let activeModal = null;
+
+    function closeModal(modal) {
+        if (!modal) {
+            return;
+        }
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        activeModal = null;
+    }
+
+    function openModal(modal) {
+        if (!modal) {
+            return;
+        }
+        if (activeModal && activeModal !== modal) {
+            closeModal(activeModal);
+        }
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        activeModal = modal;
+    }
+
+    document.querySelectorAll('[data-modal-target]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const modal = document.getElementById(button.getAttribute('data-modal-target'));
+            openModal(modal);
+        });
+    });
+
+    document.querySelectorAll('[data-modal-close]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const modal = document.getElementById(button.getAttribute('data-modal-close'));
+            closeModal(modal);
+        });
+    });
+
+    document.querySelectorAll('.response-modal').forEach(function (modal) {
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closeModal(modal);
+            }
+        });
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && activeModal) {
+            closeModal(activeModal);
+        }
+    });
+});
+</script>
+{% endblock %}

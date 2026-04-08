@@ -1,0 +1,251 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Профиль - CareerHub{% endblock %}
+
+{% block content %}
+<div class="profile-section">
+  <div class="profile-container">
+    <div class="profile-card">
+      <div class="profile-header">
+        <div class="profile-avatar">
+          {% if applicant.avatar %}
+            <img src="{{ applicant.avatar }}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+          {% else %}
+            {{ applicant.first_name|default:''|first }}{{ applicant.last_name|default:''|first }}
+          {% endif %}
+        </div>
+        <div class="profile-info">
+          <h1>{{ applicant.first_name|default:'' }} {{ applicant.last_name|default:'' }}</h1>
+          <div class="email">{{ applicant.email|default:api_user.email }}</div>
+        </div>
+
+        <div class="profile-actions">
+          <button class="theme-toggle-btn-profile" onclick="toggleTheme()" title="Переключить тему">
+            <span class="theme-icon">🌓</span>
+          </button>
+          <div class="text-size-controls" aria-label="Размер текста">
+            <span class="text-size-label">Текст:</span>
+            <button type="button" class="text-size-btn" data-text-size-option="small" onclick="setTextSize('small')" aria-pressed="false">A-</button>
+            <button type="button" class="text-size-btn" data-text-size-option="normal" onclick="setTextSize('normal')" aria-pressed="false">A</button>
+            <button type="button" class="text-size-btn" data-text-size-option="large" onclick="setTextSize('large')" aria-pressed="false">A+</button>
+          </div>
+          <a href="{% url 'edit_applicant_profile' %}" class="btn btn-edit">Редактировать</a>
+          <button type="button" class="btn btn-edit" onclick="openInterestsModal()">Интересы</button>
+          <button type="button" class="btn btn-delete" onclick="openDeleteModal()">Удалить профиль</button>
+        </div>
+      </div>
+
+      <div class="profile-details">
+        <div class="detail-item">
+          <div class="detail-label">Телефон</div>
+          <div class="detail-value">{{ applicant.phone|default:'Не указан' }}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Дата рождения</div>
+          <div class="detail-value">{{ applicant.birth_date|default:''|slice:":10"|default:'Не указана' }}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Интересы</div>
+          <div class="detail-value">
+            {% if applicant_interests %}
+              {{ applicant_interests|join:', ' }}
+            {% else %}
+              Не выбраны
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="resume-section">
+        <h3>резюме</h3>
+        <div class="resume-content">
+          {% if applicant.resume %}
+            {{ applicant.resume|linebreaks }}
+          {% else %}
+            <p class="no-resume">резюме не заполнено</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="profile-sections">
+      <div class="section-card">
+        <h3>Избранные вакансии</h3>
+        {% if favorites %}
+          {% for favorite in favorites %}
+            <a href="{% url 'vacancy_detail' favorite.vacancy %}" class="favorite-item clickable-item">
+              <div class="vacancy-title">{{ favorite.vacancy_details.position|default:'' }}</div>
+              <div class="vacancy-company">{{ favorite.vacancy_details.company_name|default:'' }}</div>
+              <div class="vacancy-salary">
+                {{ favorite.vacancy_details.salary_min|default:0 }} - {{ favorite.vacancy_details.salary_max|default:0 }} ₽
+              </div>
+            </a>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state"><p>У вас пока нет избранных вакансий</p></div>
+        {% endif %}
+      </div>
+
+      <div class="section-card">
+        <h3>Мои отклики</h3>
+        {% if responses %}
+          {% for response in responses %}
+            <a href="{% url 'vacancy_detail' response.vacancy_id %}" class="response-item clickable-item">
+              <div class="vacancy-title">{{ response.vacancy_position|default:'' }}</div>
+              <div class="vacancy-company">{{ response.company_name|default:'' }}</div>
+              <div class="response-date">{{ response.response_date|default:''|slice:":10" }}</div>
+              <div class="response-status">{{ response.status_name|default:'' }}</div>
+            </a>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state"><p>У вас пока нет откликов</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="deleteModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Подтверждение удаления</h3>
+      <span class="close" onclick="closeDeleteModal()">&times;</span>
+    </div>
+    <div class="modal-body">
+      <p>Удаление аккаунта на оне API может быть недоступно. сейчас кнопка выполнит выход из системы.</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-cancel" onclick="closeDeleteModal()">Отмена</button>
+      <form method="post" action="{% url 'delete_applicant_profile' %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-delete-confirm">Продолжить</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="interestsModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Интересующие сферы</h3>
+      <span class="close" onclick="closeInterestsModal()">&times;</span>
+    </div>
+    <form method="post" action="{% url 'update_applicant_interests' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="modal-body">
+        <p style="margin-top:0;">Выберите сферы, по которым вам показывать рекомендации.</p>
+        <div class="interest-grid">
+          {% for category in interest_categories %}
+          <label class="interest-option">
+            <input type="checkbox" name="interests" value="{{ category }}" {% if category in applicant_interests %}checked{% endif %}>
+            <span>{{ category }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeInterestsModal()">Отмена</button>
+        <button type="submit" class="btn btn-edit">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.interest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.interest-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.profile-actions .text-size-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.profile-actions .text-size-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0 8px;
+  user-select: none;
+}
+
+.profile-actions .text-size-btn {
+  min-width: 34px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-actions .text-size-btn[data-text-size-option="small"] { font-size: 0.75rem; }
+.profile-actions .text-size-btn[data-text-size-option="normal"] { font-size: 0.84rem; }
+.profile-actions .text-size-btn[data-text-size-option="large"] { font-size: 0.95rem; }
+
+.profile-actions .text-size-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.profile-actions .text-size-btn.active {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .profile-actions .text-size-controls {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+</style>
+
+<script>
+function openDeleteModal() { document.getElementById('deleteModal').style.display = 'block'; }
+function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; }
+function openInterestsModal() { document.getElementById('interestsModal').style.display = 'block'; }
+function closeInterestsModal() { document.getElementById('interestsModal').style.display = 'none'; }
+
+window.onclick = function(event) {
+  const deleteModal = document.getElementById('deleteModal');
+  const interestsModal = document.getElementById('interestsModal');
+  if (event.target === deleteModal) {
+    closeDeleteModal();
+  }
+  if (event.target === interestsModal) {
+    closeInterestsModal();
+  }
+};
+
+{% if show_interests_modal %}
+document.addEventListener('DOMContentLoaded', function() {
+  openInterestsModal();
+});
+{% endif %}
+</script>
+{% endblock %}

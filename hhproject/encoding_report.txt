@@ -1,0 +1,71 @@
+Encoding Audit Report (broken symbols)
+
+Total HTML files: 65
+Files with broken symbol U+FFFD: 64
+Files without U+FFFD: 1
+
+Top affected files (U+FFFD count):
+ 428  admin_panel\templates\admin_panel\backup_management.html
+ 250  home\templates\brandbook.html
+ 226  home\templates\auth\register.html
+ 204  admin_panel\templates\admin_panel\statistics.html
+ 189  admin_panel\templates\admin_panel\admin_profile.html
+ 172  admin_panel\templates\admin_panel\admin_logs.html
+ 170  admin_panel\templates\admin_panel\admin_management.html
+ 160  admin_panel\templates\admin_panel\complaint_detail.html
+ 156  home\templates\home.html
+ 138  templates\base.html
+ 134  compani\templates\compani\homeComp.html
+ 122  admin_panel\templates\admin_panel\admin_profile_edit.html
+ 120  admin_panel\templates\admin_panel\complaints.html
+ 120  compani\templates\_inc\header.html
+ 118  templates\_inc\style_admin.html
+ 114  admin_panel\templates\admin_panel\company_detail.html
+ 110  admin_panel\templates\admin_panel\dashboard.html
+ 108  admin_panel\templates\admin_panel\company_moderation.html
+ 106  home\templates\vakans.html
+ 102  templates\_inc\_header.html
+  92  admin_panel\templates\admin_panel\admin_form.html
+  70  home\templates\complaints\create_complaint.html
+  64  home\templates\edit_applicant_profile.html
+  56  home\templates\auth\register_api.html
+  50  compani\templates\compani\content_manager\videos.html
+  50  home\templates\vacancy_detail.html
+  48  compani\templates\compani\profile\company_profile.html
+  48  templates\_inc\_footer.html
+  44  compani\templates\auth\register_comp.html
+  44  compani\templates\compani\vacancy\_vacancy_form_fields.html
+  44  compani\templates\compani\vacancy\vacancy_list.html
+  44  templates\_inc\style_prof.html
+  40  home\templates\profile.html
+  36  compani\templates\compani\responses_list.html
+  36  home\templates\complaints\complaint_success.html
+  34  compani\templates\auth\account_pending.html
+  30  compani\templates\compani\stats\company_stats.html
+  28  templates\_inc\style_for_register.html
+  24  compani\templates\compani\content_manager\stats.html
+  24  compani\templates\compani\employee_profile.html
+  24  compani\templates\compani\hrCRUD\content_managers_list.html
+  24  compani\templates\compani\hrCRUD\import_hr_agents.html
+  24  home\templates\password_reset_new.html
+  24  home\templates\video_feed.html
+  22  compani\templates\compani\employee_edit_profile.html
+  22  compani\templates\compani\hrCRUD\hr_agents_list.html
+  22  templates\_inc\style.html
+  20  compani\templates\compani\chat_list.html
+  20  home\templates\chat_list.html
+  18  compani\templates\compani\profile\edit_company_profile.html
+  18  home\templates\password_reset_request.html
+  18  templates\_inc\style_vakans.html
+  16  compani\templates\compani\vacancy\edit_vacancy.html
+  16  templates\_inc\skripts.html
+  14  compani\templates\compani\chat_detail.html
+  14  home\templates\password_reset_verify.html
+  14  templates\_inc\style_vacansDet.html
+  12  compani\templates\compani\hrCRUD\content_manager_form.html
+  12  compani\templates\compani\hrCRUD\hr_agent_form.html
+  10  compani\templates\compani\vacancy\create_vacancy.html
+   8  home\templates\chat_detail.html
+   8  templates\_inc\style_for_login.html
+   6  home\templates\auth\login.html
+   2  templates\_inc\hr_agent.html

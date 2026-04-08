@@ -1,0 +1,315 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ vacancy.position }} - {{ vacancy.company_name|default:'Компания' }} - CareerHub{% endblock %}
+
+{% block content %}
+<div class="vacancy-detail-section">
+    <div class="container">
+        {% if messages %}
+        <div class="mb-3">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <nav class="breadcrumb">
+            <div class="breadcrumb-item">
+                <a href="{% url 'home_page' %}">Главная</a>
+            </div>
+            <span class="breadcrumb-separator">›</span>
+            <div class="breadcrumb-item">
+                <a href="{% url 'vakansi_page' %}">Вакансии</a>
+            </div>
+            <span class="breadcrumb-separator">›</span>
+            <div class="breadcrumb-item active">
+                {{ vacancy.position }}
+            </div>
+        </nav>
+
+        <div class="vacancy-hero">
+            <div class="vacancy-header">
+                <div class="vacancy-title-section">
+                    <h1 class="vacancy-title">{{ vacancy.position }}</h1>
+                    <div class="company-info">
+                        <div class="company-avatar">
+                            {{ vacancy.company_name|default:'К'|first }}
+                        </div>
+                        <div class="company-details">
+                            <h3>{{ vacancy.company_name|default:'Компания' }}</h3>
+                            <div class="company-meta">
+                                <span>📍 {{ vacancy.city }}</span>
+                                <span>•</span>
+                                <span>{{ vacancy.work_conditions_name|default:'' }}</span>
+                                {% if vacancy.category %}
+                                <span>•</span>
+                                <span class="vacancy-category {{ vacancy.category|lower }}">{{ vacancy.category }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vacancy-actions">
+                    {% if api_user and api_user.user_type == 'applicant' %}
+                        {% if has_response %}
+                            <button class="btn btn-success" disabled>
+                                <span>✅</span>
+                                Отклик отправлен
+                            </button>
+                        {% else %}
+                            <a href="{% url 'apply_to_vacancy' vacancy.id %}?next={{ request.get_full_path|urlencode }}" class="btn btn-primary">
+                                <span>📨</span>
+                                Откликнуться
+                            </a>
+                        {% endif %}
+                        
+                        {% if is_favorite %}
+                            <a href="{% url 'remove_from_favorites' vacancy.id %}" class="btn btn-outline">
+                                <span>❤️</span>
+                                В избранном
+                            </a>
+                        {% else %}
+                            <a href="{% url 'add_to_favorites' vacancy.id %}" class="btn btn-outline">
+                                <span>🤍</span>
+                                В избранное
+                            </a>
+                        {% endif %}
+
+                        {% if chat_id %}
+                            <a href="{% url 'applicant_chat_detail' chat_id %}" class="btn btn-outline">
+                                <span>💬</span>
+                                Открыть чат
+                            </a>
+                        {% elif has_response %}
+                            <a href="{% url 'open_chat_for_vacancy' vacancy.id %}" class="btn btn-outline">
+                                <span>💬</span>
+                                Создать чат
+                            </a>
+                        {% endif %}
+
+                        <div class="complaint-action">
+                            <button type="button" class="btn btn-report" onclick="openComplaintModal()">
+                                <span>⚠️</span>
+                                Пожаловаться
+                            </button>
+                        </div>
+
+                    {% elif not api_user %}
+                        <a href="{% url 'login_user' %}?next={{ request.path }}" class="btn btn-primary">
+                            <span>📨</span>
+                            Откликнуться
+                        </a>
+                        <a href="{% url 'login_user' %}?next={{ request.path }}" class="btn btn-outline">
+                            <span>🤍</span>
+                            В избранное
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="vacancy-details-grid">
+                <div class="detail-card">
+                    <div class="detail-label">Зарплата</div>
+                    <div class="detail-value salary">{{ vacancy.salary_min }} - {{ vacancy.salary_max }} ₽</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Тип занятости</div>
+                    <div class="detail-value">{{ vacancy.work_conditions_name|default:'—' }}</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Опыт работы</div>
+                    <div class="detail-value">{{ vacancy.experience|default:'Не указан' }}</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-label">Дата публикации</div>
+                    <div class="detail-value">{{ vacancy.created_date|default:''|slice:":10" }}</div>
+                </div>
+            </div>
+
+           
+        </div>
+
+        <div class="content-grid">
+            <div>
+                <div class="content-section">
+                    <div class="section-header">
+                        <div class="section-icon">📋</div>
+                        <h3 class="section-title">Описание вакансии</h3>
+                    </div>
+                    <div class="content-text">
+                        {{ vacancy.description|linebreaks }}
+                    </div>
+                </div>
+
+                <div class="content-section">
+                    <div class="section-header">
+                        <div class="section-icon">🎯</div>
+                        <h3 class="section-title">Требования</h3>
+                    </div>
+                    <div class="content-text">
+                        {{ vacancy.requirements|linebreaks }}
+                    </div>
+                </div>
+                
+               <div class="content-section">
+                    <div class="section-header">
+                        <div class="section-icon">💼</div>
+                        <h3 class="section-title">Условия работы</h3>
+                    </div>
+                    <div class="content-text">
+                        {% if vacancy.work_conditions_details %}
+                            {{ vacancy.work_conditions_details|linebreaks }}
+                        {% else %}
+                            <p>Не указаны</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="company-card">
+                    <div class="section-header">
+                        <div class="section-icon">🏢</div>
+                        <h3 class="section-title">О компании</h3>
+                    </div>
+                    <div class="content-text">
+                        <p class="mb-0">{{ vacancy.company_description|default:'Описание компании доступно в приложении.' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="complaintModal" class="complaint-modal" aria-hidden="true">
+    <div class="complaint-modal-content" role="dialog" aria-modal="true" aria-labelledby="complaintModalTitle">
+        <div class="complaint-modal-header">
+            <h3 id="complaintModalTitle">Жалоба на вакансию</h3>
+            <button type="button" class="complaint-modal-close" onclick="closeComplaintModal()" aria-label="Закрыть">×</button>
+        </div>
+        <form method="post" action="{% url 'create_complaint' vacancy.id %}">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="complaintType" class="form-label">Причина жалобы</label>
+                <select id="complaintType" name="complaint_type" class="form-select" required>
+                    <option value="" disabled selected>Выберите причину</option>
+                    <option value="spam">Спам</option>
+                    <option value="fraud">Мошенничество</option>
+                    <option value="inappropriate">Неуместный контент</option>
+                    <option value="discrimination">Дискриминация</option>
+                    <option value="false_info">Ложная информация</option>
+                    <option value="other">Другое</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="complaintDescription" class="form-label">Описание (необязательно)</label>
+                <textarea
+                    id="complaintDescription"
+                    name="description"
+                    rows="4"
+                    class="form-control"
+                    placeholder="Опишите, что не так с вакансией"
+                ></textarea>
+            </div>
+            <div class="complaint-form-actions">
+                <button type="submit" class="btn btn-report">Отправить жалобу</button>
+                <button type="button" class="btn btn-outline" onclick="closeComplaintModal()">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.complaint-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.52);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+    padding: 16px;
+}
+
+.complaint-modal.is-open {
+    display: flex;
+}
+
+.complaint-modal-content {
+    width: min(560px, 100%);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 16px;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+}
+
+.complaint-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.complaint-modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    color: var(--text-primary);
+}
+
+.complaint-modal-close {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.complaint-form-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+</style>
+
+<script>
+const complaintModal = document.getElementById('complaintModal');
+
+function openComplaintModal() {
+    if (!complaintModal) {
+        return;
+    }
+    complaintModal.classList.add('is-open');
+    complaintModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeComplaintModal() {
+    if (!complaintModal) {
+        return;
+    }
+    complaintModal.classList.remove('is-open');
+    complaintModal.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('click', function(event) {
+    if (event.target === complaintModal) {
+        closeComplaintModal();
+    }
+});
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape' && complaintModal && complaintModal.classList.contains('is-open')) {
+        closeComplaintModal();
+    }
+});
+</script>
+{% endblock %}

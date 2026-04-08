@@ -1,0 +1,124 @@
+﻿{% extends 'base.html' %}
+
+{% block title_name %}регистрация компании{% endblock %}
+
+{% block content %}
+<div class="register-section">
+    <div class="register-container-wrapper">
+        <div class="register-container">
+            <h2>создать аккаунт компании</h2>
+
+            {% if messages %}
+                <div class="errorlist">
+                    {% for message in messages %}
+                        <div class="error-message">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if form.non_field_errors %}
+                <div class="errorlist">
+                    {% for error in form.non_field_errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'reg_comp' %}" enctype="multipart/form-data" novalidate>
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="{{ form.company_name.id_for_label }}">Название компании</label>
+                    {{ form.company_name }}
+                    {% for error in form.company_name.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.company_number.id_for_label }}">ИНН</label>
+                    {{ form.company_number }}
+                    {% for error in form.company_number.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.industry.id_for_label }}">Сфера деятельности</label>
+                    {{ form.industry }}
+                    {% for error in form.industry.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.description.id_for_label }}">Описание</label>
+                    {{ form.description }}
+                    {% for error in form.description.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.email.id_for_label }}">Email</label>
+                    {{ form.email }}
+                    {% for error in form.email.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.phone.id_for_label }}">Телефон</label>
+                    {{ form.phone }}
+                    {% for error in form.phone.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.verification_document.id_for_label }}">Подтверждающий документ (PDF)</label>
+                    {{ form.verification_document }}
+                    {% for error in form.verification_document.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.password1.id_for_label }}">Пароль</label>
+                    {{ form.password1 }}
+                    {% for error in form.password1.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.password2.id_for_label }}">Подтверждение пароля</label>
+                    {{ form.password2 }}
+                    {% for error in form.password2.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-group">
+                    <label style="display:flex;gap:10px;align-items:flex-start;">
+                        {{ form.personal_data_agreement }}
+                        <span>Я согласен на обработку персональных данных</span>
+                    </label>
+                    {% for error in form.personal_data_agreement.errors %}
+                        <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button type="submit" name="submit_action" value="register" class="btn btn-primary">Зарегистрироваться</button>
+                    <button type="submit" name="submit_action" value="resubmit" class="btn btn-secondary">Отправить повторно на проверку</button>
+                </div>
+                <div style="margin-top:8px;color:#64748b;font-size:14px;">
+                    Повторная отправка сработает только для компании со статусом «Отклонено».
+                </div>
+                <a href="{% url 'login_user' %}" class="btn btn-secondary">Уже есть аккаунт</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

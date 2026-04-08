@@ -1,0 +1,54 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Вход - CareerHub{% endblock %}
+
+{% block content %}
+<div class="login-section">
+    <div class="login-container-wrapper">
+        <div class="login-container">
+            <h2>Вход в аккаунт</h2>
+            
+            {% if messages %}
+            <div class="errorlist">
+                {% for message in messages %}
+                <div class="error-message">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <form method="post" action="{% url 'login_user' %}">
+                {% csrf_token %}
+                {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+                {% endif %}
+                
+                <div class="form-group" style="--index: 1;">
+                    <label for="id_username">Email</label>
+                    <input type="email" name="username" id="id_username" class="form-control" value="{{ request.GET.email|default:'' }}" required>
+                </div>
+                
+                <div class="form-group" style="--index: 2;">
+                    <label for="id_password">Пароль</label>
+                    <input type="password" name="password" id="id_password" class="form-control" required>
+                </div>
+                
+                <div class="form-options" style="--index: 3;">
+                    <label class="remember-me">
+                        <input type="checkbox" name="remember_me" id="remember_me">
+                        <span class="checkmark"></span>
+                        Запомнить меня
+                    </label>
+                    <a href="{% url 'password_reset_request' %}" class="forgot-password">Забыли пароль?</a>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="--index: 4;">Войти</button>
+                
+                <a href="{% url 'registration_user' %}" class="btn btn-secondary">
+                    создать новый аккаунт
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

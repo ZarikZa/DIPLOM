@@ -1,0 +1,1138 @@
+from __future__ import annotations
+
+from datetime import date
+from functools import wraps
+import re
+from urllib.parse import quote
+
+from django.contrib import messages
+from django.contrib.auth import get_user_model, login as auth_login, logout as auth_logout
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import redirect, render
+
+from .api_client import api_get, api_patch, api_post, api_put, clear_tokens, set_tokens
+from .forms import CodeVerificationForm, PasswordResetRequestForm, SetNewPasswordForm
+
+
+def api_login_required(view_func):
+    """Access only with JWT token in session."""
+
+    @wraps(view_func)
+    def _wrapped(request: HttpRequest, *args, **kwargs):
+        if not request.session.get('api_access'):
+            next_url = request.get_full_path() if request.get_full_path() else '/'
+            return redirect(f"/login/?next={quote(next_url)}")
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def _safe_json(resp):
+    try:
+        return resp.json()
+    except Exception:
+        return None
+
+
+def _is_local_path(value: str | None) -> bool:
+    return bool(value) and value.startswith('/') and not value.startswith('//')
+
+
+CYRILLIC_NAME_PATTERN = re.compile(
+    r"^[\u0410-\u042F\u0430-\u044F\u0401\u0451]+(?:[ -][\u0410-\u042F\u0430-\u044F\u0401\u0451]+)*$"
+)
+PHONE_INPUT_PATTERN = re.compile(r"^\+?[0-9()\-\s]+$")
+VALID_COMPLAINT_TYPES = {'spam', 'fraud', 'inappropriate', 'discrimination', 'false_info', 'other'}
+PASSWORD_RESET_EMAIL_SESSION_KEY = 'password_reset_email'
+PASSWORD_RESET_CODE_SESSION_KEY = 'password_reset_code'
+PASSWORD_RESET_ATTEMPTS_SESSION_KEY = 'password_reset_attempts_left'
+
+
+def _clear_password_reset_session(request: HttpRequest) -> None:
+    request.session.pop(PASSWORD_RESET_EMAIL_SESSION_KEY, None)
+    request.session.pop(PASSWORD_RESET_CODE_SESSION_KEY, None)
+    request.session.pop(PASSWORD_RESET_ATTEMPTS_SESSION_KEY, None)
+
+
+def _is_valid_cyrillic_name(value: str) -> bool:
+    return bool(CYRILLIC_NAME_PATTERN.fullmatch(value))
+
+
+def _normalize_ru_phone(value: str) -> str | None:
+    raw = (value or '').strip()
+    if not raw or not PHONE_INPUT_PATTERN.fullmatch(raw):
+        return None
+
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) == 10:
+        digits = f"7{digits}"
+    elif len(digits) == 11 and digits.startswith("8"):
+        digits = f"7{digits[1:]}"
+
+    if len(digits) != 11 or not digits.startswith("7"):
+        return None
+
+    return f"+{digits}"
+
+
+def _is_at_least_14_years_old(value: str) -> bool:
+    try:
+        birth_date = date.fromisoformat(value)
+    except ValueError:
+        return False
+
+    today = date.today()
+    if birth_date > today:
+        return False
+
+    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+    return age >= 14
+
+
+def _first_error(payload, default: str) -> str:
+    if isinstance(payload, str) and payload.strip():
+        return payload.strip()
+
+    if isinstance(payload, list):
+        for item in payload:
+            text = _first_error(item, '')
+            if text:
+                return text
+
+    if isinstance(payload, dict):
+        for key in ('detail', 'error', 'message'):
+            if key in payload:
+                text = _first_error(payload.get(key), '')
+                if text:
+                    return text
+        for value in payload.values():
+            text = _first_error(value, '')
+            if text:
+                return text
+
+    return default
+
+
+def _extract_results(payload):
+    if isinstance(payload, list):
+        return payload
+    if not isinstance(payload, dict):
+        return []
+
+    for key in ('results', 'items'):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+
+    data = payload.get('data')
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for key in ('results', 'items'):
+            value = data.get(key)
+            if isinstance(value, list):
+                return value
+
+    for value in payload.values():
+        if isinstance(value, list):
+            return value
+
+    return []
+
+
+def _extract_page_meta(payload, rows: list):
+    count = len(rows)
+    next_url = None
+    prev_url = None
+
+    if isinstance(payload, dict):
+        count = payload.get('count') or payload.get('total') or payload.get('total_count') or count
+        next_url = payload.get('next') or payload.get('next_page')
+        prev_url = payload.get('previous') or payload.get('prev') or payload.get('previous_page')
+
+        nested = payload.get('data')
+        if isinstance(nested, dict):
+            count = nested.get('count') or nested.get('total') or nested.get('total_count') or count
+            next_url = nested.get('next') or nested.get('next_page') or next_url
+            prev_url = nested.get('previous') or nested.get('prev') or nested.get('previous_page') or prev_url
+
+    try:
+        count = int(count)
+    except Exception:
+        count = len(rows)
+
+    return count, next_url, prev_url
+
+
+def _is_applicant_user(request: HttpRequest) -> bool:
+    api_user = request.session.get('api_user') or {}
+    return str(api_user.get('user_type') or '').lower() == 'applicant'
+
+
+def _load_interest_preferences(request: HttpRequest) -> tuple[list[str], list[str]]:
+    default_categories = ['IT', '\u041c\u0430\u0440\u043a\u0435\u0442\u0438\u043d\u0433', '\u041f\u0440\u043e\u0434\u0430\u0436\u0438', 'HR']
+    selected_categories: list[str] = []
+
+    if not request.session.get('api_access') or not _is_applicant_user(request):
+        return selected_categories, default_categories
+
+    try:
+        resp = api_get(request, 'applicants/me/interests/')
+        payload = _safe_json(resp) or {}
+        if resp.status_code >= 400 or not isinstance(payload, dict):
+            return selected_categories, default_categories
+
+        raw_selected = payload.get('categories')
+        if isinstance(raw_selected, list):
+            selected_categories = [str(item).strip() for item in raw_selected if str(item).strip()]
+
+        raw_available = payload.get('available_categories')
+        if isinstance(raw_available, list):
+            available_categories = [str(item).strip() for item in raw_available if str(item).strip()]
+            if available_categories:
+                default_categories = available_categories
+    except Exception:
+        pass
+
+    return selected_categories, default_categories
+
+
+def brendbook(request: HttpRequest) -> HttpResponse:
+    return render(request, 'brandbook.html')
+
+
+def home_page(request: HttpRequest) -> HttpResponse:
+    active_vacancies_count = 0
+    approved_companies_count = 0
+    applicants_count = 0
+    successful_responses_count = 0
+
+    try:
+        vacancies_resp = api_get(request, 'vacancies/', params={'page': 1})
+        vacancies_json = _safe_json(vacancies_resp) or {}
+        if isinstance(vacancies_json, dict):
+            active_vacancies_count = int(vacancies_json.get('count') or 0)
+    except Exception:
+        pass
+
+    try:
+        companies_resp = api_get(request, 'companies/', params={'page': 1})
+        companies_json = _safe_json(companies_resp) or {}
+        if isinstance(companies_json, dict):
+            approved_companies_count = int(companies_json.get('count') or 0)
+    except Exception:
+        pass
+
+    try:
+        applicants_resp = api_get(request, 'applicants/', params={'page': 1})
+        applicants_json = _safe_json(applicants_resp) or {}
+        if isinstance(applicants_json, dict):
+            applicants_count = int(applicants_json.get('count') or 0)
+    except Exception:
+        pass
+
+    try:
+        responses_resp = api_get(request, 'responses/', params={'page': 1})
+        responses_json = _safe_json(responses_resp) or {}
+        if isinstance(responses_json, dict):
+            successful_responses_count = int(responses_json.get('count') or 0)
+    except Exception:
+        pass
+
+    satisfaction_rate = 0
+    if active_vacancies_count:
+        satisfaction_rate = min(99, int((successful_responses_count / active_vacancies_count) * 100))
+
+    return render(
+        request,
+        'home.html',
+        {
+            'active_vacancies_count': active_vacancies_count,
+            'approved_companies_count': approved_companies_count,
+            'applicants_count': applicants_count,
+            'successful_responses_count': successful_responses_count,
+            'satisfaction_rate': satisfaction_rate,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+def custom_login(request: HttpRequest) -> HttpResponse:
+    next_url = request.POST.get('next') or request.GET.get('next')
+
+    if request.session.get('api_access'):
+        if _is_local_path(next_url):
+            return redirect(next_url)
+        return redirect('home_page')
+
+    if request.method == 'POST':
+        email = (request.POST.get('username') or request.POST.get('email') or '').strip()
+        password = request.POST.get('password') or ''
+
+        if not email or not password:
+            messages.error(request, 'Введите email и пароль')
+            return render(request, 'auth/login.html', {'next': next_url})
+
+        try:
+            resp = api_post(request, 'auth/login/', json={'email': email, 'password': password})
+            data = _safe_json(resp)
+            if resp.status_code >= 400 or not isinstance(data, dict) or 'access' not in data:
+                messages.error(request, _first_error(data, 'Неверный email или пароль'))
+                return render(request, 'auth/login.html', {'next': next_url})
+
+            set_tokens(request, data.get('access'), data.get('refresh'))
+            session_user = {
+                'user_id': data.get('user_id'),
+                'email': data.get('email'),
+                'username': data.get('username'),
+                'user_type': data.get('user_type'),
+                'first_name': data.get('first_name'),
+                'last_name': data.get('last_name'),
+            }
+
+            # Для staff-пользователей (HR / content manager) нужна роль сотрудника.
+            # Берём её из /user/profile/ после успешной авторизации.
+            try:
+                profile_resp = api_get(request, 'user/profile/')
+                profile_data = _safe_json(profile_resp)
+                if profile_resp.status_code < 400 and isinstance(profile_data, dict):
+                    session_user['employee_role'] = profile_data.get('employee_role')
+                    session_user['company_id'] = profile_data.get('company_id')
+                    session_user['company_name'] = profile_data.get('company_name')
+            except Exception:
+                pass
+
+            # Для доступа в custom admin_panel нужен Django-auth request.user.
+            # Если это superuser/adminsite — синхронизируем JWT-вход с Django-сессией.
+            local_admin_user = None
+            try:
+                user_model = get_user_model()
+                local_user = user_model.objects.filter(email=email).first()
+                if local_user and local_user.is_active:
+                    session_user['is_superuser'] = bool(getattr(local_user, 'is_superuser', False))
+                    if local_user.is_superuser or str(getattr(local_user, 'user_type', '')).lower() == 'adminsite':
+                        local_user.backend = 'django.contrib.auth.backends.ModelBackend'
+                        auth_login(request, local_user)
+                        local_admin_user = local_user
+            except Exception:
+                pass
+
+            request.session['api_user'] = session_user
+
+            if _is_local_path(next_url):
+                return redirect(next_url)
+
+            user_type = str(session_user.get('user_type') or '').lower()
+            employee_role = str(session_user.get('employee_role') or '').lower()
+
+            if local_admin_user and (
+                local_admin_user.is_superuser
+                or str(getattr(local_admin_user, 'user_type', '')).lower() == 'adminsite'
+            ):
+                return redirect('admin_dashboard')
+            if user_type == 'adminsite':
+                return redirect('admin_dashboard')
+            if user_type == 'company':
+                return redirect('home_comp')
+            if user_type == 'staff':
+                if employee_role == 'content_manager':
+                    return redirect('content_manager_videos')
+                return redirect('home_comp')
+            return redirect('home_page')
+        except Exception:
+            messages.error(request, 'Не удалось подключиться к API. Проверь API_BASE_URL и доступность сервера.')
+
+    return render(request, 'auth/login.html', {'next': next_url})
+
+
+def custom_logout(request: HttpRequest) -> HttpResponse:
+    clear_tokens(request)
+    auth_logout(request)
+    return redirect('home_page')
+
+
+def custom_register(request: HttpRequest) -> HttpResponse:
+    if request.method == 'POST':
+        first_name = (request.POST.get('first_name') or '').strip()
+        last_name = (request.POST.get('last_name') or '').strip()
+        phone = (request.POST.get('phone') or '').strip()
+        email = (request.POST.get('email') or '').strip()
+        birth_date = (request.POST.get('birth_date') or '').strip()
+        resume = (request.POST.get('resume') or '').strip()
+        password = request.POST.get('password1') or ''
+        password2 = request.POST.get('password2') or ''
+        agreement = request.POST.get('personal_data_agreement')
+
+        if not agreement:
+            messages.error(request, 'Нужно согласие на обработку персональных данных')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        required_fields = {
+            'Имя': first_name,
+            'Фамилия': last_name,
+            'Телефон': phone,
+            'Email': email,
+            'Дата рождения': birth_date,
+            'Пароль': password,
+            'Подтверждение пароля': password2,
+        }
+        missing = [label for label, value in required_fields.items() if not value]
+        if missing:
+            messages.error(request, f"Заполните поля: {', '.join(missing)}")
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        if not _is_valid_cyrillic_name(first_name):
+            messages.error(request, 'Имя должно содержать только кириллицу (разрешены пробел и дефис).')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        if not _is_valid_cyrillic_name(last_name):
+            messages.error(request, 'Фамилия должна содержать только кириллицу (разрешены пробел и дефис).')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        normalized_phone = _normalize_ru_phone(phone)
+        if not normalized_phone:
+            messages.error(request, 'Введите телефон в формате +7XXXXXXXXXX.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+        phone = normalized_phone
+
+        if not _is_at_least_14_years_old(birth_date):
+            messages.error(request, 'Регистрация доступна только с 14 лет. Проверьте дату рождения.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        payload = {
+            'first_name': first_name,
+            'last_name': last_name,
+            'phone': phone,
+            'email': email,
+            'username': email,
+            'birth_date': birth_date,
+            'resume': resume,
+            'password': password,
+            'password2': password2,
+        }
+
+        try:
+            resp = api_post(request, 'user/register_applicant/', json=payload)
+            data = _safe_json(resp)
+            if resp.status_code >= 400:
+                messages.error(request, _first_error(data, 'Не удалось зарегистрироваться через API'))
+                return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+            try:
+                login_resp = api_post(request, 'auth/login/', json={'email': email, 'password': password})
+                login_data = _safe_json(login_resp)
+                if (
+                    login_resp.status_code < 400
+                    and isinstance(login_data, dict)
+                    and login_data.get('access')
+                ):
+                    set_tokens(request, login_data.get('access'), login_data.get('refresh'))
+                    request.session['api_user'] = {
+                        'user_id': login_data.get('user_id'),
+                        'email': login_data.get('email'),
+                        'username': login_data.get('username'),
+                        'user_type': login_data.get('user_type'),
+                        'first_name': login_data.get('first_name'),
+                        'last_name': login_data.get('last_name'),
+                    }
+                    request.session['show_interests_modal'] = True
+                    messages.success(request, 'Регистрация завершена. Выберите интересующие сферы.')
+                    return redirect('applicant_profile')
+            except Exception:
+                pass
+
+            messages.success(request, 'Регистрация завершена. Войдите в аккаунт.')
+            return redirect(f"/login/?email={email}")
+        except Exception:
+            messages.error(request, 'Не удалось подключиться к API. Проверь API_BASE_URL и доступность сервера.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+    return render(request, 'auth/register_api.html', {'form_data': {}})
+
+
+def vakansii_page(request: HttpRequest) -> HttpResponse:
+    page = request.GET.get('page') or 1
+    params = {'page': page}
+    search_query = (request.GET.get('search') or '').strip()
+
+    if search_query:
+        params['search'] = search_query
+    elif _is_applicant_user(request):
+        params['recommended'] = '1'
+
+    if request.GET.get('salary_from'):
+        params['salary_min'] = request.GET.get('salary_from')
+    if request.GET.get('salary_to'):
+        params['salary_max'] = request.GET.get('salary_to')
+
+    exp_list = request.GET.getlist('experience')
+    if exp_list:
+        params['experience'] = exp_list[0]
+
+    employment_list = request.GET.getlist('employment')
+    if employment_list:
+        params['employment'] = ','.join(employment_list)
+
+    sort_by = request.GET.get('sort', 'newest')
+    if sort_by == 'salary_high':
+        params['ordering'] = '-salary_max'
+    elif sort_by == 'salary_low':
+        params['ordering'] = 'salary_min'
+    else:
+        params['ordering'] = '-created_date'
+
+    vacancies = []
+    count = 0
+    next_url = None
+    prev_url = None
+
+    try:
+        resp = api_get(request, 'vacancies/', params=params)
+        data = _safe_json(resp) or {}
+        if isinstance(data, dict):
+            vacancies = data.get('results') or []
+            count = data.get('count') or 0
+            next_url = data.get('next')
+            prev_url = data.get('previous')
+    except Exception:
+        messages.error(request, 'Не удалось получить список вакансий из API')
+
+    work_conditions = []
+    try:
+        wc = api_get(request, 'work-conditions/', params={'page': 1})
+        wc_json = _safe_json(wc) or {}
+        if isinstance(wc_json, dict):
+            work_conditions = wc_json.get('results') or []
+    except Exception:
+        pass
+
+    applicant_interests, interest_categories = _load_interest_preferences(request)
+
+    return render(
+        request,
+        'vakans.html',
+        {
+            'page_obj': {
+                'object_list': vacancies,
+                'count': count,
+                'next': next_url,
+                'previous': prev_url,
+                'number': int(page) if str(page).isdigit() else 1,
+            },
+            'work_conditions': work_conditions,
+            'selected_employments': request.GET.getlist('employment'),
+            'selected_experiences': request.GET.getlist('experience'),
+            'salary_from': request.GET.get('salary_from', ''),
+            'salary_to': request.GET.get('salary_to', ''),
+            'search_query': search_query,
+            'applicant_interests': applicant_interests,
+            'interest_categories': interest_categories,
+            'recommendations_enabled': bool(_is_applicant_user(request) and not search_query),
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+def vacancy_detail(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    vacancy = None
+    try:
+        resp = api_get(request, f'vacancies/{vacancy_id}/')
+        if resp.status_code < 400:
+            vacancy = _safe_json(resp)
+    except Exception:
+        vacancy = None
+
+    if not vacancy:
+        messages.error(request, 'Вакансия не найдена')
+        return redirect('vakansi_page')
+
+    chat_id = None
+    if request.session.get('api_access'):
+        try:
+            by_vacancy_resp = api_get(request, 'chats/by_vacancy/', params={'vacancy_id': vacancy_id})
+            by_vacancy_data = _safe_json(by_vacancy_resp) or {}
+            if isinstance(by_vacancy_data, dict):
+                chat_id = by_vacancy_data.get('id')
+        except Exception:
+            chat_id = None
+
+    return render(
+        request,
+        'vacancy_detail.html',
+        {
+            'vacancy': vacancy,
+            'is_favorite': bool(vacancy.get('is_favorite')),
+            'has_response': bool(vacancy.get('has_applied')),
+            'chat_id': chat_id,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+@api_login_required
+def apply_to_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    redirect_to = request.POST.get('next') or request.GET.get('next') or request.META.get('HTTP_REFERER') or '/vakansii/'
+    if not _is_local_path(redirect_to):
+        redirect_to = '/vakansii/'
+
+    resp = api_post(request, 'responses/', json={'vacancy': vacancy_id})
+    data = _safe_json(resp)
+    if resp.status_code >= 400:
+        messages.error(request, _first_error(data, 'Не удалось отправить отклик'))
+    else:
+        messages.success(request, 'Отклик отправлен')
+    return redirect(redirect_to)
+
+
+@api_login_required
+def add_to_favorites(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    resp = api_post(request, 'favorites/toggle/', json={'vacancy': vacancy_id})
+    if resp.status_code >= 400:
+        messages.error(request, 'Не удалось изменить избранное')
+    return redirect('vacancy_detail', vacancy_id=vacancy_id)
+
+
+@api_login_required
+def remove_from_favorites(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    return add_to_favorites(request, vacancy_id)
+
+
+@api_login_required
+def applicant_profile(request: HttpRequest) -> HttpResponse:
+    profile = {}
+    favorites = []
+    responses = []
+    chats = []
+    applicant_interests, interest_categories = _load_interest_preferences(request)
+    show_interests_modal = bool(request.session.pop('show_interests_modal', False))
+
+    try:
+        profile_resp = api_get(request, 'user/profile/')
+        if profile_resp.status_code < 400:
+            profile = _safe_json(profile_resp) or {}
+    except Exception:
+        pass
+
+    try:
+        favorites_resp = api_get(request, 'favorites/', params={'page': 1})
+        favorites_json = _safe_json(favorites_resp) or {}
+        favorites = _extract_results(favorites_json)
+    except Exception:
+        pass
+
+    try:
+        responses_resp = api_get(request, 'responses/', params={'page': 1})
+        responses_json = _safe_json(responses_resp) or {}
+        responses = _extract_results(responses_json)
+    except Exception:
+        pass
+
+    try:
+        chats_resp = api_get(request, 'chats/', params={'page': 1})
+        chats_json = _safe_json(chats_resp) or {}
+        chats = _extract_results(chats_json)
+    except Exception:
+        pass
+
+    return render(
+        request,
+        'profile.html',
+        {
+            'applicant': profile,
+            'favorites': favorites,
+            'responses': responses,
+            'chats_count': len(chats),
+            'applicant_interests': applicant_interests,
+            'interest_categories': interest_categories,
+            'show_interests_modal': show_interests_modal,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+@api_login_required
+def edit_applicant_profile(request: HttpRequest) -> HttpResponse:
+    if request.method == 'POST':
+        payload = {
+            'first_name': request.POST.get('first_name') or '',
+            'last_name': request.POST.get('last_name') or '',
+            'phone': request.POST.get('phone') or '',
+            'birth_date': request.POST.get('birth_date') or '',
+            'resume': request.POST.get('resume') or '',
+        }
+        payload = {k: v for k, v in payload.items() if v}
+
+        files = {}
+        avatar = request.FILES.get('avatar')
+        if avatar:
+            files['avatar'] = avatar
+
+        try:
+            if files:
+                resp = api_patch(request, 'user/profile/', data=payload, files=files)
+            else:
+                resp = api_patch(request, 'user/profile/', json=payload)
+            data = _safe_json(resp)
+            if resp.status_code >= 400:
+                messages.error(request, _first_error(data, 'Не удалось обновить профиль'))
+            else:
+                updated = data or {}
+                current_user = request.session.get('api_user') or {}
+                current_user['first_name'] = updated.get('first_name', current_user.get('first_name'))
+                current_user['last_name'] = updated.get('last_name', current_user.get('last_name'))
+                current_user['email'] = updated.get('email', current_user.get('email'))
+                request.session['api_user'] = current_user
+                messages.success(request, 'Профиль обновлён')
+                return redirect('applicant_profile')
+        except Exception:
+            messages.error(request, 'Ошибка сети при обновлении профиля')
+
+    profile = {}
+    try:
+        profile_resp = api_get(request, 'user/profile/')
+        if profile_resp.status_code < 400:
+            profile = _safe_json(profile_resp) or {}
+    except Exception:
+        pass
+
+    return render(request, 'edit_applicant_profile.html', {'profile': profile, 'api_user': request.session.get('api_user')})
+
+
+@api_login_required
+def delete_applicant_profile(request: HttpRequest) -> HttpResponse:
+    if request.method == 'POST':
+        clear_tokens(request)
+        messages.info(request, 'Удаление аккаунта через API не реализовано. Вы вышли из системы.')
+        return redirect('home_page')
+    return redirect('applicant_profile')
+
+
+@api_login_required
+def update_theme(request: HttpRequest) -> HttpResponse:
+    theme = request.POST.get('theme') or request.GET.get('theme')
+    if theme:
+        request.session['ui_theme'] = theme
+    return redirect(request.META.get('HTTP_REFERER', 'home_page'))
+
+
+@api_login_required
+def update_applicant_interests(request: HttpRequest) -> HttpResponse:
+    redirect_to = request.POST.get('next') or request.META.get('HTTP_REFERER') or '/vakansii/'
+    if not _is_local_path(redirect_to):
+        redirect_to = '/vakansii/'
+
+    if request.method != 'POST':
+        return redirect(redirect_to)
+
+    if not _is_applicant_user(request):
+        messages.error(request, 'Изменение интересов доступно только соискателю')
+        return redirect(redirect_to)
+
+    categories = [item for item in request.POST.getlist('interests') if item]
+
+    try:
+        resp = api_put(request, 'applicants/me/interests/', json={'categories': categories})
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            messages.error(request, _first_error(data, 'Не удалось сохранить интересы'))
+        else:
+            messages.success(request, 'Интересы обновлены')
+    except Exception:
+        messages.error(request, 'Ошибка сети при сохранении интересов')
+
+    return redirect(redirect_to)
+
+
+@api_login_required
+def create_complaint(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    if request.method != 'POST':
+        return redirect('vacancy_detail', vacancy_id=vacancy_id)
+
+    complaint_type = (request.POST.get('complaint_type') or 'other').strip()
+    description = (request.POST.get('description') or '').strip()
+
+    if complaint_type not in VALID_COMPLAINT_TYPES:
+        messages.error(request, 'Выберите причину жалобы')
+        return redirect('vacancy_detail', vacancy_id=vacancy_id)
+
+    resp = api_post(
+        request,
+        'complaints/',
+        json={'vacancy': vacancy_id, 'complaint_type': complaint_type, 'description': description},
+    )
+    data = _safe_json(resp)
+    if resp.status_code >= 400:
+        messages.error(request, _first_error(data, 'Не удалось отправить жалобу'))
+        return redirect('vacancy_detail', vacancy_id=vacancy_id)
+
+    return redirect('complaint_success', vacancy_id=vacancy_id)
+
+
+@api_login_required
+def complaint_success(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    vacancy = {'id': vacancy_id, 'position': f'Вакансия #{vacancy_id}'}
+    try:
+        vacancy_resp = api_get(request, f'vacancies/{vacancy_id}/')
+        vacancy_json = _safe_json(vacancy_resp)
+        if vacancy_resp.status_code < 400 and isinstance(vacancy_json, dict):
+            vacancy = vacancy_json
+    except Exception:
+        pass
+    return render(request, 'complaints/complaint_success.html', {'vacancy': vacancy, 'api_user': request.session.get('api_user')})
+
+
+@api_login_required
+def check_existing_complaint(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    try:
+        resp = api_get(request, 'complaints/', params={'vacancy': vacancy_id})
+        data = _safe_json(resp) or {}
+        complaints = _extract_results(data)
+        if complaints:
+            messages.info(request, 'Вы уже отправляли жалобу на эту вакансию')
+    except Exception:
+        pass
+    return redirect('vacancy_detail', vacancy_id=vacancy_id)
+
+
+def send_metrics(request: HttpRequest) -> HttpResponse:
+    return redirect('home_page')
+
+
+def password_reset_request(request: HttpRequest) -> HttpResponse:
+    form = PasswordResetRequestForm(request.POST or None)
+
+    if request.method == 'POST' and form.is_valid():
+        email = str(form.cleaned_data.get('email') or '').strip().lower()
+        try:
+            resp = api_post(request, 'auth/password-reset/request/', json={'email': email})
+            payload = _safe_json(resp)
+            if resp.status_code >= 400:
+                messages.error(request, _first_error(payload, 'Не удалось отправить код восстановления.'))
+            else:
+                request.session[PASSWORD_RESET_EMAIL_SESSION_KEY] = email
+                request.session[PASSWORD_RESET_CODE_SESSION_KEY] = ''
+                request.session[PASSWORD_RESET_ATTEMPTS_SESSION_KEY] = 3
+                messages.success(request, 'Если email существует, код отправлен на почту.')
+                return redirect('password_reset_verify')
+        except Exception:
+            messages.error(request, 'Ошибка сети при отправке кода восстановления.')
+
+    return render(
+        request,
+        'password_reset_request.html',
+        {
+            'form': form,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+def password_reset_verify(request: HttpRequest) -> HttpResponse:
+    email = request.session.get(PASSWORD_RESET_EMAIL_SESSION_KEY)
+    if not email:
+        messages.info(request, 'Сначала укажите email для восстановления пароля.')
+        return redirect('password_reset_request')
+
+    form = CodeVerificationForm(request.POST or None)
+    attempts = int(request.session.get(PASSWORD_RESET_ATTEMPTS_SESSION_KEY, 3) or 3)
+
+    if request.method == 'POST' and form.is_valid():
+        code = str(form.cleaned_data.get('code') or '').strip()
+        request.session[PASSWORD_RESET_CODE_SESSION_KEY] = code
+        return redirect('password_reset_new')
+
+    return render(
+        request,
+        'password_reset_verify.html',
+        {
+            'form': form,
+            'email': email,
+            'attempts': attempts,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+def password_reset_new(request: HttpRequest) -> HttpResponse:
+    email = request.session.get(PASSWORD_RESET_EMAIL_SESSION_KEY)
+    code = request.session.get(PASSWORD_RESET_CODE_SESSION_KEY)
+    if not email:
+        messages.info(request, 'Сначала укажите email для восстановления пароля.')
+        return redirect('password_reset_request')
+    if not code:
+        messages.info(request, 'Введите код подтверждения из письма.')
+        return redirect('password_reset_verify')
+
+    form = SetNewPasswordForm(request.POST or None)
+
+    if request.method == 'POST' and form.is_valid():
+        new_password = str(form.cleaned_data.get('new_password1') or '')
+        try:
+            resp = api_post(
+                request,
+                'auth/password-reset/confirm/',
+                json={
+                    'email': email,
+                    'code': code,
+                    'new_password': new_password,
+                },
+            )
+            payload = _safe_json(resp)
+            if resp.status_code >= 400:
+                error_text = _first_error(payload, 'Не удалось сменить пароль.')
+                if isinstance(payload, dict) and 'code' in payload:
+                    messages.error(request, error_text)
+                    request.session.pop(PASSWORD_RESET_CODE_SESSION_KEY, None)
+                    attempts_left = int(request.session.get(PASSWORD_RESET_ATTEMPTS_SESSION_KEY, 3) or 3)
+                    request.session[PASSWORD_RESET_ATTEMPTS_SESSION_KEY] = max(0, attempts_left - 1)
+                    return redirect('password_reset_verify')
+                form.add_error(None, error_text)
+            else:
+                _clear_password_reset_session(request)
+                messages.success(request, 'Пароль успешно изменен. Теперь можно войти.')
+                return redirect('login_user')
+        except Exception:
+            form.add_error(None, 'Ошибка сети при смене пароля.')
+
+    return render(
+        request,
+        'password_reset_new.html',
+        {
+            'form': form,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+@api_login_required
+def applicant_video_feed(request: HttpRequest) -> HttpResponse:
+    requested_page = str(request.GET.get('page') or '1')
+    params = {'page': requested_page}
+    for key in ('city', 'category', 'salary_from'):
+        value = request.GET.get(key)
+        if value:
+            params[key] = value
+    show_all = str(request.GET.get('all') or '').strip().lower() in ('1', 'true', 'yes')
+
+    videos = []
+    next_url = None
+    prev_url = None
+    count = 0
+    feed_source = 'feed/videos/'
+    has_filters = any(request.GET.get(k) for k in ('city', 'category', 'salary_from'))
+    prefer_recommended = bool(_is_applicant_user(request) and not show_all and not has_filters)
+
+    def _load_feed(endpoint: str, endpoint_params: dict) -> tuple[bool, str]:
+        nonlocal videos, next_url, prev_url, count, feed_source
+        resp = api_get(request, endpoint, params=endpoint_params)
+        data = _safe_json(resp) or {}
+        if resp.status_code >= 400:
+            return False, _first_error(data, '')
+
+        rows = _extract_results(data)
+        if not rows:
+            return False, ''
+
+        count, next_url, prev_url = _extract_page_meta(data, rows)
+        videos = rows
+        feed_source = endpoint
+        return True, ''
+
+    try:
+        if show_all:
+            primary_endpoint = 'vacancy-videos/feed/'
+            fallback_endpoints = ['feed/videos/']
+        else:
+            primary_endpoint = 'feed/videos/recommended/' if prefer_recommended else 'feed/videos/'
+            fallback_endpoints = ['feed/videos/' if prefer_recommended else 'feed/videos/recommended/', 'vacancy-videos/feed/']
+
+        loaded, err = _load_feed(primary_endpoint, params)
+        if err:
+            messages.warning(request, err)
+
+        for endpoint in fallback_endpoints:
+            if loaded:
+                break
+            loaded, _ = _load_feed(endpoint, params)
+
+        if not loaded and (has_filters or requested_page != '1'):
+            reset_params = {'page': 1}
+            loaded, _ = _load_feed(primary_endpoint, reset_params)
+            for endpoint in fallback_endpoints:
+                if loaded:
+                    break
+                loaded, _ = _load_feed(endpoint, reset_params)
+    except Exception:
+        messages.error(request, 'Ошибка сети при загрузке видео-ленты')
+
+    return render(
+        request,
+        'video_feed.html',
+        {
+            'videos': videos,
+            'count': count,
+            'next_url': next_url,
+            'prev_url': prev_url,
+            'feed_source': feed_source,
+            'show_all_videos': show_all,
+            'has_video_filters': has_filters,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+@api_login_required
+def video_view_mark(request: HttpRequest, video_id: int) -> JsonResponse:
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        resp = api_post(request, f'feed/videos/{video_id}/view/')
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            return JsonResponse({'ok': False, 'error': _first_error(data, 'Ошибка API')}, status=resp.status_code)
+        return JsonResponse({'ok': True})
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Ошибка сети'}, status=502)
+
+
+@api_login_required
+def video_toggle_like(request: HttpRequest, video_id: int) -> JsonResponse:
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        resp = api_post(request, f'feed/videos/{video_id}/like/')
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            return JsonResponse({'ok': False, 'error': _first_error(data, 'Ошибка API')}, status=resp.status_code)
+        liked = bool(data.get('liked')) if isinstance(data, dict) else False
+        return JsonResponse({'ok': True, 'liked': liked})
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'Ошибка сети'}, status=502)
+
+
+@api_login_required
+def applicant_chats(request: HttpRequest) -> HttpResponse:
+    page = request.GET.get('page') or 1
+    params = {'page': page}
+    chats = []
+    count = 0
+    next_url = None
+    prev_url = None
+
+    try:
+        resp = api_get(request, 'chats/', params=params)
+        data = _safe_json(resp) or {}
+        if resp.status_code >= 400:
+            messages.error(request, _first_error(data, 'Не удалось загрузить чаты'))
+        elif isinstance(data, dict):
+            chats = data.get('results') or []
+            count = data.get('count') or len(chats)
+            next_url = data.get('next')
+            prev_url = data.get('previous')
+        elif isinstance(data, list):
+            chats = data
+            count = len(chats)
+    except Exception:
+        messages.error(request, 'Ошибка сети при загрузке чатов')
+
+    query = (request.GET.get('q') or '').strip().lower()
+    if query:
+        chats = [
+            chat for chat in chats
+            if query in str(chat.get('company_name', '')).lower()
+            or query in str(chat.get('vacancy_title', '')).lower()
+            or query in str((chat.get('last_message') or {}).get('text', '')).lower()
+        ]
+
+    return render(
+        request,
+        'chat_list.html',
+        {
+            'chats': chats,
+            'count': count,
+            'query': request.GET.get('q', ''),
+            'next_url': next_url,
+            'prev_url': prev_url,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+@api_login_required
+def applicant_chat_detail(request: HttpRequest, chat_id: int) -> HttpResponse:
+    chat = None
+    chat_messages = []
+
+    try:
+        chat_resp = api_get(request, f'chats/{chat_id}/')
+        chat_data = _safe_json(chat_resp)
+        if chat_resp.status_code >= 400 or not isinstance(chat_data, dict):
+            messages.error(request, _first_error(chat_data, 'Чат не найден'))
+            return redirect('applicant_chats')
+        chat = chat_data
+    except Exception:
+        messages.error(request, 'Ошибка сети при загрузке чата')
+        return redirect('applicant_chats')
+
+    try:
+        messages_resp = api_get(request, f'chats/{chat_id}/messages/')
+        messages_data = _safe_json(messages_resp)
+        if messages_resp.status_code < 400:
+            chat_messages = _extract_results(messages_data)
+            if not chat_messages and isinstance(messages_data, list):
+                chat_messages = messages_data
+        else:
+            messages.error(request, _first_error(messages_data, 'Не удалось получить сообщения'))
+    except Exception:
+        messages.error(request, 'Ошибка сети при загрузке сообщений')
+
+    return render(
+        request,
+        'chat_detail.html',
+        {
+            'chat': chat,
+            'chat_messages': chat_messages,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+@api_login_required
+def applicant_chat_send_message(request: HttpRequest, chat_id: int) -> HttpResponse:
+    if request.method != 'POST':
+        return redirect('applicant_chat_detail', chat_id=chat_id)
+
+    text = (request.POST.get('text') or '').strip()
+    if not text:
+        messages.error(request, 'Введите текст сообщения')
+        return redirect('applicant_chat_detail', chat_id=chat_id)
+
+    try:
+        resp = api_post(request, f'chats/{chat_id}/send_message/', json={'text': text})
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            messages.error(request, _first_error(data, 'Не удалось отправить сообщение'))
+    except Exception:
+        messages.error(request, 'Ошибка сети при отправке сообщения')
+
+    return redirect('applicant_chat_detail', chat_id=chat_id)
+
+
+@api_login_required
+def open_chat_for_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    try:
+        resp = api_get(request, 'chats/by_vacancy/', params={'vacancy_id': vacancy_id})
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            messages.error(request, _first_error(data, 'Не удалось открыть чат по вакансии'))
+            return redirect('vacancy_detail', vacancy_id=vacancy_id)
+
+        if isinstance(data, dict) and data.get('id'):
+            return redirect('applicant_chat_detail', chat_id=data['id'])
+
+        messages.info(request, _first_error(data, 'Сначала откликнитесь на вакансию, чтобы открыть чат'))
+        return redirect('vacancy_detail', vacancy_id=vacancy_id)
+    except Exception:
+        messages.error(request, 'Ошибка сети при открытии чата')
+        return redirect('vacancy_detail', vacancy_id=vacancy_id)

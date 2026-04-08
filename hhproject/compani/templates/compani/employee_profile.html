@@ -1,0 +1,51 @@
+﻿{% extends 'base.html' %}
+
+{% block header %}
+    {% include '_inc/header.html' %}
+{% endblock %}
+
+{% block title_name %}Профиль сотрудника{% endblock %}
+
+{% block content %}
+<section style="max-width:980px;margin:0 auto;padding:28px 16px 40px;">
+    {% if messages %}
+    <div style="margin-bottom:12px;">
+        {% for message in messages %}
+        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
+        <h1 style="margin:0;">{{ profile.first_name|default:'' }} {{ profile.last_name|default:'' }}</h1>
+        <div style="color:#64748b;margin-top:4px;">{{ profile.email|default:api_user.email }}</div>
+        <div style="margin-top:14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+            <div><strong>Телефон:</strong> {{ profile.phone|default:'—' }}</div>
+            <div><strong>Роль:</strong> {{ profile.employee_role|default:'—' }}</div>
+            <div><strong>Компания:</strong> {{ profile.company_name|default:'—' }}</div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+            <a class="btn btn-primary" href="{% url 'edit_employee_profile' %}">редактировать</a>
+            <a class="btn btn-secondary" href="{% url 'vacancy_list' %}">К вакансиям</a>
+            {% if profile.employee_role == 'content_manager' %}
+            <a class="btn btn-secondary" href="{% url 'content_manager_videos' %}">Видео вакансий</a>
+            <a class="btn btn-secondary" href="{% url 'content_manager_stats' %}">Моя статистика</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="margin-top:14px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
+        <h2 style="margin:0 0 10px;font-size:20px;">Активные вакансии компании</h2>
+        {% if vacancies %}
+            {% for vacancy in vacancies %}
+            <div style="padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;">
+                <div style="font-weight:700;">{{ vacancy.position }}</div>
+                <div style="color:#334155;">{{ vacancy.city }} · {{ vacancy.salary_min }}-{{ vacancy.salary_max }} ₽</div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="color:#64748b;">Вакансий пока нет</div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
