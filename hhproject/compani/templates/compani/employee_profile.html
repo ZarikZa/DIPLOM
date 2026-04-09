@@ -1,17 +1,80 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
 
-{% block title_name %}Профиль сотрудника{% endblock %}
+{% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Employee Profile{% else %}Профиль сотрудника{% endif %}{% endblock %}
 
 {% block content %}
+<style>
+.employee-profile-actions {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.employee-profile-actions .text-size-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.employee-profile-actions .text-size-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 0 8px;
+}
+
+.employee-profile-actions .text-size-btn {
+    min-width: 34px;
+    height: 32px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.employee-profile-actions .text-size-btn[data-text-size-option="small"] { font-size: 0.75rem; }
+.employee-profile-actions .text-size-btn[data-text-size-option="normal"] { font-size: 0.84rem; }
+.employee-profile-actions .text-size-btn[data-text-size-option="large"] { font-size: 0.95rem; }
+
+.employee-profile-actions .text-size-btn:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.employee-profile-actions .text-size-btn.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
+}
+
+[data-theme="dark"] .employee-profile-actions .text-size-controls {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+</style>
+
 <section style="max-width:980px;margin:0 auto;padding:28px 16px 40px;">
     {% if messages %}
     <div style="margin-bottom:12px;">
         {% for message in messages %}
-        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        <div class="alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
@@ -20,31 +83,45 @@
         <h1 style="margin:0;">{{ profile.first_name|default:'' }} {{ profile.last_name|default:'' }}</h1>
         <div style="color:#64748b;margin-top:4px;">{{ profile.email|default:api_user.email }}</div>
         <div style="margin-top:14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
-            <div><strong>Телефон:</strong> {{ profile.phone|default:'—' }}</div>
-            <div><strong>Роль:</strong> {{ profile.employee_role|default:'—' }}</div>
-            <div><strong>Компания:</strong> {{ profile.company_name|default:'—' }}</div>
+            <div><strong>{% if request.LANGUAGE_CODE == 'en' %}Phone{% else %}Телефон{% endif %}:</strong> {{ profile.phone|default:'—' }}</div>
+            <div><strong>{% if request.LANGUAGE_CODE == 'en' %}Role{% else %}Роль{% endif %}:</strong> {{ profile.employee_role|default:'—' }}</div>
+            <div><strong>{% if request.LANGUAGE_CODE == 'en' %}Company{% else %}Компания{% endif %}:</strong> {{ profile.company_name|default:'—' }}</div>
         </div>
-        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-            <a class="btn btn-primary" href="{% url 'edit_employee_profile' %}">редактировать</a>
-            <a class="btn btn-secondary" href="{% url 'vacancy_list' %}">К вакансиям</a>
+        <div class="employee-profile-actions">
+            <button class="theme-toggle-btn-profile" onclick="toggleTheme()" title="{% if request.LANGUAGE_CODE == 'en' %}Toggle theme{% else %}Переключить тему{% endif %}">
+                <span class="theme-icon">🌓</span>
+            </button>
+            <div class="text-size-controls" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Text size{% else %}Размер текста{% endif %}">
+                <span class="text-size-label">{% if request.LANGUAGE_CODE == 'en' %}Text:{% else %}Текст:{% endif %}</span>
+                <button type="button" class="text-size-btn" data-text-size-option="small" onclick="setTextSize('small')" aria-pressed="false">A-</button>
+                <button type="button" class="text-size-btn" data-text-size-option="normal" onclick="setTextSize('normal')" aria-pressed="false">A</button>
+                <button type="button" class="text-size-btn" data-text-size-option="large" onclick="setTextSize('large')" aria-pressed="false">A+</button>
+            </div>
+            <div class="language-controls" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Language{% else %}Язык{% endif %}">
+                <span class="language-label">{% if request.LANGUAGE_CODE == 'en' %}Language:{% else %}Язык:{% endif %}</span>
+                <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'ru' %} active{% endif %}" data-language-option="ru" onclick="setLanguage('ru')" aria-pressed="{% if request.LANGUAGE_CODE == 'ru' %}true{% else %}false{% endif %}">RU</button>
+                <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'en' %} active{% endif %}" data-language-option="en" onclick="setLanguage('en')" aria-pressed="{% if request.LANGUAGE_CODE == 'en' %}true{% else %}false{% endif %}">EN</button>
+            </div>
+            <a class="btn btn-primary" href="{% url 'edit_employee_profile' %}">{% if request.LANGUAGE_CODE == 'en' %}Edit{% else %}Редактировать{% endif %}</a>
+            <a class="btn btn-secondary" href="{% url 'vacancy_list' %}">{% if request.LANGUAGE_CODE == 'en' %}To vacancies{% else %}К вакансиям{% endif %}</a>
             {% if profile.employee_role == 'content_manager' %}
-            <a class="btn btn-secondary" href="{% url 'content_manager_videos' %}">Видео вакансий</a>
-            <a class="btn btn-secondary" href="{% url 'content_manager_stats' %}">Моя статистика</a>
+            <a class="btn btn-secondary" href="{% url 'content_manager_videos' %}">{% if request.LANGUAGE_CODE == 'en' %}Vacancy videos{% else %}Видео вакансий{% endif %}</a>
+            <a class="btn btn-secondary" href="{% url 'content_manager_stats' %}">{% if request.LANGUAGE_CODE == 'en' %}My stats{% else %}Моя статистика{% endif %}</a>
             {% endif %}
         </div>
     </div>
 
     <div style="margin-top:14px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
-        <h2 style="margin:0 0 10px;font-size:20px;">Активные вакансии компании</h2>
+        <h2 style="margin:0 0 10px;font-size:20px;">{% if request.LANGUAGE_CODE == 'en' %}Company active vacancies{% else %}Активные вакансии компании{% endif %}</h2>
         {% if vacancies %}
             {% for vacancy in vacancies %}
             <div style="padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;">
                 <div style="font-weight:700;">{{ vacancy.position }}</div>
-                <div style="color:#334155;">{{ vacancy.city }} · {{ vacancy.salary_min }}-{{ vacancy.salary_max }} ₽</div>
+                <div style="color:#334155;">{{ vacancy.city }} · {{ vacancy.salary_min }}-{{ vacancy.salary_max }} {% if request.LANGUAGE_CODE == 'en' %}RUB{% else %}₽{% endif %}</div>
             </div>
             {% endfor %}
         {% else %}
-            <div style="color:#64748b;">Вакансий пока нет</div>
+            <div style="color:#64748b;">{% if request.LANGUAGE_CODE == 'en' %}No vacancies yet{% else %}Вакансий пока нет{% endif %}</div>
         {% endif %}
     </div>
 </section>

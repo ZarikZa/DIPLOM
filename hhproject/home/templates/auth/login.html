@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block title %}Вход - CareerHub{% endblock %}
@@ -12,7 +12,7 @@
             {% if messages %}
             <div class="errorlist">
                 {% for message in messages %}
-                <div class="error-message">{{ message }}</div>
+                <div class="error-message alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
                 {% endfor %}
             </div>
             {% endif %}

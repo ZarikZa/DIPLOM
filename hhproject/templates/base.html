@@ -1,6 +1,6 @@
 ﻿{% load static %}
 <!DOCTYPE html>
-<html lang="ru" data-theme="light">
+<html lang="{{ request.LANGUAGE_CODE|default:'ru' }}" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -88,6 +88,115 @@
             background: rgba(148, 163, 184, 0.2);
             color: #f8fafc;
         }
+
+        .language-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px;
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+
+        .language-label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            padding: 0 8px;
+            user-select: none;
+        }
+
+        .language-btn {
+            min-width: 38px;
+            height: 32px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .language-btn:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .language-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+            transform: translateY(-1px);
+        }
+
+        [data-theme="dark"] .language-controls {
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 14px rgba(0, 0, 0, 0.35);
+        }
+
+        .app-notification,
+        .messages .alert,
+        .alert-container .alert,
+        .errorlist .alert,
+        .feed-messages .alert,
+        .chat-alerts .alert {
+            position: relative;
+            padding-right: 2.5rem;
+        }
+
+        .app-notification.alert-success,
+        .messages .alert-success,
+        .alert-container .alert-success,
+        .errorlist .alert-success,
+        .feed-messages .alert-success,
+        .chat-alerts .alert-success {
+            background: #ecfdf3;
+            border-color: #86efac;
+            color: #166534;
+        }
+
+        .app-notification.alert-error,
+        .app-notification.alert-danger,
+        .messages .alert-error,
+        .messages .alert-danger,
+        .alert-container .alert-error,
+        .alert-container .alert-danger,
+        .errorlist .alert-error,
+        .errorlist .alert-danger,
+        .feed-messages .alert-error,
+        .feed-messages .alert-danger,
+        .chat-alerts .alert-error,
+        .chat-alerts .alert-danger {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+
+        .app-alert-close {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+        }
+
+        .alert-dismissible .btn-close.app-alert-close {
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            margin: 0;
+            padding: 0.35rem;
+            width: 1.5rem;
+            height: 1.5rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3;
+        }
     </style>
     {% if request.path|slice:":12" == "/admin_panel/" %}
         <link rel="stylesheet" href="{% static 'css/admin-panel-redesign.css' %}">
@@ -120,6 +229,268 @@
         function initializeTextSize() {
             const savedSize = normalizeTextSize(localStorage.getItem('font_size'));
             document.documentElement.setAttribute('data-font-size', savedSize);
+        }
+
+        function normalizeLanguageCode(languageCode) {
+            const allowedLanguages = ['ru', 'en'];
+            return allowedLanguages.includes(languageCode) ? languageCode : 'ru';
+        }
+
+        function updateLanguageButtons(languageCode) {
+            const currentLanguage = normalizeLanguageCode(languageCode);
+            const buttons = document.querySelectorAll('[data-language-option]');
+            buttons.forEach(button => {
+                const isActive = button.dataset.languageOption === currentLanguage;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+            document.documentElement.setAttribute('lang', currentLanguage);
+        }
+
+        async function setLanguage(languageCode) {
+            const nextLanguage = normalizeLanguageCode(languageCode);
+            const csrfTokenElement = document.getElementById('csrf_token');
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            };
+
+            if (csrfTokenElement && csrfTokenElement.value) {
+                headers['X-CSRFToken'] = csrfTokenElement.value;
+            }
+
+            try {
+                const response = await fetch('/update-language/', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ language: nextLanguage }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Language update failed: ${response.status}`);
+                }
+
+                const payload = await response.json();
+                const appliedLanguage = normalizeLanguageCode(payload.language || nextLanguage);
+                updateLanguageButtons(appliedLanguage);
+                window.location.reload();
+            } catch (error) {
+                console.error('Ошибка при смене языка:', error);
+            }
+        }
+
+        let uiTranslationMap = null;
+        let uiTranslationLowerMap = null;
+        let uiTranslationPromise = null;
+
+        function normalizeUiText(value) {
+            return String(value || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function splitEdgeWhitespace(rawText) {
+            const source = String(rawText || '');
+            const leftMatch = source.match(/^\s*/);
+            const rightMatch = source.match(/\s*$/);
+            return {
+                left: leftMatch ? leftMatch[0] : '',
+                right: rightMatch ? rightMatch[0] : '',
+                core: source.trim(),
+            };
+        }
+
+        function resolveUiTranslation(rawText) {
+            if (!uiTranslationMap) {
+                return null;
+            }
+
+            const normalizedText = normalizeUiText(rawText);
+            if (!normalizedText) {
+                return null;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(uiTranslationMap, normalizedText)) {
+                return uiTranslationMap[normalizedText];
+            }
+
+            const lowered = normalizedText.toLowerCase();
+            if (uiTranslationLowerMap && Object.prototype.hasOwnProperty.call(uiTranslationLowerMap, lowered)) {
+                return uiTranslationLowerMap[lowered];
+            }
+
+            const punctuationMatch = normalizedText.match(/^(.*?)([!?.,:;]+)$/);
+            if (punctuationMatch) {
+                const baseText = normalizeUiText(punctuationMatch[1]);
+                const punctuation = punctuationMatch[2];
+                if (Object.prototype.hasOwnProperty.call(uiTranslationMap, baseText)) {
+                    return `${uiTranslationMap[baseText]}${punctuation}`;
+                }
+                const loweredBase = baseText.toLowerCase();
+                if (uiTranslationLowerMap && Object.prototype.hasOwnProperty.call(uiTranslationLowerMap, loweredBase)) {
+                    return `${uiTranslationLowerMap[loweredBase]}${punctuation}`;
+                }
+            }
+
+            return null;
+        }
+
+        function buildLowerTranslationMap(sourceMap) {
+            const loweredMap = {};
+            Object.entries(sourceMap || {}).forEach(([source, target]) => {
+                loweredMap[normalizeUiText(source).toLowerCase()] = target;
+            });
+            return loweredMap;
+        }
+
+        async function ensureUiTranslationMapLoaded() {
+            const currentLanguage = normalizeLanguageCode(document.documentElement.getAttribute('lang'));
+            if (currentLanguage !== 'en') {
+                return null;
+            }
+
+            if (uiTranslationMap) {
+                return uiTranslationMap;
+            }
+
+            if (uiTranslationPromise) {
+                return uiTranslationPromise;
+            }
+
+            uiTranslationPromise = fetch('{% static "i18n/ru_en_ui.json" %}', {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                cache: 'no-cache',
+            })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`Translation map load failed: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then((payload) => {
+                    uiTranslationMap = payload || {};
+                    uiTranslationLowerMap = buildLowerTranslationMap(uiTranslationMap);
+                    return uiTranslationMap;
+                })
+                .catch((error) => {
+                    console.error('Не удалось загрузить словарь интерфейса:', error);
+                    uiTranslationMap = {};
+                    uiTranslationLowerMap = {};
+                    return uiTranslationMap;
+                });
+
+            return uiTranslationPromise;
+        }
+
+        function translateSingleTextNode(textNode) {
+            if (!textNode || !textNode.nodeValue) {
+                return;
+            }
+
+            const parts = splitEdgeWhitespace(textNode.nodeValue);
+            if (!parts.core) {
+                return;
+            }
+
+            const translated = resolveUiTranslation(parts.core);
+            if (!translated || translated === parts.core) {
+                return;
+            }
+
+            textNode.nodeValue = `${parts.left}${translated}${parts.right}`;
+        }
+
+        function translateElementAttributes(element) {
+            if (!(element instanceof HTMLElement)) {
+                return;
+            }
+
+            ['placeholder', 'title', 'aria-label', 'value', 'alt'].forEach((attrName) => {
+                if (!element.hasAttribute(attrName)) {
+                    return;
+                }
+                const originalValue = element.getAttribute(attrName);
+                const translated = resolveUiTranslation(originalValue);
+                if (!translated || translated === originalValue) {
+                    return;
+                }
+                element.setAttribute(attrName, translated);
+            });
+
+            ['onclick', 'onsubmit', 'onchange'].forEach((attrName) => {
+                if (!element.hasAttribute(attrName)) {
+                    return;
+                }
+
+                const handlerSource = String(element.getAttribute(attrName) || '');
+                if (!/[\u0400-\u04FF]/.test(handlerSource)) {
+                    return;
+                }
+
+                const translatedHandler = handlerSource.replace(/'([^']*[\u0400-\u04FF][^']*)'|\"([^\"]*[\u0400-\u04FF][^\"]*)\"/g, (match, singleQuoted, doubleQuoted) => {
+                    const sourceText = singleQuoted || doubleQuoted || '';
+                    const translatedText = resolveUiTranslation(sourceText);
+                    if (!translatedText || translatedText === sourceText) {
+                        return match;
+                    }
+
+                    if (singleQuoted) {
+                        return `'${translatedText.replace(/'/g, "\\'")}'`;
+                    }
+                    return `"${translatedText.replace(/\"/g, '\\"')}"`;
+                });
+
+                if (translatedHandler !== handlerSource) {
+                    element.setAttribute(attrName, translatedHandler);
+                }
+            });
+        }
+
+        async function applyUiTranslations(rootNode) {
+            const currentLanguage = normalizeLanguageCode(document.documentElement.getAttribute('lang'));
+            if (currentLanguage !== 'en') {
+                return;
+            }
+
+            await ensureUiTranslationMapLoaded();
+
+            if (!uiTranslationMap) {
+                return;
+            }
+
+            const root = rootNode || document;
+
+            if (root instanceof HTMLElement) {
+                translateElementAttributes(root);
+            }
+
+            const walker = document.createTreeWalker(
+                root,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode(node) {
+                        if (!node || !node.parentElement) {
+                            return NodeFilter.FILTER_SKIP;
+                        }
+                        const parentTag = node.parentElement.tagName;
+                        if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'CODE', 'PRE'].includes(parentTag)) {
+                            return NodeFilter.FILTER_SKIP;
+                        }
+                        return NodeFilter.FILTER_ACCEPT;
+                    },
+                }
+            );
+
+            let currentNode = walker.nextNode();
+            while (currentNode) {
+                translateSingleTextNode(currentNode);
+                currentNode = walker.nextNode();
+            }
+
+            if (root.querySelectorAll) {
+                root.querySelectorAll('*').forEach((element) => {
+                    translateElementAttributes(element);
+                });
+            }
         }
 
         // Инициализация темы п�� загрузке ����ницы
@@ -346,6 +717,113 @@
             });
         }
 
+        function normalizeMessageLevel(rawTags) {
+            const tags = String(rawTags || '')
+                .toLowerCase()
+                .split(/\s+/)
+                .filter(Boolean);
+
+            if (tags.includes('success')) return 'success';
+            if (tags.includes('error') || tags.includes('danger')) return 'error';
+            if (tags.includes('warning')) return 'warning';
+            return 'info';
+        }
+
+        function applyMessageLevel(alertEl) {
+            const classTags = [];
+
+            alertEl.classList.forEach((className) => {
+                if (className.startsWith('alert-')) {
+                    classTags.push(className.slice(6));
+                }
+                if (className === 'success' || className === 'error' || className === 'warning' || className === 'info' || className === 'danger') {
+                    classTags.push(className);
+                }
+            });
+
+            const level = normalizeMessageLevel(alertEl.dataset.messageTags || classTags.join(' '));
+
+            alertEl.classList.add('alert');
+            alertEl.classList.remove('alert-success', 'alert-error', 'alert-warning', 'alert-info', 'alert-danger');
+
+            if (level === 'success') {
+                alertEl.classList.add('alert-success');
+            } else if (level === 'error' || level === 'warning') {
+                alertEl.classList.add('alert-error', 'alert-danger');
+            } else {
+                alertEl.classList.add('alert-info');
+            }
+        }
+
+        function ensureAlertCloseButton(alertEl) {
+            if (alertEl.dataset.alertInitialized === '1') {
+                return;
+            }
+
+            alertEl.classList.add('alert-dismissible', 'fade', 'show');
+
+            const existingClose = alertEl.querySelector('.btn-close, [data-bs-dismiss="alert"], [data-alert-close]');
+
+            if (existingClose) {
+                existingClose.classList.add('btn-close', 'app-alert-close');
+                existingClose.setAttribute('type', 'button');
+                existingClose.setAttribute('data-alert-close', '1');
+                existingClose.setAttribute('aria-label', existingClose.getAttribute('aria-label') || 'Закрыть');
+            } else {
+                const closeButton = document.createElement('button');
+                closeButton.type = 'button';
+                closeButton.className = 'btn-close app-alert-close';
+                closeButton.setAttribute('aria-label', 'Закрыть');
+                closeButton.setAttribute('data-alert-close', '1');
+                alertEl.appendChild(closeButton);
+            }
+
+            alertEl.dataset.alertInitialized = '1';
+        }
+
+        function initializeFlashMessages(rootNode) {
+            const root = rootNode || document;
+            const selectors = [
+                '.app-notification',
+                '.messages .alert',
+                '.alert-container .alert',
+                '.errorlist .alert',
+                '.feed-messages .alert',
+                '.chat-alerts .alert',
+            ];
+
+            const uniqueAlerts = new Set();
+            selectors.forEach((selector) => {
+                root.querySelectorAll(selector).forEach((alertEl) => uniqueAlerts.add(alertEl));
+            });
+
+            uniqueAlerts.forEach((alertEl) => {
+                applyMessageLevel(alertEl);
+                ensureAlertCloseButton(alertEl);
+            });
+        }
+
+        document.addEventListener('click', function(event) {
+            const closeButton = event.target.closest('[data-alert-close], [data-bs-dismiss="alert"]');
+            if (!closeButton) {
+                return;
+            }
+
+            const alertEl = closeButton.closest('.alert, .app-notification');
+            if (!alertEl) {
+                return;
+            }
+
+            event.preventDefault();
+            alertEl.classList.remove('show');
+
+            if (alertEl.classList.contains('fade')) {
+                window.setTimeout(() => alertEl.remove(), 150);
+            } else {
+                alertEl.remove();
+            }
+        });
+
         // Универсальная функция ��ены темы
         function toggleTheme() {
             const html = document.documentElement;
@@ -430,13 +908,19 @@
 
             const savedFontSize = document.documentElement.getAttribute('data-font-size') || localStorage.getItem('font_size');
             setTextSize(savedFontSize || 'normal');
+            const currentLanguage = normalizeLanguageCode(document.documentElement.getAttribute('lang'));
+            updateLanguageButtons(currentLanguage);
             initializePasswordVisibilityToggles(document);
+            initializeFlashMessages(document);
+            applyUiTranslations(document);
 
             const observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
                     mutation.addedNodes.forEach(function(node) {
                         if (node instanceof HTMLElement) {
                             initializePasswordVisibilityToggles(node);
+                            initializeFlashMessages(node);
+                            applyUiTranslations(node);
                         }
                     });
                 });

@@ -52,6 +52,7 @@ MIDDLEWARE = [
     'django_prometheus.middleware.PrometheusAfterMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -115,6 +116,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'ru'
+LANGUAGES = [
+    ('ru', 'Русский'),
+    ('en', 'English'),
+]
 TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
 USE_TZ = True

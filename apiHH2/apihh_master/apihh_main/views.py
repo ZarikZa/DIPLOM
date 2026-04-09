@@ -8,7 +8,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.contrib.auth import get_user_model
-from django.db.models import Exists, OuterRef, Count, Sum
+from django.db.models import Exists, OuterRef, Count, Sum, F
 from django.http import HttpResponse
 
 from rest_framework import status, viewsets, mixins, serializers
@@ -73,6 +73,7 @@ from .serializers import (
     CompanyVacancyCategorySuggestionCreateSerializer,
     CompanyVacancyCategorySuggestionSerializer,
     AdminVacancyCategorySuggestionSerializer,
+    AdminVacancyCategorySuggestionCreateSerializer,
     AdminVacancyCategorySuggestionUpdateSerializer,
 )
 
@@ -87,6 +88,49 @@ UserModel = get_user_model()
 
 def _vacancy_categories() -> list[str]:
     return get_available_vacancy_categories()
+
+
+def _restore_mojibake(text_value: str | None) -> str:
+    raw = str(text_value or '')
+    if not raw:
+        return ''
+    try:
+        restored = raw.encode('cp1251').decode('utf-8')
+    except Exception:
+        return raw
+    return restored or raw
+
+
+def _response_status_alias(status_name: str | None) -> str:
+    normalized = _restore_mojibake(status_name).strip().lower()
+    if not normalized:
+        return ''
+    if any(
+        token in normalized
+        for token in (
+            '\u043e\u0442\u043f\u0440\u0430\u0432',
+            'sent',
+        )
+    ):
+        return 'sent'
+    if any(
+        token in normalized
+        for token in (
+            '\u043f\u0440\u0438\u0433\u043b\u0430\u0448',
+            'invite',
+        )
+    ):
+        return 'invited'
+    if any(
+        token in normalized
+        for token in (
+            '\u043e\u0442\u043a\u0430\u0437',
+            '\u043e\u0442\u043a\u043b\u043e\u043d',
+            'reject',
+        )
+    ):
+        return 'rejected'
+    return ''
 
 
 def build_cm_profile_stats(user):
@@ -402,9 +446,31 @@ class AdminVacancyCategorySuggestionViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_serializer_class(self):
+        if self.action == 'create':
+            return AdminVacancyCategorySuggestionCreateSerializer
         if self.action in ('update', 'partial_update'):
             return AdminVacancyCategorySuggestionUpdateSerializer
         return AdminVacancyCategorySuggestionSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        suggestion = VacancyCategorySuggestion.objects.create(
+            name=serializer.validated_data['name'],
+            company=None,
+            requested_by=request.user,
+            status=VacancyCategorySuggestion.STATUS_APPROVED,
+            admin_notes=serializer.validated_data.get('admin_notes', ''),
+            reviewed_by=request.user,
+            reviewed_at=timezone.now(),
+        )
+
+        response_data = AdminVacancyCategorySuggestionSerializer(
+            suggestion,
+            context={'request': request},
+        ).data
+        return DRFResponse(response_data, status=status.HTTP_201_CREATED)
 
     def perform_update(self, serializer):
         suggestion = serializer.save()
@@ -462,6 +528,13 @@ class VacancyViewSet(viewsets.ModelViewSet):
         if self.action == 'retrieve':
             return VacancyDetailSerializer
         return VacancyListSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        Vacancy.objects.filter(pk=instance.pk).update(views=F('views') + 1)
+        instance.refresh_from_db(fields=['views'])
+        serializer = self.get_serializer(instance)
+        return DRFResponse(serializer.data)
 
 
 # -------------------- Applicant --------------------
@@ -527,7 +600,7 @@ class ApplicantViewSet(viewsets.ModelViewSet):
         try:
             applicant = request.user.applicant
         except Applicant.DoesNotExist:
-            return DRFResponse({"detail": "РџСЂРѕС„РёР»СЊ СЃРѕРёСЃРєР°С‚РµР»СЏ РЅРµ РЅР°Р№РґРµРЅ"}, status=status.HTTP_400_BAD_REQUEST)
+            return DRFResponse({"detail": "Профиль соискателя не найден"}, status=status.HTTP_400_BAD_REQUEST)
 
         if request.method == 'GET':
             return DRFResponse(self._build_interests_payload(applicant), status=status.HTTP_200_OK)
@@ -535,7 +608,7 @@ class ApplicantViewSet(viewsets.ModelViewSet):
         categories = request.data.get('categories', [])
         if not isinstance(categories, list):
             return DRFResponse(
-                {"detail": "РћР¶РёРґР°РµС‚СЃСЏ {\"categories\": [\"IT\", \"HR\"]}"},
+                {"detail": "Ожидается {\"categories\": [\"IT\", \"HR\"]}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -555,7 +628,7 @@ class ApplicantViewSet(viewsets.ModelViewSet):
         if invalid_categories:
             return DRFResponse(
                 {
-                    'detail': 'РќРµРєРѕСЂСЂРµРєС‚РЅС‹Рµ РєР°С‚РµРіРѕСЂРёРё',
+                    'detail': 'Некорректные категории',
                     'invalid_categories': invalid_categories,
                     'available_categories': available_categories,
                 },
@@ -763,6 +836,12 @@ class ResponseViewSet(viewsets.ModelViewSet):
             new_status = StatusResponse.objects.get(id=new_status_id)
         except StatusResponse.DoesNotExist:
             return DRFResponse({"error": "Указанный статус не найден"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not _response_status_alias(new_status.status_response_name):
+            return DRFResponse(
+                {"error": "Разрешены только статусы: Отправлен, Приглашение, Отказ"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not (user.user_type == 'adminsite' or user.is_superuser):
             company = None
@@ -1032,24 +1111,52 @@ class ChatViewSet(viewsets.ModelViewSet):
     serializer_class = ChatSerializer
     permission_classes = [IsAuthenticated]
 
+    def _is_archived_request(self) -> bool:
+        raw = str(self.request.query_params.get('archived', '0')).strip().lower()
+        return raw in {'1', 'true', 'yes', 'on'}
+
+    @staticmethod
+    def _has_company_chat_access(user, chat: Chat) -> bool:
+        if user.user_type == 'company':
+            company = getattr(user, 'company', None)
+        elif user.user_type == 'staff':
+            company = getattr(getattr(user, 'employee', None), 'company', None)
+        else:
+            company = None
+        return bool(company and chat.company_id == company.id)
+
     def get_queryset(self):
         user = self.request.user
+        filter_by_archive = self.action == 'list'
+        show_archived = self._is_archived_request()
 
         if user.user_type == 'applicant':
-            return Chat.objects.filter(applicant=user.applicant)
+            try:
+                queryset = Chat.objects.filter(applicant=user.applicant)
+                if filter_by_archive:
+                    queryset = queryset.filter(is_archived_by_applicant=show_archived)
+                return queryset
+            except Applicant.DoesNotExist:
+                return Chat.objects.none()
 
         if user.user_type == 'company':
             company = getattr(user, 'company', None)
             if not company:
                 return Chat.objects.none()
-            return Chat.objects.filter(company=company)
+            queryset = Chat.objects.filter(company=company)
+            if filter_by_archive:
+                queryset = queryset.filter(is_archived_by_company=show_archived)
+            return queryset
 
         if user.user_type == 'staff':
             try:
                 company = user.employee.company
                 if not company:
                     return Chat.objects.none()
-                return Chat.objects.filter(company=company)
+                queryset = Chat.objects.filter(company=company)
+                if filter_by_archive:
+                    queryset = queryset.filter(is_archived_by_company=show_archived)
+                return queryset
             except Employee.DoesNotExist:
                 return Chat.objects.none()
 
@@ -1111,6 +1218,64 @@ class ChatViewSet(viewsets.ModelViewSet):
         chat.save(update_fields=['last_message_at'])
 
         return DRFResponse(MessageSerializer(message, context={'request': request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def archive(self, request, pk=None):
+        chat = self.get_object()
+        user = request.user
+
+        if user.user_type == 'applicant':
+            if chat.applicant.user_id != user.id:
+                return DRFResponse({"error": "Нет доступа к этому чату"}, status=status.HTTP_403_FORBIDDEN)
+            if not chat.is_archived_by_applicant:
+                chat.is_archived_by_applicant = True
+                chat.save(update_fields=['is_archived_by_applicant'])
+            return DRFResponse({"status": "archived", "is_archived": True})
+
+        if user.user_type in ('company', 'staff'):
+            if not self._has_company_chat_access(user, chat):
+                return DRFResponse({"error": "Нет доступа к этому чату"}, status=status.HTTP_403_FORBIDDEN)
+            if not chat.is_archived_by_company:
+                chat.is_archived_by_company = True
+                chat.save(update_fields=['is_archived_by_company'])
+            return DRFResponse({"status": "archived", "is_archived": True})
+
+        if user.user_type == 'adminsite' or user.is_superuser:
+            chat.is_archived_by_applicant = True
+            chat.is_archived_by_company = True
+            chat.save(update_fields=['is_archived_by_applicant', 'is_archived_by_company'])
+            return DRFResponse({"status": "archived", "is_archived": True})
+
+        return DRFResponse({"error": "Нет доступа к этому чату"}, status=status.HTTP_403_FORBIDDEN)
+
+    @action(detail=True, methods=['post'])
+    def unarchive(self, request, pk=None):
+        chat = self.get_object()
+        user = request.user
+
+        if user.user_type == 'applicant':
+            if chat.applicant.user_id != user.id:
+                return DRFResponse({"error": "Нет доступа к этому чату"}, status=status.HTTP_403_FORBIDDEN)
+            if chat.is_archived_by_applicant:
+                chat.is_archived_by_applicant = False
+                chat.save(update_fields=['is_archived_by_applicant'])
+            return DRFResponse({"status": "active", "is_archived": False})
+
+        if user.user_type in ('company', 'staff'):
+            if not self._has_company_chat_access(user, chat):
+                return DRFResponse({"error": "Нет доступа к этому чату"}, status=status.HTTP_403_FORBIDDEN)
+            if chat.is_archived_by_company:
+                chat.is_archived_by_company = False
+                chat.save(update_fields=['is_archived_by_company'])
+            return DRFResponse({"status": "active", "is_archived": False})
+
+        if user.user_type == 'adminsite' or user.is_superuser:
+            chat.is_archived_by_applicant = False
+            chat.is_archived_by_company = False
+            chat.save(update_fields=['is_archived_by_applicant', 'is_archived_by_company'])
+            return DRFResponse({"status": "active", "is_archived": False})
+
+        return DRFResponse({"error": "Нет доступа к этому чату"}, status=status.HTTP_403_FORBIDDEN)
 
     @action(detail=False, methods=['get'])
     def by_vacancy(self, request):

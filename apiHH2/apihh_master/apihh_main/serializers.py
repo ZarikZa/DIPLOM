@@ -20,6 +20,8 @@ PERSON_NAME_RE = re.compile(r"^[A-Za-z\u0400-\u04FF\s'-]+$")
 CITY_RE = re.compile(r"^[0-9A-Za-z\u0400-\u04FF\s'().,-]+$")
 POSITION_RE = re.compile(r"^[0-9A-Za-z\u0400-\u04FF\s'().,+/#-]+$")
 CATEGORY_NAME_RE = re.compile(r"^[0-9A-Za-z\u0400-\u04FF\s'().,+/#&-]+$")
+RESUME_FILE_ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'rtf', 'txt']
+RESUME_FILE_MAX_SIZE = 10 * 1024 * 1024
 
 
 def normalize_ru_phone(value: str) -> str | None:
@@ -78,6 +80,23 @@ def _validate_salary(value: Decimal, field_label: str) -> Decimal:
     return value
 
 
+def _validate_resume_file(file_obj):
+    if not file_obj:
+        return file_obj
+
+    file_size = getattr(file_obj, 'size', None)
+    if file_size is not None and file_size > RESUME_FILE_MAX_SIZE:
+        raise serializers.ValidationError('Файл резюме не должен превышать 10 МБ.')
+
+    file_name = str(getattr(file_obj, 'name', '') or '')
+    extension = file_name.rsplit('.', 1)[-1].lower() if '.' in file_name else ''
+    if extension not in RESUME_FILE_ALLOWED_EXTENSIONS:
+        allowed = ', '.join(RESUME_FILE_ALLOWED_EXTENSIONS)
+        raise serializers.ValidationError(f'Допустимые форматы файла резюме: {allowed}.')
+
+    return file_obj
+
+
 def _validate_vacancy_category_name(value: str) -> str:
     value = _normalize_text(value)
     if len(value) < 2:
@@ -114,6 +133,19 @@ def _validate_vacancy_category_name(value: str) -> str:
         )
     return value
 
+
+def _validate_skill_name(value: str) -> str:
+    value = _normalize_text(value)
+    if len(value) < 2:
+        raise serializers.ValidationError('Название навыка должно быть не короче 2 символов.')
+    if len(value) > 80:
+        raise serializers.ValidationError('Название навыка не должно быть длиннее 80 символов.')
+    if not CATEGORY_NAME_RE.fullmatch(value):
+        raise serializers.ValidationError(
+            'Навык содержит недопустимые символы. Разрешены буквы, цифры, пробелы и знаки . , - ( ) / # + &'
+        )
+    return _validate_no_profanity(value, 'Навык')
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True)
@@ -124,7 +156,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "РџР°СЂРѕР»Рё РЅРµ СЃРѕРІРїР°РґР°СЋС‚"})
+            raise serializers.ValidationError({"password": "Пароли не совпадают"})
         return attrs
     
     def create(self, validated_data):
@@ -215,20 +247,20 @@ class CompanyStatusSerializer(serializers.ModelSerializer):
         if status_changed:
             if instance.status == Company.STATUS_APPROVED:
                 code = 'company_approved'
-                name = 'РћРґРѕР±СЂРµРЅРёРµ РєРѕРјРїР°РЅРёРё'
+                name = 'Одобрение компании'
             elif instance.status == Company.STATUS_REJECTED:
                 code = 'company_rejected'
-                name = 'РћС‚РєР»РѕРЅРµРЅРёРµ РєРѕРјРїР°РЅРёРё'
+                name = 'Отклонение компании'
             else:
                 code = 'company_status_updated'
-                name = 'РЎРјРµРЅР° СЃС‚Р°С‚СѓСЃР° РєРѕРјРїР°РЅРёРё'
-            details = f"РЎС‚Р°С‚СѓСЃ РёР·РјРµРЅРµРЅ РЅР° {instance.get_status_display()}"
+                name = 'Смена статуса компании'
+            details = f"Статус изменен на {instance.get_status_display()}"
             if email_sent is not None:
-                details += ' (email РѕС‚РїСЂР°РІР»РµРЅ)' if email_sent else ' (РѕС€РёР±РєР° РѕС‚РїСЂР°РІРєРё email)'
+                details += ' (email отправлен)' if email_sent else ' (ошибка отправки email)'
         else:
             code = 'company_moderation_updated'
-            name = 'РћР±РЅРѕРІР»РµРЅРёРµ РјРѕРґРµСЂР°С†РёРё РєРѕРјРїР°РЅРёРё'
-            details = "РћР±РЅРѕРІР»РµРЅС‹ РґР°РЅРЅС‹Рµ РјРѕРґРµСЂР°С†РёРё"
+            name = 'Обновление модерации компании'
+            details = "Обновлены данные модерации"
 
         action_type, _ = ActionType.objects.get_or_create(
             code=code,
@@ -255,6 +287,17 @@ class ApplicantSerializer(serializers.ModelSerializer):
 
 
 class SkillSerializer(serializers.ModelSerializer):
+    def validate_name(self, value):
+        value = _validate_skill_name(value)
+
+        qs = Skill.objects.filter(name__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Такой навык уже существует.')
+
+        return value
+
     class Meta:
         model = Skill
         fields = ('id', 'name')
@@ -269,12 +312,12 @@ class ApplicantSkillSerializer(serializers.ModelSerializer):
 
     def validate_level(self, v):
         if v < 1 or v > 5:
-            raise serializers.ValidationError('level РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РѕС‚ 1 РґРѕ 5')
+            raise serializers.ValidationError('level должен быть от 1 до 5')
         return v
 
 
 class ApplicantSkillUpsertSerializer(serializers.Serializer):
-    """РџСЂРёС‘Рј РїР°С‡РєРё РѕС†РµРЅРѕРє РЅР°РІС‹РєРѕРІ (upsert)."""
+    """Приём пачки оценок навыков (upsert)."""
 
     skill_id = serializers.IntegerField()
     level = serializers.IntegerField(min_value=1, max_value=5)
@@ -372,6 +415,20 @@ class AdminVacancyCategorySuggestionUpdateSerializer(serializers.ModelSerializer
     class Meta:
         model = VacancyCategorySuggestion
         fields = ('status', 'admin_notes')
+
+    def validate_admin_notes(self, value):
+        value = _normalize_text(value)
+        if not value:
+            return ''
+        return _validate_no_profanity(value, 'Комментарий администратора')
+
+
+class AdminVacancyCategorySuggestionCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=50)
+    admin_notes = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_name(self, value):
+        return _validate_vacancy_category_name(value)
 
     def validate_admin_notes(self, value):
         value = _normalize_text(value)
@@ -548,7 +605,7 @@ class ComplaintSerializer(serializers.ModelSerializer):
 
 
 class AdminComplaintSerializer(serializers.ModelSerializer):
-    """РђРґРјРёРЅ СЃР°Р№С‚Р° РјРѕР¶РµС‚ РјРµРЅСЏС‚СЊ СЃС‚Р°С‚СѓСЃ Рё admin_notes."""
+    """Админ сайта может менять статус и admin_notes."""
 
     complainant_email = serializers.CharField(source='complainant.email', read_only=True)
     vacancy_position = serializers.CharField(source='vacancy.position', read_only=True)
@@ -600,25 +657,25 @@ class CreateResponseSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         
         if user.user_type != 'applicant':
-            raise serializers.ValidationError("РўРѕР»СЊРєРѕ СЃРѕРёСЃРєР°С‚РµР»Рё РјРѕРіСѓС‚ СЃРѕР·РґР°РІР°С‚СЊ РѕС‚РєР»РёРєРё")
+            raise serializers.ValidationError("Только соискатели могут создавать отклики")
         
         try:
             applicant = user.applicant
         except Applicant.DoesNotExist:
-            raise serializers.ValidationError("РџСЂРѕС„РёР»СЊ СЃРѕРёСЃРєР°С‚РµР»СЏ РЅРµ РЅР°Р№РґРµРЅ")
+            raise serializers.ValidationError("Профиль соискателя не найден")
         
         # РџСЂРѕРІРµСЂСЏРµРј РІР°РєР°РЅСЃРёСЋ
         vacancy = data.get('vacancy')
         if not vacancy:
-            raise serializers.ValidationError({"vacancy": "Р’Р°РєР°РЅСЃРёСЏ РѕР±СЏР·Р°С‚РµР»СЊРЅР°"})
+            raise serializers.ValidationError({"vacancy": "Вакансия обязательна"})
         
         # РџСЂРѕРІРµСЂСЏРµРј, Р°РєС‚РёРІРЅР° Р»Рё РІР°РєР°РЅСЃРёСЏ
         if hasattr(vacancy, 'is_active') and not vacancy.is_active:
-            raise serializers.ValidationError("РќРµР»СЊР·СЏ РѕС‚РєР»РёРєРЅСѓС‚СЊСЃСЏ РЅР° РЅРµР°РєС‚РёРІРЅСѓСЋ РІР°РєР°РЅСЃРёСЋ")
+            raise serializers.ValidationError("Нельзя откликнуться на неактивную вакансию")
         
         # РџСЂРѕРІРµСЂСЏРµРј, РЅРµ РѕС‚РєР»РёРєР°Р»СЃСЏ Р»Рё СѓР¶Рµ
         if Response.objects.filter(applicants=applicant, vacancy=vacancy).exists():
-            raise serializers.ValidationError("Р’С‹ СѓР¶Рµ РѕС‚РєР»РёРєР°Р»РёСЃСЊ РЅР° СЌС‚Сѓ РІР°РєР°РЅСЃРёСЋ")
+            raise serializers.ValidationError("Вы уже откликались на эту вакансию")
         
         return data
     
@@ -628,12 +685,12 @@ class CreateResponseSerializer(serializers.ModelSerializer):
         
         # РџРѕР»СѓС‡Р°РµРј СЃС‚Р°С‚СѓСЃ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
         try:
-            default_status = StatusResponse.objects.get(status_response_name="РћС‚РїСЂР°РІР»РµРЅ")
+            default_status = StatusResponse.objects.get(status_response_name="Отправлен")
         except StatusResponse.DoesNotExist:
             # Р•СЃР»Рё РЅРµС‚ СЃС‚Р°С‚СѓСЃР° "РћС‚РїСЂР°РІР»РµРЅ", Р±РµСЂРµРј РїРµСЂРІС‹Р№ РґРѕСЃС‚СѓРїРЅС‹Р№
             default_status = StatusResponse.objects.first()
             if not default_status:
-                raise serializers.ValidationError("РќРµС‚ РґРѕСЃС‚СѓРїРЅС‹С… СЃС‚Р°С‚СѓСЃРѕРІ РѕС‚РєР»РёРєР°")
+                raise serializers.ValidationError("Нет доступных статусов отклика")
         
         # РЎРѕР·РґР°РµРј РѕС‚РєР»РёРє
         response = Response.objects.create(
@@ -650,7 +707,7 @@ class CheckResponseSerializer(serializers.Serializer):
     
     def to_representation(self, instance):
         """
-        instance - СЌС‚Рѕ СЃР»РѕРІР°СЂСЊ СЃ РґР°РЅРЅС‹РјРё Рѕ РѕС‚РєР»РёРєРµ
+        instance - это словарь с данными о отклике
         """
         return {
             'has_responded': instance['has_responded'],
@@ -720,10 +777,15 @@ class ApplicantRegistrationSerializer(BaseUserRegistrationSerializer):
     last_name = serializers.CharField(max_length=80)
     birth_date = serializers.DateField()
     resume = serializers.CharField(required=False, allow_blank=True)
+    resume_file = serializers.FileField(
+        required=False,
+        allow_null=True,
+        validators=[FileExtensionValidator(RESUME_FILE_ALLOWED_EXTENSIONS)],
+    )
     
     class Meta(BaseUserRegistrationSerializer.Meta):
         fields = BaseUserRegistrationSerializer.Meta.fields + (
-            'first_name', 'last_name', 'birth_date', 'resume'
+            'first_name', 'last_name', 'birth_date', 'resume', 'resume_file'
         )
 
     def validate_first_name(self, value):
@@ -742,6 +804,9 @@ class ApplicantRegistrationSerializer(BaseUserRegistrationSerializer):
         if not value:
             return value
         return _validate_no_profanity(value, 'Резюме')
+
+    def validate_resume_file(self, value):
+        return _validate_resume_file(value)
     
     def create(self, validated_data):
         # Р ВР В·Р Р†Р В»Р ВµР С”Р В°Р ВµР С Р Т‘Р В°Р Р…Р Р…РЎвЂ№Р Вµ Р Т‘Р В»РЎРЏ Applicant
@@ -751,7 +816,8 @@ class ApplicantRegistrationSerializer(BaseUserRegistrationSerializer):
             'first_name': first_name,
             'last_name': last_name,
             'birth_date': validated_data.pop('birth_date'),
-            'resume': validated_data.pop('resume', '')
+            'resume': validated_data.pop('resume', ''),
+            'resume_file': validated_data.pop('resume_file', None),
         }
         
         # РЎРѕР·РґР°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
@@ -944,7 +1010,7 @@ class EmployeeRegistrationSerializer(BaseUserRegistrationSerializer):
         # Р”Р»СЏ СЃРѕС‚СЂСѓРґРЅРёРєРѕРІ РєРѕРјРїР°РЅРёРё (HR/Content Manager) РєРѕРјРїР°РЅРёСЏ РѕР±СЏР·Р°С‚РµР»СЊРЅР°
         if attrs.get('role') in ['hr', 'content_manager'] and not attrs.get('company_id'):
             raise serializers.ValidationError({
-                "company_id": "Р”Р»СЏ HR-Р°РіРµРЅС‚Р° РЅРµРѕР±С…РѕРґРёРјРѕ СѓРєР°Р·Р°С‚СЊ РєРѕРјРїР°РЅРёСЋ"
+                "company_id": "Для HR-агента необходимо указать компанию"
             })
         
         return attrs
@@ -968,7 +1034,7 @@ class EmployeeRegistrationSerializer(BaseUserRegistrationSerializer):
             try:
                 company = Company.objects.get(id=company_id)
             except Company.DoesNotExist:
-                raise serializers.ValidationError({"company_id": "РљРѕРјРїР°РЅРёСЏ РЅРµ РЅР°Р№РґРµРЅР°"})
+                raise serializers.ValidationError({"company_id": "Компания не найдена"})
 
         # РЎРѕР·РґР°РµРј Employee
         employee = Employee.objects.create(user=user, company=company, role=role)
@@ -1012,6 +1078,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
     applicant_id = serializers.SerializerMethodField(read_only=True)
     birth_date = serializers.DateField(source='applicant.birth_date', required=False, allow_null=True)
     resume = serializers.CharField(source='applicant.resume', required=False, allow_blank=True, allow_null=True)
+    resume_file = serializers.FileField(
+        source='applicant.resume_file',
+        required=False,
+        allow_null=True,
+        validators=[FileExtensionValidator(RESUME_FILE_ALLOWED_EXTENSIONS)],
+    )
     avatar = serializers.ImageField(source='applicant.avatar', required=False, allow_null=True)
     # theme = serializers.CharField(source='applicant.theme', required=False, allow_blank=True)  # РµСЃР»Рё РµСЃС‚СЊ
 
@@ -1020,7 +1092,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'phone', 'user_type', 'user_type_display',
             'first_name', 'last_name',
-            'applicant_id', 'birth_date', 'resume', 'avatar',
+            'applicant_id', 'birth_date', 'resume', 'resume_file', 'avatar',
             'employee_role', 'company_id',
             'company_name', 'company_number', 'company_industry', 'company_description',
         ]
@@ -1120,6 +1192,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return value
         return _validate_no_profanity(value, 'Резюме')
 
+    def validate_resume_file(self, value):
+        return _validate_resume_file(value)
+
     def update(self, instance, validated_data):
         applicant_data = validated_data.pop('applicant', {})
 
@@ -1167,13 +1242,13 @@ class ChangePasswordSerializer(serializers.Serializer):
         new_password_confirm = attrs.get('new_password_confirm')
 
         if not user.check_password(old_password):
-            raise serializers.ValidationError({'old_password': 'РќРµРІРµСЂРЅС‹Р№ С‚РµРєСѓС‰РёР№ РїР°СЂРѕР»СЊ'})
+            raise serializers.ValidationError({'old_password': 'Неверный текущий пароль'})
 
         if new_password != new_password_confirm:
-            raise serializers.ValidationError({'new_password_confirm': 'РџР°СЂРѕР»Рё РЅРµ СЃРѕРІРїР°РґР°СЋС‚'})
+            raise serializers.ValidationError({'new_password_confirm': 'Пароли не совпадают'})
 
         if old_password == new_password:
-            raise serializers.ValidationError({'new_password': 'РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ РґРѕР»Р¶РµРЅ РѕС‚Р»РёС‡Р°С‚СЊСЃСЏ РѕС‚ С‚РµРєСѓС‰РµРіРѕ'})
+            raise serializers.ValidationError({'new_password': 'Новый пароль должен отличаться от текущего'})
 
         validate_password(new_password, user=user)
         return attrs
@@ -1195,6 +1270,7 @@ class ChatSerializer(serializers.ModelSerializer):
     
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
+    is_archived = serializers.SerializerMethodField()
     
     class Meta:
         model = Chat
@@ -1203,9 +1279,16 @@ class ChatSerializer(serializers.ModelSerializer):
             'company', 'company_name', 'company_users',
             'applicant', 'applicant_name', 'applicant_info',
             'created_at', 'last_message_at', 'last_message',
-            'unread_count', 'is_active'
+            'unread_count', 'is_active', 'is_archived',
+            'is_archived_by_applicant', 'is_archived_by_company',
         ]
-        read_only_fields = ['created_at', 'last_message_at']
+        read_only_fields = [
+            'created_at',
+            'last_message_at',
+            'is_archived',
+            'is_archived_by_applicant',
+            'is_archived_by_company',
+        ]
     
     def get_vacancy_info(self, obj):
         return {
@@ -1225,7 +1308,7 @@ class ChatSerializer(serializers.ModelSerializer):
         }
     
     def get_company_users(self, obj):
-        """РЎРѕС‚СЂСѓРґРЅРёРєРё РєРѕРјРїР°РЅРёРё, РєРѕС‚РѕСЂС‹Рµ РјРѕРіСѓС‚ РїРёСЃР°С‚СЊ РІ С‡Р°С‚"""
+        """Сотрудники компании, которые могут писать в чат"""
         # Р’СЃРµ СЃРѕС‚СЂСѓРґРЅРёРєРё РєРѕРјРїР°РЅРёРё + СЃР°РјР° РєРѕРјРїР°РЅРёСЏ (user)
         users = []
         
@@ -1276,6 +1359,20 @@ class ChatSerializer(serializers.ModelSerializer):
                 sender_type='applicant',
                 is_read_by_company=False
             ).count()
+
+    def get_is_archived(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+
+        if user.user_type == 'applicant':
+            return bool(obj.is_archived_by_applicant)
+        if user.user_type in ('company', 'staff'):
+            return bool(obj.is_archived_by_company)
+        if user.user_type == 'adminsite' or user.is_superuser:
+            return bool(obj.is_archived_by_company or obj.is_archived_by_applicant)
+        return False
         
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -1474,10 +1571,10 @@ class ContentManagerVideoSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
 
         if not hasattr(user, 'employee') or user.employee.role != 'content_manager':
-            raise serializers.ValidationError("РўРѕР»СЊРєРѕ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂ РјРѕР¶РµС‚ РґРѕР±Р°РІР»СЏС‚СЊ РІРёРґРµРѕ")
+            raise serializers.ValidationError("Только контент-менеджер может добавлять видео")
 
         if value.company != user.employee.company:
-            raise serializers.ValidationError("РќРµР»СЊР·СЏ Р·Р°РіСЂСѓР¶Р°С‚СЊ РІРёРґРµРѕ РґР»СЏ С‡СѓР¶РѕР№ РєРѕРјРїР°РЅРёРё")
+            raise serializers.ValidationError("Нельзя загружать видео для чужой компании")
 
         return value
 
@@ -1487,7 +1584,7 @@ class ContentManagerVideoSerializer(serializers.ModelSerializer):
         # video С„Р°Р№Р» Р±РµСЂС‘С‚СЃСЏ РёР· request.FILES (MultiPartParser)
         video_file = request.FILES.get("video")
         if not video_file:
-            raise serializers.ValidationError({"video": "Р¤Р°Р№Р» РІРёРґРµРѕ РѕР±СЏР·Р°С‚РµР»РµРЅ"})
+            raise serializers.ValidationError({"video": "Файл видео обязателен"})
 
         # uploaded_by/company РїСЂРёС…РѕРґСЏС‚ РёР· viewset.perform_create(serializer.save(...))
         # С‚СѓС‚ РґРѕР±Р°РІР»СЏРµРј С‚РѕР»СЊРєРѕ СЃР°Рј С„Р°Р№Р».
@@ -1548,7 +1645,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            raise serializers.ValidationError({"email": "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ"})
+            raise serializers.ValidationError({"email": "Пользователь не найден"})
 
         prc = (PasswordResetCode.objects
                .filter(user=user, code=code, is_used=False, expires_at__gt=timezone.now())
@@ -1556,7 +1653,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
                .first())
 
         if not prc:
-            raise serializers.ValidationError({"code": "РќРµРІРµСЂРЅС‹Р№ РёР»Рё РїСЂРѕСЃСЂРѕС‡РµРЅРЅС‹Р№ РєРѕРґ"})
+            raise serializers.ValidationError({"code": "Неверный или просроченный код"})
 
         attrs["user"] = user
         attrs["reset_obj"] = prc
@@ -1566,7 +1663,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 # -------------------- Company staff management --------------------
 
 class CompanyEmployeeCreateSerializer(serializers.Serializer):
-    """РЎРѕР·РґР°РЅРёРµ HR-Р°РіРµРЅС‚Р°/РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР° РІР»Р°РґРµР»СЊС†РµРј РєРѕРјРїР°РЅРёРё."""
+    """Создание HR-агента/контент-менеджера владельцем компании."""
 
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
@@ -1594,7 +1691,7 @@ class CompanyEmployeeCreateSerializer(serializers.Serializer):
         request = self.context['request']
         owner = request.user
         if owner.user_type != 'company':
-            raise serializers.ValidationError('РўРѕР»СЊРєРѕ РІР»Р°РґРµР»РµС† РєРѕРјРїР°РЅРёРё РјРѕР¶РµС‚ СЃРѕР·РґР°РІР°С‚СЊ СЃРѕС‚СЂСѓРґРЅРёРєРѕРІ')
+            raise serializers.ValidationError('Только владелец компании может создавать сотрудников')
 
         company = owner.company
 
@@ -1661,6 +1758,3 @@ class CompanyEmployeeUpdateSerializer(serializers.Serializer):
             instance.role = validated_data['role']
             instance.save(update_fields=['role'])
         return instance
-
-
-

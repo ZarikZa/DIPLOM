@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block title_name %}Чат{% endblock %}
 
@@ -13,7 +13,7 @@
     {% if messages %}
     <div class="chat-system-alerts">
         {% for message in messages %}
-        <div class="chat-system-alert">{{ message }}</div>
+        <div class="chat-system-alert alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
@@ -31,7 +31,7 @@
             </div>
             {% endfor %}
         {% else %}
-            <div class="chat-empty">сообщений пока нет. Начните диалог.</div>
+            <div class="chat-empty">Сообщений пока нет. Начните диалог.</div>
         {% endif %}
     </div>
 

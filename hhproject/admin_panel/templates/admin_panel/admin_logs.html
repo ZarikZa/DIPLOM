@@ -711,7 +711,7 @@
                     <form method="post" action="{% url 'admin_clear_logs' %}">
                         {% csrf_token %}
                         <div class="admin-form-group" style="max-width: 300px;">
-                            <label class="admin-form-label">Удалить логи ста€е:</label>
+                            <label class="admin-form-label">Удалить логи старше:</label>
                             <select name="days_old" class="admin-form-control">
                                 <option value="7">7 дней</option>
                                 <option value="30" selected>30 дней</option>

@@ -1,38 +1,38 @@
 ﻿{% extends 'base.html' %}
 {% load static %}
 
-{% block title_name %}регистрация соискателя{% endblock %}
+{% block title_name %}СЂРµРіРёСЃС‚СЂР°С†РёСЏ СЃРѕРёСЃРєР°С‚РµР»СЏ{% endblock %}
 
 {% block content %}
 <div class="register-section">
     <div class="register-container-wrapper">
         <div class="register-container">
-            <h2>создать аккаунт соискателя</h2>
+            <h2>СЃРѕР·РґР°С‚СЊ Р°РєРєР°СѓРЅС‚ СЃРѕРёСЃРєР°С‚РµР»СЏ</h2>
 
             {% if messages %}
             <div class="errorlist">
                 {% for message in messages %}
-                <div class="error-message">{{ message }}</div>
+                <div class="error-message alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
                 {% endfor %}
             </div>
             {% endif %}
 
-            <form method="post" action="{% url 'registration_user' %}" id="registrationForm">
+            <form method="post" action="{% url 'registration_user' %}" id="registrationForm" enctype="multipart/form-data">
                 {% csrf_token %}
 
                 <div class="form-group" style="--index: 1;">
-                    <label for="id_first_name">Имя</label>
-                    <input type="text" name="first_name" id="id_first_name" class="form-control" value="{{ form_data.first_name|default:'' }}" pattern="[А-Яа-яЁё]+(?:[ -][А-Яа-яЁё]+)*" title="Используйте только кириллицу, пробел или дефис" required>
+                    <label for="id_first_name">РРјСЏ</label>
+                    <input type="text" name="first_name" id="id_first_name" class="form-control" value="{{ form_data.first_name|default:'' }}" pattern="[Рђ-РЇР°-СЏРЃС‘]+(?:[ -][Рђ-РЇР°-СЏРЃС‘]+)*" title="РСЃРїРѕР»СЊР·СѓР№С‚Рµ С‚РѕР»СЊРєРѕ РєРёСЂРёР»Р»РёС†Сѓ, РїСЂРѕР±РµР» РёР»Рё РґРµС„РёСЃ" required>
                 </div>
 
                 <div class="form-group" style="--index: 2;">
-                    <label for="id_last_name">Фамилия</label>
-                    <input type="text" name="last_name" id="id_last_name" class="form-control" value="{{ form_data.last_name|default:'' }}" pattern="[А-Яа-яЁё]+(?:[ -][А-Яа-яЁё]+)*" title="Используйте только кириллицу, пробел или дефис" required>
+                    <label for="id_last_name">Р¤Р°РјРёР»РёСЏ</label>
+                    <input type="text" name="last_name" id="id_last_name" class="form-control" value="{{ form_data.last_name|default:'' }}" pattern="[Рђ-РЇР°-СЏРЃС‘]+(?:[ -][Рђ-РЇР°-СЏРЃС‘]+)*" title="РСЃРїРѕР»СЊР·СѓР№С‚Рµ С‚РѕР»СЊРєРѕ РєРёСЂРёР»Р»РёС†Сѓ, РїСЂРѕР±РµР» РёР»Рё РґРµС„РёСЃ" required>
                 </div>
 
                 <div class="form-group" style="--index: 3;">
-                    <label for="id_phone">Телефон</label>
-                    <input type="tel" name="phone" id="id_phone" class="form-control" value="{{ form_data.phone|default:'' }}" placeholder="+7 999 123-45-67" inputmode="tel" pattern="\+?[0-9()\-\s]{10,20}" title="Введите телефон в формате +7 999 123-45-67" required>
+                    <label for="id_phone">РўРµР»РµС„РѕРЅ</label>
+                    <input type="tel" name="phone" id="id_phone" class="form-control" value="{{ form_data.phone|default:'' }}" placeholder="+7 999 123-45-67" inputmode="tel" pattern="\+?[0-9()\-\s]{10,20}" title="Р’РІРµРґРёС‚Рµ С‚РµР»РµС„РѕРЅ РІ С„РѕСЂРјР°С‚Рµ +7 999 123-45-67" required>
                 </div>
 
                 <div class="form-group" style="--index: 4;">
@@ -41,35 +41,40 @@
                 </div>
 
                 <div class="form-group" style="--index: 5;">
-                    <label for="id_birth_date">Дата рождения</label>
+                    <label for="id_birth_date">Р”Р°С‚Р° СЂРѕР¶РґРµРЅРёСЏ</label>
                     <input type="date" name="birth_date" id="id_birth_date" class="form-control" value="{{ form_data.birth_date|default:'' }}" required>
                 </div>
 
                 <div class="form-group" style="--index: 6;">
-                    <label for="id_resume">Кратко о себе</label>
-                    <textarea name="resume" id="id_resume" class="form-control" rows="4" placeholder="Опыт, стек, интересующая роль">{{ form_data.resume|default:'' }}</textarea>
+                    <label for="id_resume">РљСЂР°С‚РєРѕ Рѕ СЃРµР±Рµ</label>
+                    <textarea name="resume" id="id_resume" class="form-control" rows="4" placeholder="РћРїС‹С‚, СЃС‚РµРє, РёРЅС‚РµСЂРµСЃСѓСЋС‰Р°СЏ СЂРѕР»СЊ">{{ form_data.resume|default:'' }}</textarea>
                 </div>
 
                 <div class="form-group" style="--index: 7;">
-                    <label for="id_password1">Пароль</label>
-                    <input type="password" name="password1" id="id_password1" class="form-control" minlength="8" required>
+                    <label for="id_resume_file">Resume file (optional)</label>
+                    <input type="file" name="resume_file" id="id_resume_file" class="form-control" accept=".pdf,.doc,.docx,.rtf,.txt">
                 </div>
 
                 <div class="form-group" style="--index: 8;">
-                    <label for="id_password2">Подтверждение пароля</label>
+                    <label for="id_password1">РџР°СЂРѕР»СЊ</label>
+                    <input type="password" name="password1" id="id_password1" class="form-control" minlength="8" required>
+                </div>
+
+                <div class="form-group" style="--index: 9;">
+                    <label for="id_password2">РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РїР°СЂРѕР»СЏ</label>
                     <input type="password" name="password2" id="id_password2" class="form-control" minlength="8" required>
                 </div>
 
-                <div class="form-group agreement-group" style="--index: 9;">
+                <div class="form-group agreement-group" style="--index: 10;">
                     <label class="agreement-label">
                         <input type="checkbox" name="personal_data_agreement" id="id_personal_data_agreement" {% if form_data.personal_data_agreement %}checked{% endif %} required>
                         <span class="checkmark"></span>
-                        Я согласен на обработку персональных данных
+                        РЇ СЃРѕРіР»Р°СЃРµРЅ РЅР° РѕР±СЂР°Р±РѕС‚РєСѓ РїРµСЂСЃРѕРЅР°Р»СЊРЅС‹С… РґР°РЅРЅС‹С…
                     </label>
                 </div>
 
-                <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
-                <a href="{% url 'login_user' %}" class="btn btn-secondary">Уже есть аккаунт</a>
+                <button type="submit" class="btn btn-primary">Р—Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊСЃСЏ</button>
+                <a href="{% url 'login_user' %}" class="btn btn-secondary">РЈР¶Рµ РµСЃС‚СЊ Р°РєРєР°СѓРЅС‚</a>
             </form>
         </div>
     </div>

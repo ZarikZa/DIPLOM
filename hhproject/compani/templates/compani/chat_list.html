@@ -4,51 +4,86 @@
     {% include '_inc/header.html' %}
 {% endblock %}
 
-{% block title_name %}Чаты компании{% endblock %}
+{% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Company chats{% else %}Чаты компании{% endif %}{% endblock %}
 
 {% block content %}
 <section style="max-width:980px;margin:0 auto;padding:28px 16px 40px;">
     {% if messages %}
     <div style="margin-bottom:12px;">
         {% for message in messages %}
-        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        <div class="alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
 
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
-        <h1 style="margin:0;">Чаты с соискателями</h1>
-        <form method="get" action="{% url 'company_chats' %}" style="display:flex;gap:8px;">
-            <input class="form-control" type="text" name="q" value="{{ query|default:'' }}" placeholder="Поиск по вакансии или соискателю">
-            <button class="btn btn-secondary" type="submit">Найти</button>
+        <h1 style="margin:0;">{% if request.LANGUAGE_CODE == 'en' %}Chats with applicants{% else %}Чаты с соискателями{% endif %}</h1>
+        <form method="get" action="{% url 'company_chats' %}" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="hidden" name="archived" value="{% if current_tab == 'archived' %}1{% else %}0{% endif %}">
+            <input class="form-control" type="text" name="q" value="{{ query|default:'' }}" placeholder="{% if request.LANGUAGE_CODE == 'en' %}Search by vacancy or applicant{% else %}Поиск по вакансии или соискателю{% endif %}">
+            <button class="btn btn-secondary" type="submit">{% if request.LANGUAGE_CODE == 'en' %}Search{% else %}Найти{% endif %}</button>
         </form>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <a class="btn {% if current_tab != 'archived' %}btn-primary{% else %}btn-secondary{% endif %}" href="{% url 'company_chats' %}?archived=0{% if query %}&q={{ query|urlencode }}{% endif %}">{% if request.LANGUAGE_CODE == 'en' %}Active chats{% else %}Активные чаты{% endif %}</a>
+        <a class="btn {% if current_tab == 'archived' %}btn-primary{% else %}btn-secondary{% endif %}" href="{% url 'company_chats' %}?archived=1{% if query %}&q={{ query|urlencode }}{% endif %}">{% if request.LANGUAGE_CODE == 'en' %}Archive{% else %}Архив{% endif %}</a>
     </div>
 
     <div style="margin-top:14px;display:grid;gap:10px;">
         {% if chats %}
             {% for chat in chats %}
-            <a href="{% url 'company_chat_detail' chat.id %}" style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;text-decoration:none;color:inherit;display:flex;justify-content:space-between;gap:10px;">
-                <div>
-                    <div style="font-weight:700;font-size:18px;">{{ chat.vacancy_title|default:'Вакансия' }}</div>
-                    <div style="color:#334155;margin-top:4px;">{{ chat.applicant_info.full_name|default:chat.applicant_name|default:'Соискатель' }}</div>
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;display:flex;justify-content:space-between;gap:14px;align-items:flex-start;">
+                <a href="{% url 'company_chat_detail' chat.id %}" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:18px;">
+                        {% if chat.vacancy_title %}
+                            {{ chat.vacancy_title }}
+                        {% else %}
+                            {% if request.LANGUAGE_CODE == 'en' %}Vacancy{% else %}Вакансия{% endif %}
+                        {% endif %}
+                    </div>
+                    <div style="color:#334155;margin-top:4px;">
+                        {% if chat.applicant_info.full_name or chat.applicant_name %}
+                            {{ chat.applicant_info.full_name|default:chat.applicant_name }}
+                        {% else %}
+                            {% if request.LANGUAGE_CODE == 'en' %}Applicant{% else %}Соискатель{% endif %}
+                        {% endif %}
+                    </div>
                     {% if chat.last_message %}
                     <div style="color:#64748b;margin-top:6px;">{{ chat.last_message.text }}</div>
                     {% else %}
-                    <div style="color:#94a3b8;margin-top:6px;">сообщений пока нет</div>
+                    <div style="color:#94a3b8;margin-top:6px;">{% if request.LANGUAGE_CODE == 'en' %}No messages yet{% else %}Сообщений пока нет{% endif %}</div>
                     {% endif %}
-                </div>
-                <div style="text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+                </a>
+                <div style="text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end;min-width:140px;">
                     {% if chat.last_message and chat.last_message.created_at %}
                     <div style="color:#64748b;font-size:13px;">{{ chat.last_message.created_at|slice:":16"|cut:"T" }}</div>
                     {% endif %}
                     {% if chat.unread_count %}
                     <span style="min-width:24px;height:24px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;">{{ chat.unread_count }}</span>
                     {% endif %}
+                    <form method="post" action="{% if current_tab == 'archived' %}{% url 'company_chat_unarchive' chat.id %}{% else %}{% url 'company_chat_archive' chat.id %}{% endif %}" style="margin:0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="btn btn-secondary" style="padding:6px 10px;">
+                            {% if current_tab == 'archived' %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Restore{% else %}Вернуть{% endif %}
+                            {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Archive{% else %}В архив{% endif %}
+                            {% endif %}
+                        </button>
+                    </form>
                 </div>
-            </a>
+            </div>
             {% endfor %}
         {% else %}
-            <div style="padding:14px;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;">Пока нет активных чатов</div>
+            <div style="padding:14px;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;">
+                {% if current_tab == 'archived' %}
+                    {% if request.LANGUAGE_CODE == 'en' %}The archive is empty{% else %}Архив пуст{% endif %}
+                {% else %}
+                    {% if request.LANGUAGE_CODE == 'en' %}No active chats yet{% else %}Пока нет активных чатов{% endif %}
+                {% endif %}
+            </div>
         {% endif %}
     </div>
 </section>

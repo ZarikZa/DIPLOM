@@ -1,21 +1,27 @@
 ﻿{% extends 'base.html' %}
 
-{% block title_name %}Чаты{% endblock %}
+{% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Chats{% else %}Чаты{% endif %}{% endblock %}
 
 {% block content %}
 <section class="chat-list-wrap">
     <div class="chat-list-head">
-        <h1>Чаты с компаниями</h1>
+        <h1>{% if request.LANGUAGE_CODE == 'en' %}Chats with companies{% else %}Чаты с компаниями{% endif %}</h1>
         <form method="get" action="{% url 'applicant_chats' %}" class="chat-search">
-            <input type="text" name="q" placeholder="Поиск по компании или вакансии" value="{{ query|default:'' }}">
-            <button type="submit">Найти</button>
+            <input type="hidden" name="archived" value="{% if current_tab == 'archived' %}1{% else %}0{% endif %}">
+            <input type="text" name="q" placeholder="{% if request.LANGUAGE_CODE == 'en' %}Search by company or vacancy{% else %}Поиск по компании или вакансии{% endif %}" value="{{ query|default:'' }}">
+            <button type="submit">{% if request.LANGUAGE_CODE == 'en' %}Search{% else %}Найти{% endif %}</button>
         </form>
+    </div>
+
+    <div class="chat-tabs">
+        <a class="{% if current_tab != 'archived' %}is-active{% endif %}" href="{% url 'applicant_chats' %}?archived=0{% if query %}&q={{ query|urlencode }}{% endif %}">{% if request.LANGUAGE_CODE == 'en' %}Active chats{% else %}Активные чаты{% endif %}</a>
+        <a class="{% if current_tab == 'archived' %}is-active{% endif %}" href="{% url 'applicant_chats' %}?archived=1{% if query %}&q={{ query|urlencode }}{% endif %}">{% if request.LANGUAGE_CODE == 'en' %}Archive{% else %}Архив{% endif %}</a>
     </div>
 
     {% if messages %}
     <div class="chat-alerts">
         {% for message in messages %}
-        <div class="chat-alert">{{ message }}</div>
+        <div class="chat-alert alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
@@ -23,16 +29,28 @@
     {% if chats %}
     <div class="chat-list">
         {% for chat in chats %}
-        <a href="{% url 'applicant_chat_detail' chat.id %}" class="chat-item">
-            <div class="chat-main">
-                <h3>{{ chat.company_name|default:'Компания' }}</h3>
-                <p class="chat-vacancy">{{ chat.vacancy_title|default:'Вакансия' }}</p>
+        <div class="chat-item">
+            <a href="{% url 'applicant_chat_detail' chat.id %}" class="chat-main">
+                <h3>
+                    {% if chat.company_name %}
+                        {{ chat.company_name }}
+                    {% else %}
+                        {% if request.LANGUAGE_CODE == 'en' %}Company{% else %}Компания{% endif %}
+                    {% endif %}
+                </h3>
+                <p class="chat-vacancy">
+                    {% if chat.vacancy_title %}
+                        {{ chat.vacancy_title }}
+                    {% else %}
+                        {% if request.LANGUAGE_CODE == 'en' %}Vacancy{% else %}Вакансия{% endif %}
+                    {% endif %}
+                </p>
                 {% if chat.last_message %}
                 <p class="chat-preview">{{ chat.last_message.text }}</p>
                 {% else %}
-                <p class="chat-preview chat-preview-empty">сообщений пока нет</p>
+                <p class="chat-preview chat-preview-empty">{% if request.LANGUAGE_CODE == 'en' %}No messages yet{% else %}Сообщений пока нет{% endif %}</p>
                 {% endif %}
-            </div>
+            </a>
             <div class="chat-meta">
                 {% if chat.last_message and chat.last_message.created_at %}
                 <div class="chat-time">{{ chat.last_message.created_at|slice:":16"|cut:"T" }}</div>
@@ -40,15 +58,31 @@
                 {% if chat.unread_count %}
                 <span class="chat-unread">{{ chat.unread_count }}</span>
                 {% endif %}
+                <form method="post" action="{% if current_tab == 'archived' %}{% url 'applicant_chat_unarchive' chat.id %}{% else %}{% url 'applicant_chat_archive' chat.id %}{% endif %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="chat-archive-btn">
+                        {% if current_tab == 'archived' %}
+                            {% if request.LANGUAGE_CODE == 'en' %}Restore{% else %}Вернуть{% endif %}
+                        {% else %}
+                            {% if request.LANGUAGE_CODE == 'en' %}Archive{% else %}В архив{% endif %}
+                        {% endif %}
+                    </button>
+                </form>
             </div>
-        </a>
+        </div>
         {% endfor %}
     </div>
     {% else %}
     <div class="chat-empty">
-        <h3>Чатов пока нет</h3>
-        <p>После отклика на вакансию чат появится автоматически.</p>
-        <a href="{% url 'vakansi_page' %}">Перейти к вакансиям</a>
+        {% if current_tab == 'archived' %}
+        <h3>{% if request.LANGUAGE_CODE == 'en' %}Archive is empty{% else %}Архив пуст{% endif %}</h3>
+        <p>{% if request.LANGUAGE_CODE == 'en' %}Archived chats will appear here.{% else %}Здесь будут отображаться архивные чаты.{% endif %}</p>
+        {% else %}
+        <h3>{% if request.LANGUAGE_CODE == 'en' %}No chats yet{% else %}Чатов пока нет{% endif %}</h3>
+        <p>{% if request.LANGUAGE_CODE == 'en' %}After applying for a vacancy, a chat will appear automatically.{% else %}После отклика на вакансию чат появится автоматически.{% endif %}</p>
+        <a href="{% url 'vakansi_page' %}">{% if request.LANGUAGE_CODE == 'en' %}Go to vacancies{% else %}Перейти к вакансиям{% endif %}</a>
+        {% endif %}
     </div>
     {% endif %}
 </section>
@@ -89,6 +123,25 @@
     padding: 10px 16px;
     cursor: pointer;
 }
+.chat-tabs {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+.chat-tabs a {
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 8px 14px;
+    text-decoration: none;
+    color: #334155;
+    font-weight: 600;
+    background: #fff;
+}
+.chat-tabs a.is-active {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
 .chat-alerts {
     margin-top: 14px;
 }
@@ -109,8 +162,6 @@
     border: 1px solid #e2e8f0;
     border-radius: 14px;
     padding: 14px;
-    text-decoration: none;
-    color: inherit;
     background: #fff;
     display: flex;
     justify-content: space-between;
@@ -120,6 +171,12 @@
 .chat-item:hover {
     border-color: #93c5fd;
     box-shadow: 0 10px 24px rgba(2, 6, 23, 0.06);
+}
+.chat-main {
+    text-decoration: none;
+    color: inherit;
+    flex: 1;
+    min-width: 0;
 }
 .chat-main h3 {
     margin: 0;
@@ -160,6 +217,19 @@
     padding: 0 6px;
     font-size: 12px;
 }
+.chat-archive-btn {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: #334155;
+    font-weight: 600;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+.chat-archive-btn:hover {
+    border-color: #1d4ed8;
+    color: #1d4ed8;
+}
 .chat-empty {
     margin-top: 18px;
     border: 1px dashed #cbd5e1;
@@ -186,7 +256,12 @@
         min-width: 0;
         width: 100%;
     }
+    .chat-item {
+        flex-direction: column;
+    }
+    .chat-meta {
+        align-items: flex-start;
+    }
 }
 </style>
 {% endblock %}
-

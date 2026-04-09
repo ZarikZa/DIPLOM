@@ -112,12 +112,12 @@ WSGI_APPLICATION = 'apihh_master.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': config('DB_ENGINE', default='django.bd.backends.mysql'),
-        'HOST': config('DB_HOST', default=''),
-        'PORT': config('DB_PORT', default='3306', cast=int),
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='5432', cast=int),
         'NAME': config('DB_NAME', default='kursa2'),
-        'USER': config('DB_USER', default=''),
-        'PASSWORD': config('DB_PASSWORD', default=''),
+        'USER': config('DB_USER', default='postgres'),
+        'PASSWORD': config('DB_PASSWORD', default='1'),
     }
 }
 

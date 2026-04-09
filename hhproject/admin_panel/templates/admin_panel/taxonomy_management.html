@@ -1,0 +1,465 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Skills Management{% else %}Управление навыками{% endif %}{% endblock %}
+
+{% block style %}
+<style>
+.admin-wrapper {
+    min-height: calc(100vh - 115px);
+    background: var(--bg-primary);
+    padding: 30px 0;
+    display: flex;
+    gap: 30px;
+}
+
+.admin-sidebar {
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 20px 20px 0;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 115px;
+    height: calc(100vh - 115px);
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.admin-main {
+    flex: 1;
+    padding-right: 30px;
+}
+
+.admin-container {
+    max-width: 1320px;
+}
+
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
+
+.badge {
+    background: var(--accent);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
+.admin-content-header {
+    margin-bottom: 22px;
+}
+
+.admin-content-header h1 {
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+    font-size: 2.1rem;
+    font-weight: 700;
+}
+
+.admin-content-header p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.messages {
+    margin-bottom: 20px;
+}
+
+.alert {
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border: 1px solid;
+}
+
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.25);
+}
+
+.alert-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.25);
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.25);
+}
+
+.alert-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-color: rgba(59, 130, 246, 0.25);
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+}
+
+.stat-card .num {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.stat-card .label {
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.card-body {
+    padding: 16px;
+}
+
+.form-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.field {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+}
+
+.btn {
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+.list-wrap {
+    max-height: 380px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.list-item:last-child {
+    border-bottom: none;
+}
+
+.muted {
+    color: var(--text-secondary);
+}
+
+@media (max-width: 1200px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1024px) {
+    .admin-wrapper {
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .admin-sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        border-radius: 0 0 20px 20px;
+    }
+
+    .admin-main {
+        padding-right: 0;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <aside class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fas fa-cogs"></i> {% if request.LANGUAGE_CODE == 'en' %}Control Panel{% else %}Панель управления{% endif %}</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'admin_dashboard' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Dashboard{% else %}Дашборд{% endif %}</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_company_moderation' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-building"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Company Moderation{% else %}Модерация компаний{% endif %}</span>
+                </div>
+                {% if pending_companies_count %}
+                    <span class="badge">{{ pending_companies_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_category_moderation' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-tags"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Vacancy Categories{% else %}Категории вакансий{% endif %}</span>
+                </div>
+                {% if pending_category_suggestions_count %}
+                    <span class="badge">{{ pending_category_suggestions_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_taxonomy_management' %}" class="nav-item active">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-layer-group"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_complaints' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-flag"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Vacancy Complaints{% else %}Жалобы на вакансии{% endif %}</span>
+                </div>
+                {% if pending_complaints_count %}
+                    <span class="badge">{{ pending_complaints_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_backup_management' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-database"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Backup Management{% else %}Управление бэкапами{% endif %}</span>
+                </div>
+            </a>
+            {% if user.is_superuser %}
+            <a href="{% url 'admin_management' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-users-cog"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Site Administrators{% else %}Администраторы сайта{% endif %}</span>
+                </div>
+                {% if site_admins_count %}
+                    <span class="badge">{{ site_admins_count }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+            <a href="{% url 'admin_logs' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Action Logs{% else %}Логи действий{% endif %}</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_profile' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-user-shield"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}My Profile{% else %}Мой профиль{% endif %}</span>
+                </div>
+            </a>
+            <a href="{% url 'admin_statistics' %}" class="nav-item">
+                <div style="display:flex;align-items:center;">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Site Statistics{% else %}Статистика сайта{% endif %}</span>
+                </div>
+            </a>
+        </nav>
+    </aside>
+
+    <main class="admin-main">
+        <div class="admin-container">
+            <div class="admin-content-header">
+                <h1>{% if request.LANGUAGE_CODE == 'en' %}Skills Management{% else %}Управление навыками{% endif %}</h1>
+                <p>{% if request.LANGUAGE_CODE == 'en' %}Add and maintain skills for applicant profiles{% else %}Добавление и управление навыками для профилей соискателей{% endif %}</p>
+            </div>
+
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="num">{{ skills_count }}</div>
+                    <div class="label">{% if request.LANGUAGE_CODE == 'en' %}Skills in Catalog{% else %}Навыков в справочнике{% endif %}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num">{{ vacancy_categories_count }}</div>
+                    <div class="label">{% if request.LANGUAGE_CODE == 'en' %}Vacancy Categories{% else %}Категорий вакансий{% endif %}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num">{{ pending_category_suggestions_count }}</div>
+                    <div class="label">{% if request.LANGUAGE_CODE == 'en' %}Categories Pending Review{% else %}Категорий на модерации{% endif %}</div>
+                </div>
+            </div>
+
+            <div class="grid" style="margin-bottom:18px;">
+                <section class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-plus-circle"></i> {% if request.LANGUAGE_CODE == 'en' %}Add Skill{% else %}Добавить навык{% endif %}</h3>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" class="form-grid">
+                            {% csrf_token %}
+                            <input type="hidden" name="form_action" value="create_skill">
+                            <label for="skill_name">{% if request.LANGUAGE_CODE == 'en' %}Skill name{% else %}Название навыка{% endif %}</label>
+                            <input
+                                id="skill_name"
+                                name="skill_name"
+                                type="text"
+                                maxlength="80"
+                                class="field"
+                                placeholder="{% if request.LANGUAGE_CODE == 'en' %}For example: Python{% else %}Например: Python{% endif %}"
+                                required
+                            >
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {% if request.LANGUAGE_CODE == 'en' %}Save Skill{% else %}Сохранить навык{% endif %}
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+            </div>
+
+            <div class="grid">
+                <section class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-lightbulb"></i> {% if request.LANGUAGE_CODE == 'en' %}Skills List{% else %}Список навыков{% endif %}</h3>
+                    </div>
+                    <div class="card-body">
+                        {% if skills %}
+                        <div class="list-wrap">
+                            {% for skill in skills %}
+                            <div class="list-item">
+                                <span>{{ skill.name }}</span>
+                                <span class="muted">ID {{ skill.id }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="muted">{% if request.LANGUAGE_CODE == 'en' %}Skills list is empty{% else %}Список навыков пока пуст{% endif %}</p>
+                        {% endif %}
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}

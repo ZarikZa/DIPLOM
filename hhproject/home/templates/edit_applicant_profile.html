@@ -100,6 +100,17 @@
                                   placeholder="Опишите ваш опыт работы, навыки и достижения...">{{ profile.resume|default:'' }}</textarea>
                         <div class="help-text">Расскажите о своем опыте, образовании и профессиональных навыках</div>
                     </div>
+
+                    <div class="form-group">
+                        <label for="id_resume_file">Файл резюме (PDF/DOC/DOCX/RTF/TXT)</label>
+                        <input type="file" name="resume_file" id="id_resume_file" class="form-control" accept=".pdf,.doc,.docx,.rtf,.txt">
+                        {% if profile.resume_file %}
+                        <div class="help-text" style="margin-top:8px;">
+                            Текущий файл:
+                            <a href="{{ profile.resume_file }}" target="_blank" rel="noopener">Открыть резюме</a>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div class="form-section" style="--index: 4">

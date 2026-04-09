@@ -5,8 +5,10 @@ from compani.views import home_comp
 from .views import (
     add_to_favorites,
     applicant_chat_detail,
+    applicant_chat_archive,
     applicant_chat_send_message,
     applicant_chats,
+    applicant_chat_unarchive,
     applicant_profile,
     applicant_video_feed,
     apply_to_vacancy,
@@ -27,6 +29,8 @@ from .views import (
     remove_from_favorites,
     send_metrics,
     update_applicant_interests,
+    update_applicant_skills,
+    update_language,
     update_theme,
     vakansii_page,
     vacancy_detail,
@@ -52,6 +56,8 @@ urlpatterns = [
     path('feed/videos/<int:video_id>/like/', video_toggle_like, name='video_toggle_like'),
 
     path('chats/', applicant_chats, name='applicant_chats'),
+    path('chats/<int:chat_id>/archive/', applicant_chat_archive, name='applicant_chat_archive'),
+    path('chats/<int:chat_id>/unarchive/', applicant_chat_unarchive, name='applicant_chat_unarchive'),
     path('chats/<int:chat_id>/', applicant_chat_detail, name='applicant_chat_detail'),
     path('chats/<int:chat_id>/send/', applicant_chat_send_message, name='applicant_chat_send_message'),
 
@@ -69,7 +75,9 @@ urlpatterns = [
     path('password-reset/new/', password_reset_new, name='password_reset_new'),
 
     path('update-theme/', update_theme, name='update_theme'),
+    path('update-language/', update_language, name='update_language'),
     path('profile/interests/update/', update_applicant_interests, name='update_applicant_interests'),
+    path('profile/skills/update/', update_applicant_skills, name='update_applicant_skills'),
     path('update-metrics/', send_metrics, name='update_metrics'),
     path('brandbook/', brendbook, name='brandbook'),
 ]

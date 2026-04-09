@@ -18,8 +18,8 @@ class Migration(migrations.Migration):
                 ('applicant', models.ForeignKey(on_delete=models.CASCADE, related_name='interests', to='apihh_main.applicant')),
             ],
             options={
-                'verbose_name': 'Р�РЅС‚РµСЂРµСЃ СЃРѕРёСЃРєР°С‚РµР»СЏ',
-                'verbose_name_plural': 'Р�РЅС‚РµСЂРµСЃС‹ СЃРѕРёСЃРєР°С‚РµР»РµР№',
+                'verbose_name': 'Интерес соискателя',
+                'verbose_name_plural': 'Интересы соискателей',
                 'db_table': 'applicant_interests',
                 'unique_together': {('applicant', 'category')},
             },

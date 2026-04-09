@@ -119,6 +119,12 @@ class Applicant(models.Model):
     last_name = models.CharField(max_length=80)
     birth_date = models.DateField()
     resume = models.TextField(blank=True)
+    resume_file = models.FileField(
+        upload_to='applicant_resumes/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(['pdf', 'doc', 'docx', 'rtf', 'txt'])],
+    )
     avatar = models.ImageField(upload_to='applicant_avatars/%Y/%m/%d/', blank=True, null=True)
     theme = models.CharField(max_length=100, blank=True, null=True) 
 
@@ -160,8 +166,8 @@ class ApplicantInterest(models.Model):
 
     class Meta:
         db_table = 'applicant_interests'
-        verbose_name = 'Р�РЅС‚РµСЂРµСЃ СЃРѕРёСЃРєР°С‚РµР»СЏ'
-        verbose_name_plural = 'Р�РЅС‚РµСЂРµСЃС‹ СЃРѕРёСЃРєР°С‚РµР»РµР№'
+        verbose_name = 'Интерес соискателя'
+        verbose_name_plural = 'Интересы соискателей'
         unique_together = ('applicant', 'category')
 
     def __str__(self):
@@ -307,6 +313,8 @@ class VacancyCategorySuggestion(models.Model):
         Company,
         on_delete=models.CASCADE,
         related_name="vacancy_category_suggestions",
+        null=True,
+        blank=True,
         verbose_name="Компания",
     )
     requested_by = models.ForeignKey(
@@ -507,6 +515,8 @@ class Chat(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     is_active = models.BooleanField(default=True, verbose_name="Активен")
     last_message_at = models.DateTimeField(auto_now=True, verbose_name="Последнее сообщение")
+    is_archived_by_applicant = models.BooleanField(default=False, verbose_name="Архив соискателя")
+    is_archived_by_company = models.BooleanField(default=False, verbose_name="Архив компании")
     
     class Meta:
         db_table = 'chats'

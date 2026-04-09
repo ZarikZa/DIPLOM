@@ -1,10 +1,10 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
 
-{% block title_name %}Профиль компании{% endblock %}
+{% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Company Profile{% else %}Профиль компании{% endif %}{% endblock %}
 
 {% block content %}
 <style>
@@ -74,67 +74,87 @@
     {% if messages %}
     <div style="margin-bottom:12px;">
         {% for message in messages %}
-        <div style="padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;margin-bottom:8px;">{{ message }}</div>
+        <div class="alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
 
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
-        <h1 style="margin:0 0 6px;font-size:30px;">{{ company.name|default:'Компания' }}</h1>
+        <h1 style="margin:0 0 6px;font-size:30px;">
+            {% if company.name %}
+                {{ company.name }}
+            {% else %}
+                {% if request.LANGUAGE_CODE == 'en' %}Company{% else %}Компания{% endif %}
+            {% endif %}
+        </h1>
         <div style="color:#64748b;">{{ company.user.email|default:api_user.email }}</div>
         <div style="margin-top:14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));">
-            <div><strong>ИНН:</strong> {{ company.number|default:'—' }}</div>
-            <div><strong>Отрасль:</strong> {{ company.industry|default:'—' }}</div>
-            <div><strong>Телефон:</strong> {{ company.user.phone|default:'—' }}</div>
+            <div><strong>{% if request.LANGUAGE_CODE == 'en' %}TIN{% else %}ИНН{% endif %}:</strong> {{ company.number|default:'—' }}</div>
+            <div><strong>{% if request.LANGUAGE_CODE == 'en' %}Industry{% else %}Отрасль{% endif %}:</strong> {{ company.industry|default:'—' }}</div>
+            <div><strong>{% if request.LANGUAGE_CODE == 'en' %}Phone{% else %}Телефон{% endif %}:</strong> {{ company.user.phone|default:'—' }}</div>
         </div>
         {% if company.description %}
         <p style="margin-top:14px;color:#334155;">{{ company.description }}</p>
         {% endif %}
         {% if is_owner %}
         <div class="company-profile-actions">
-            <button class="theme-toggle-btn-profile" onclick="toggleTheme()" title="Переключить тему">
+            <button class="theme-toggle-btn-profile" onclick="toggleTheme()" title="{% if request.LANGUAGE_CODE == 'en' %}Toggle theme{% else %}Переключить тему{% endif %}">
                 <span class="theme-icon">🌓</span>
             </button>
-            <div class="text-size-controls" aria-label="Размер текста">
-                <span class="text-size-label">Текст:</span>
+            <div class="text-size-controls" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Text size{% else %}Размер текста{% endif %}">
+                <span class="text-size-label">{% if request.LANGUAGE_CODE == 'en' %}Text:{% else %}Текст:{% endif %}</span>
                 <button type="button" class="text-size-btn" data-text-size-option="small" onclick="setTextSize('small')" aria-pressed="false">A-</button>
                 <button type="button" class="text-size-btn" data-text-size-option="normal" onclick="setTextSize('normal')" aria-pressed="false">A</button>
                 <button type="button" class="text-size-btn" data-text-size-option="large" onclick="setTextSize('large')" aria-pressed="false">A+</button>
             </div>
-            <a class="btn btn-edit" href="{% url 'edit_company_profile' %}">Редактировать профиль</a>
-            <a class="btn btn-edit" href="{% url 'change_password_request' %}">Сменить пароль</a>
+            <div class="language-controls" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Language{% else %}Язык{% endif %}">
+                <span class="language-label">{% if request.LANGUAGE_CODE == 'en' %}Language:{% else %}Язык:{% endif %}</span>
+                <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'ru' %} active{% endif %}" data-language-option="ru" onclick="setLanguage('ru')" aria-pressed="{% if request.LANGUAGE_CODE == 'ru' %}true{% else %}false{% endif %}">RU</button>
+                <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'en' %} active{% endif %}" data-language-option="en" onclick="setLanguage('en')" aria-pressed="{% if request.LANGUAGE_CODE == 'en' %}true{% else %}false{% endif %}">EN</button>
+            </div>
+            <a class="btn btn-edit" href="{% url 'edit_company_profile' %}">{% if request.LANGUAGE_CODE == 'en' %}Edit profile{% else %}Редактировать профиль{% endif %}</a>
+            <a class="btn btn-edit" href="{% url 'change_password_request' %}">{% if request.LANGUAGE_CODE == 'en' %}Change password{% else %}Сменить пароль{% endif %}</a>
         </div>
         {% endif %}
     </div>
 
     <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:14px;">
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
-            <h2 style="margin:0 0 10px;font-size:20px;">Вакансии ({{ vacancies|length }})</h2>
+            <h2 style="margin:0 0 10px;font-size:20px;">
+                {% if request.LANGUAGE_CODE == 'en' %}Vacancies{% else %}Вакансии{% endif %} ({{ vacancies|length }})
+            </h2>
             {% if vacancies %}
                 {% for vacancy in vacancies %}
                 <div style="padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;">
                     <div style="font-weight:700;">{{ vacancy.position }}</div>
-                    <div style="color:#334155;">{{ vacancy.city }} · {{ vacancy.salary_min }}-{{ vacancy.salary_max }} б.</div>
-                    <div style="color:#64748b;">{{ vacancy.status_name|default:'статус не задан' }}{% if vacancy.is_archived %} · Архив{% endif %}</div>
+                    <div style="color:#334155;">{{ vacancy.city }} · {{ vacancy.salary_min }}-{{ vacancy.salary_max }} {% if request.LANGUAGE_CODE == 'en' %}RUB{% else %}₽{% endif %}</div>
+                    <div style="color:#64748b;">
+                        {{ vacancy.status_name|default:'' }}
+                        {% if vacancy.is_archived %}
+                            · {% if request.LANGUAGE_CODE == 'en' %}Archived{% else %}Архив{% endif %}
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
             {% else %}
-                <div style="color:#64748b;">Пока нет вакансий</div>
+                <div style="color:#64748b;">{% if request.LANGUAGE_CODE == 'en' %}No vacancies yet{% else %}Пока нет вакансий{% endif %}</div>
             {% endif %}
         </div>
 
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;">
-            <h2 style="margin:0 0 10px;font-size:20px;">сотрудники ({{ employees|length }})</h2>
+            <h2 style="margin:0 0 10px;font-size:20px;">
+                {% if request.LANGUAGE_CODE == 'en' %}Employees{% else %}Сотрудники{% endif %} ({{ employees|length }})
+            </h2>
             {% if employees %}
                 {% for employee in employees %}
                 <div style="padding:10px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;">
                     <div style="font-weight:700;">{{ employee.first_name }} {{ employee.last_name }}</div>
                     <div style="color:#334155;">{{ employee.email }}</div>
-                    <div style="color:#64748b;">ль: {{ employee.role }}</div>
+                    <div style="color:#64748b;">{% if request.LANGUAGE_CODE == 'en' %}Role{% else %}Роль{% endif %}: {{ employee.role }}</div>
                 </div>
                 {% endfor %}
             {% else %}
-                <div style="color:#64748b;">сотрудники недоступны или отсутствуют</div>
+                <div style="color:#64748b;">{% if request.LANGUAGE_CODE == 'en' %}No employees found{% else %}Сотрудники недоступны или отсутствуют{% endif %}</div>
             {% endif %}
         </div>
     </div>

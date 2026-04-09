@@ -17,7 +17,7 @@ from .forms import AdminProfileEditForm, BackupUploadForm, SiteAdminCreateForm, 
 from home.models import *
 from home.models import Company, Complaint, User, Vacancy, StatusVacancies
 from home.models import Backup, AdminLog, ActionType
-from home.api_client import api_get, api_patch
+from home.api_client import api_get, api_patch, api_post
 from .forms import CompanyModerationForm
 
 def is_admin(user):
@@ -136,6 +136,29 @@ def _fetch_suggestions_count(request, status_value: str | None = None) -> int:
     except Exception:
         return 0
 
+
+def _collect_api_rows(request, path: str, params: dict | None = None, max_pages: int = 20):
+    rows: list[dict] = []
+    query_params = dict(params or {})
+    page = 1
+
+    while page <= max_pages:
+        query_params['page'] = page
+        resp = api_get(request, path, params=query_params)
+        payload = _api_safe_json(resp) or {}
+        if resp.status_code >= 400:
+            return None, payload
+
+        chunk = _api_results(payload)
+        rows.extend(item for item in chunk if isinstance(item, dict))
+
+        next_url = payload.get('next') if isinstance(payload, dict) else None
+        if not next_url:
+            break
+        page += 1
+
+    return rows, None
+
 @user_passes_test(is_admin, login_url='/admin/login/')
 def admin_dashboard(request):
     """Р“Р»Р°РІРЅР°СЏ СЃС‚СЂР°РЅРёС†Р° Р°РґРјРёРЅРєРё"""
@@ -208,56 +231,169 @@ def category_moderation(request):
         current_page = 1
 
     if request.method == 'POST':
-        suggestion_id = (request.POST.get('suggestion_id') or '').strip()
-        new_status = (request.POST.get('status') or '').strip().lower()
-        admin_notes = (request.POST.get('admin_notes') or '').strip()
+        form_action = (request.POST.get('form_action') or '').strip().lower() or 'moderate'
 
-        if not suggestion_id:
-            messages.error(request, 'Не найдена заявка категории для обработки.')
-        elif new_status not in {'approved', 'rejected'}:
-            messages.error(request, 'Выбран некорректный статус.')
-        else:
-            payload = {'status': new_status}
-            if admin_notes:
-                payload['admin_notes'] = admin_notes
+        if form_action == 'create_category':
+            category_name = (request.POST.get('category_name') or '').strip()
+            category_notes = (request.POST.get('category_notes') or '').strip()
 
-            try:
-                resp = api_patch(
+            if not category_name:
+                messages.error(
                     request,
-                    f'admin/vacancy-category-suggestions/{suggestion_id}/',
-                    json=payload,
+                    'Укажите название категории.' if request.LANGUAGE_CODE != 'en' else 'Enter a category name.',
                 )
-                data = _api_safe_json(resp)
-                if resp.status_code >= 400:
+            else:
+                payload = {'name': category_name}
+                if category_notes:
+                    payload['admin_notes'] = category_notes
+                try:
+                    resp = api_post(request, 'admin/vacancy-category-suggestions/', json=payload)
+                    data = _api_safe_json(resp)
+                    if resp.status_code >= 400:
+                        messages.error(
+                            request,
+                            _api_first_error(
+                                data,
+                                (
+                                    'Не удалось добавить категорию.'
+                                    if request.LANGUAGE_CODE != 'en'
+                                    else 'Failed to add category.'
+                                ),
+                            ),
+                        )
+                    else:
+                        created_name = str((data or {}).get('name') or category_name).strip()
+                        action_type = get_or_create_action_type(
+                            'vacancy_category_created_by_admin',
+                            (
+                                'Категория вакансии добавлена'
+                                if request.LANGUAGE_CODE != 'en'
+                                else 'Vacancy category created'
+                            ),
+                        )
+                        AdminLog.objects.create(
+                            admin=request.user,
+                            action=action_type,
+                            details=(
+                                f'Добавлена категория вакансии: "{created_name}"'
+                                if request.LANGUAGE_CODE != 'en'
+                                else f'Vacancy category added: "{created_name}"'
+                            ),
+                        )
+                        messages.success(
+                            request,
+                            (
+                                f'Категория "{created_name}" добавлена.'
+                                if request.LANGUAGE_CODE != 'en'
+                                else f'Category "{created_name}" added.'
+                            ),
+                        )
+                except Exception:
                     messages.error(
                         request,
-                        _api_first_error(data, 'Не удалось обновить статус категории.')
+                        (
+                            'Ошибка сети при добавлении категории.'
+                            if request.LANGUAGE_CODE != 'en'
+                            else 'Network error while adding category.'
+                        ),
                     )
-                else:
-                    action_type = get_or_create_action_type(
-                        'vacancy_category_approved' if new_status == 'approved' else 'vacancy_category_rejected',
-                        'Категория вакансии одобрена' if new_status == 'approved' else 'Категория вакансии отклонена',
-                    )
-                    category_name = ''
-                    if isinstance(data, dict):
-                        category_name = str(data.get('name') or '').strip()
-                    details = (
-                        f'Категория "{category_name}" '
-                        f'{"одобрена" if new_status == "approved" else "отклонена"} администратором'
-                    )
-                    if admin_notes:
-                        details += f'. Комментарий: {admin_notes}'
-                    AdminLog.objects.create(
-                        admin=request.user,
-                        action=action_type,
-                        details=details,
-                    )
-                    messages.success(
+        else:
+            suggestion_id = (request.POST.get('suggestion_id') or '').strip()
+            new_status = (request.POST.get('status') or '').strip().lower()
+            admin_notes = (request.POST.get('admin_notes') or '').strip()
+
+            if not suggestion_id:
+                messages.error(
+                    request,
+                    (
+                        'Не найдена заявка категории для обработки.'
+                        if request.LANGUAGE_CODE != 'en'
+                        else 'Category suggestion not found for processing.'
+                    ),
+                )
+            elif new_status not in {'approved', 'rejected'}:
+                messages.error(
+                    request,
+                    'Выбран некорректный статус.' if request.LANGUAGE_CODE != 'en' else 'Invalid status selected.',
+                )
+            else:
+                payload = {'status': new_status}
+                if admin_notes:
+                    payload['admin_notes'] = admin_notes
+
+                try:
+                    resp = api_patch(
                         request,
-                        'Категория одобрена.' if new_status == 'approved' else 'Категория отклонена.'
+                        f'admin/vacancy-category-suggestions/{suggestion_id}/',
+                        json=payload,
                     )
-            except Exception:
-                messages.error(request, 'Ошибка сети при обновлении статуса категории.')
+                    data = _api_safe_json(resp)
+                    if resp.status_code >= 400:
+                        messages.error(
+                            request,
+                            _api_first_error(
+                                data,
+                                (
+                                    'Не удалось обновить статус категории.'
+                                    if request.LANGUAGE_CODE != 'en'
+                                    else 'Failed to update category status.'
+                                ),
+                            ),
+                        )
+                    else:
+                        action_type = get_or_create_action_type(
+                            'vacancy_category_approved' if new_status == 'approved' else 'vacancy_category_rejected',
+                            (
+                                'Категория вакансии одобрена'
+                                if (new_status == 'approved' and request.LANGUAGE_CODE != 'en')
+                                else (
+                                    'Категория вакансии отклонена'
+                                    if request.LANGUAGE_CODE != 'en'
+                                    else (
+                                        'Vacancy category approved'
+                                        if new_status == 'approved'
+                                        else 'Vacancy category rejected'
+                                    )
+                                )
+                            ),
+                        )
+                        category_name = ''
+                        if isinstance(data, dict):
+                            category_name = str(data.get('name') or '').strip()
+                        details = (
+                            f'Категория "{category_name}" '
+                            f'{"одобрена" if new_status == "approved" else "отклонена"} администратором'
+                            if request.LANGUAGE_CODE != 'en'
+                            else f'Category "{category_name}" {"approved" if new_status == "approved" else "rejected"} by admin'
+                        )
+                        if admin_notes:
+                            details += (
+                                f'. Комментарий: {admin_notes}'
+                                if request.LANGUAGE_CODE != 'en'
+                                else f'. Note: {admin_notes}'
+                            )
+                        AdminLog.objects.create(
+                            admin=request.user,
+                            action=action_type,
+                            details=details,
+                        )
+                        messages.success(
+                            request,
+                            (
+                                'Категория одобрена.' if new_status == 'approved' else 'Категория отклонена.'
+                            )
+                            if request.LANGUAGE_CODE != 'en'
+                            else ('Category approved.' if new_status == 'approved' else 'Category rejected.'),
+                        )
+                except Exception:
+                    messages.error(
+                        request,
+                        (
+                            'Ошибка сети при обновлении статуса категории.'
+                            if request.LANGUAGE_CODE != 'en'
+                            else 'Network error while updating category status.'
+                        ),
+                    )
 
         redirect_url = reverse('admin_category_moderation')
         params = {}
@@ -323,6 +459,181 @@ def category_moderation(request):
         'total_pages': (total_count + page_size - 1) // page_size,
     })
     return render(request, 'admin_panel/category_moderation.html', context)
+
+
+@user_passes_test(is_admin, login_url='/admin/login/')
+def taxonomy_management(request):
+    context = get_admin_context(request)
+    context['pending_complaints_count'] = Complaint.objects.filter(status='pending').count()
+
+    if not request.session.get('api_access'):
+        messages.warning(
+            request,
+            (
+                'Для управления навыками войдите через форму приложения (JWT).'
+                if request.LANGUAGE_CODE != 'en'
+                else 'To manage skills, sign in through the application form (JWT).'
+            ),
+        )
+        context.update(
+            {
+                'skills': [],
+                'skills_count': 0,
+                'vacancy_categories': [],
+                'vacancy_categories_count': 0,
+                'recent_admin_categories': [],
+            }
+        )
+        return render(request, 'admin_panel/taxonomy_management.html', context)
+
+    if request.method == 'POST':
+        action = (request.POST.get('form_action') or '').strip()
+
+        if action == 'create_skill':
+            skill_name = (request.POST.get('skill_name') or '').strip()
+            if not skill_name:
+                messages.error(
+                    request,
+                    'Укажите название навыка.' if request.LANGUAGE_CODE != 'en' else 'Enter a skill name.',
+                )
+            else:
+                try:
+                    resp = api_post(request, 'admin/skills/', json={'name': skill_name})
+                    payload = _api_safe_json(resp)
+                    if resp.status_code >= 400:
+                        messages.error(
+                            request,
+                            _api_first_error(
+                                payload,
+                                (
+                                    'Не удалось добавить навык.'
+                                    if request.LANGUAGE_CODE != 'en'
+                                    else 'Failed to add skill.'
+                                ),
+                            ),
+                        )
+                    else:
+                        created_name = str((payload or {}).get('name') or skill_name).strip()
+                        action_type = get_or_create_action_type(
+                            'skill_created',
+                            'Создан навык' if request.LANGUAGE_CODE != 'en' else 'Skill created',
+                        )
+                        AdminLog.objects.create(
+                            admin=request.user,
+                            action=action_type,
+                            details=(
+                                f'Добавлен навык: "{created_name}"'
+                                if request.LANGUAGE_CODE != 'en'
+                                else f'Skill added: "{created_name}"'
+                            ),
+                        )
+                        messages.success(
+                            request,
+                            (
+                                f'Навык "{created_name}" добавлен.'
+                                if request.LANGUAGE_CODE != 'en'
+                                else f'Skill "{created_name}" added.'
+                            ),
+                        )
+                except Exception:
+                    messages.error(
+                        request,
+                        (
+                            'Ошибка сети при добавлении навыка.'
+                            if request.LANGUAGE_CODE != 'en'
+                            else 'Network error while adding skill.'
+                        ),
+                    )
+        else:
+            messages.error(
+                request,
+                (
+                    'Неизвестное действие формы.'
+                    if request.LANGUAGE_CODE != 'en'
+                    else 'Unknown form action.'
+                ),
+            )
+
+        return redirect('admin_taxonomy_management')
+
+    skills: list[dict] = []
+    vacancy_categories: list[dict] = []
+    recent_admin_categories: list[dict] = []
+
+    try:
+        skill_rows, skill_error = _collect_api_rows(request, 'skills/', params={})
+        if skill_error is not None:
+            messages.error(
+                request,
+                _api_first_error(
+                    skill_error,
+                    (
+                        'Не удалось загрузить список навыков.'
+                        if request.LANGUAGE_CODE != 'en'
+                        else 'Failed to load skills list.'
+                    ),
+                ),
+            )
+        else:
+            skills = sorted(skill_rows or [], key=lambda item: str(item.get('name') or '').lower())
+    except Exception:
+        messages.error(
+            request,
+            (
+                'Ошибка сети при загрузке навыков.'
+                if request.LANGUAGE_CODE != 'en'
+                else 'Network error while loading skills.'
+            ),
+        )
+
+    try:
+        category_rows, category_error = _collect_api_rows(request, 'vacancy-categories/', params={})
+        if category_error is not None:
+            messages.error(
+                request,
+                _api_first_error(
+                    category_error,
+                    (
+                        'Не удалось загрузить список категорий вакансий.'
+                        if request.LANGUAGE_CODE != 'en'
+                        else 'Failed to load vacancy categories list.'
+                    ),
+                ),
+            )
+        else:
+            vacancy_categories = sorted(category_rows or [], key=lambda item: str(item.get('name') or '').lower())
+    except Exception:
+        messages.error(
+            request,
+            (
+                'Ошибка сети при загрузке категорий вакансий.'
+                if request.LANGUAGE_CODE != 'en'
+                else 'Network error while loading vacancy categories.'
+            ),
+        )
+
+    try:
+        suggestions_resp = api_get(
+            request,
+            'admin/vacancy-category-suggestions/',
+            params={'status': 'approved', 'page': 1},
+        )
+        suggestions_payload = _api_safe_json(suggestions_resp) or {}
+        if suggestions_resp.status_code < 400:
+            recent_admin_categories = _api_results(suggestions_payload)[:8]
+    except Exception:
+        recent_admin_categories = []
+
+    context.update(
+        {
+            'skills': skills,
+            'skills_count': len(skills),
+            'vacancy_categories': vacancy_categories,
+            'vacancy_categories_count': len(vacancy_categories),
+            'recent_admin_categories': recent_admin_categories,
+        }
+    )
+    return render(request, 'admin_panel/taxonomy_management.html', context)
 
 from django.core.mail import send_mail
 from django.conf import settings

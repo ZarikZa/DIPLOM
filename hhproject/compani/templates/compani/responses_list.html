@@ -4,7 +4,7 @@
     {% include '_inc/header.html' %}
 {% endblock %}
 
-{% block title_name %}Отклики{% endblock %}
+{% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Responses{% else %}Отклики{% endif %}{% endblock %}
 
 {% block content %}
 <style>
@@ -253,14 +253,18 @@
     {% if messages %}
     <div class="response-message">
         {% for message in messages %}
-        <div class="response-alert">{{ message }}</div>
+        <div class="response-alert alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
 
-    <h1>Отклики{% if company.name %} · {{ company.name }}{% endif %}</h1>
+    <h1>{% if request.LANGUAGE_CODE == 'en' %}Responses{% else %}Отклики{% endif %}{% if company.name %} · {{ company.name }}{% endif %}</h1>
     <div class="responses-summary">
-        Всего: {{ counts.total }} · Новые: {{ counts.new }} · Просмотренные: {{ counts.viewed }} · Приглашенные: {{ counts.invited }} · Отклоненные: {{ counts.rejected }}
+        {% if request.LANGUAGE_CODE == 'en' %}
+        Total: {{ counts.total }} · Sent: {{ counts.sent }} · Invited: {{ counts.invited }} · Rejected: {{ counts.rejected }}
+        {% else %}
+        Всего: {{ counts.total }} · Отправлено: {{ counts.sent }} · Приглашение: {{ counts.invited }} · Отказ: {{ counts.rejected }}
+        {% endif %}
     </div>
 
     <form method="get" class="responses-filter">
@@ -269,21 +273,17 @@
             class="form-control"
             style="max-width: 360px;"
             name="search"
-            placeholder="Поиск по кандидату, вакансии или email"
+            placeholder="{% if request.LANGUAGE_CODE == 'en' %}Search by candidate, vacancy or email{% else %}Поиск по кандидату, вакансии или email{% endif %}"
             value="{{ search }}"
         >
         <select class="form-control" style="max-width: 210px;" name="status">
-            <option value="all" {% if current_status == 'all' %}selected{% endif %}>Все статусы</option>
-            <option value="new" {% if current_status == 'new' %}selected{% endif %}>Новые</option>
-            <option value="viewed" {% if current_status == 'viewed' %}selected{% endif %}>Просмотренные</option>
-            <option value="invited" {% if current_status == 'invited' %}selected{% endif %}>Приглашенные</option>
-            <option value="rejected" {% if current_status == 'rejected' %}selected{% endif %}>Отклоненные</option>
-            {% for status in statuses %}
-            <option value="{{ status.id }}" {% if current_status == status.id|stringformat:'s' %}selected{% endif %}>{{ status.status_response_name }}</option>
-            {% endfor %}
+            <option value="all" {% if current_status == 'all' %}selected{% endif %}>{% if request.LANGUAGE_CODE == 'en' %}All statuses{% else %}Все статусы{% endif %}</option>
+            <option value="sent" {% if current_status == 'sent' %}selected{% endif %}>{% if request.LANGUAGE_CODE == 'en' %}Sent{% else %}Отправлено{% endif %}</option>
+            <option value="invited" {% if current_status == 'invited' %}selected{% endif %}>{% if request.LANGUAGE_CODE == 'en' %}Invited{% else %}Приглашение{% endif %}</option>
+            <option value="rejected" {% if current_status == 'rejected' %}selected{% endif %}>{% if request.LANGUAGE_CODE == 'en' %}Rejected{% else %}Отказ{% endif %}</option>
         </select>
-        <button class="btn btn-secondary" type="submit">Применить</button>
-        <a class="btn btn-secondary" href="{% url 'responses_list' %}">Сбросить</a>
+        <button class="btn btn-secondary" type="submit">{% if request.LANGUAGE_CODE == 'en' %}Apply{% else %}Применить{% endif %}</button>
+        <a class="btn btn-secondary" href="{% url 'responses_list' %}">{% if request.LANGUAGE_CODE == 'en' %}Reset{% else %}Сбросить{% endif %}</a>
     </form>
 
     <div class="responses-list">
@@ -292,26 +292,50 @@
             <div class="response-card">
                 <div class="response-grid">
                     <div>
-                        <div class="response-title">{{ response.vacancy_position|default:response.vacancy.position|default:'Вакансия' }}</div>
-                        <div class="response-subtitle">{{ response.vacancy.city|default:'Город не указан' }}</div>
+                        <div class="response-title">
+                            {% if response.vacancy_position or response.vacancy.position %}
+                                {{ response.vacancy_position|default:response.vacancy.position }}
+                            {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Vacancy{% else %}Вакансия{% endif %}
+                            {% endif %}
+                        </div>
+                        <div class="response-subtitle">
+                            {% if response.vacancy.city %}
+                                {{ response.vacancy.city }}
+                            {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}City not specified{% else %}Город не указан{% endif %}
+                            {% endif %}
+                        </div>
                         <div class="response-actions">
                             <button type="button" class="btn btn-secondary" data-modal-target="applicant-modal-{{ response.id }}">
-                                Соискатель и резюме
+                                {% if request.LANGUAGE_CODE == 'en' %}Candidate & resume{% else %}Соискатель и резюме{% endif %}
                             </button>
                             <button type="button" class="btn btn-secondary" data-modal-target="vacancy-modal-{{ response.id }}">
-                                Детали вакансии
+                                {% if request.LANGUAGE_CODE == 'en' %}Vacancy details{% else %}Детали вакансии{% endif %}
                             </button>
                         </div>
                     </div>
 
                     <div>
                         <div class="response-title">
-                            {% firstof response.applicant_name response.applicant.first_name "Соискатель" %}
+                            {% if response.applicant_name or response.applicant.first_name %}
+                                {% firstof response.applicant_name response.applicant.first_name %}
+                            {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Candidate{% else %}Соискатель{% endif %}
+                            {% endif %}
                             {% if response.applicant.last_name %} {{ response.applicant.last_name }}{% endif %}
                         </div>
-                        <div class="response-subtitle">{{ response.applicant.user.email|default:'Email не указан' }}</div>
+                        <div class="response-subtitle">
+                            {% if response.applicant.user.email %}
+                                {{ response.applicant.user.email }}
+                            {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Email not specified{% else %}Email не указан{% endif %}
+                            {% endif %}
+                        </div>
                         {% if response.applicant.resume %}
                         <div class="response-muted">{{ response.applicant.resume|truncatechars:120 }}</div>
+                        {% elif response.applicant.resume_file %}
+                        <div class="response-muted">{% if request.LANGUAGE_CODE == 'en' %}Resume file attached{% else %}Файл резюме прикреплён{% endif %}</div>
                         {% endif %}
                     </div>
 
@@ -320,7 +344,7 @@
                         <div class="response-muted">{{ response.response_date|default:''|slice:":16"|cut:"T" }}</div>
                         {% if response.chat_id %}
                         <div class="response-actions" style="margin-top: 8px;">
-                            <a class="btn btn-primary" href="{% url 'company_chat_detail' response.chat_id %}">Перейти в чат</a>
+                            <a class="btn btn-primary" href="{% url 'company_chat_detail' response.chat_id %}">{% if request.LANGUAGE_CODE == 'en' %}Open chat{% else %}Перейти в чат{% endif %}</a>
                         </div>
                         {% endif %}
                     </div>
@@ -334,7 +358,7 @@
                                 <option value="{{ status.id }}" {% if response.status == status.id %}selected{% endif %}>{{ status.status_response_name }}</option>
                                 {% endfor %}
                             </select>
-                            <button class="btn btn-primary" type="submit">Обновить статус</button>
+                            <button class="btn btn-primary" type="submit">{% if request.LANGUAGE_CODE == 'en' %}Update status{% else %}Обновить статус{% endif %}</button>
                         </form>
                     </div>
                 </div>
@@ -343,35 +367,71 @@
             <div class="response-modal" id="applicant-modal-{{ response.id }}" aria-hidden="true">
                 <div class="response-modal-dialog">
                     <div class="response-modal-header">
-                        <h2 class="response-modal-title">Соискатель и резюме</h2>
-                        <button type="button" class="response-modal-close" data-modal-close="applicant-modal-{{ response.id }}" aria-label="Закрыть">
-                            ×
+                        <h2 class="response-modal-title">{% if request.LANGUAGE_CODE == 'en' %}Candidate and resume{% else %}Соискатель и резюме{% endif %}</h2>
+                        <button type="button" class="response-modal-close" data-modal-close="applicant-modal-{{ response.id }}" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Close{% else %}Закрыть{% endif %}">
+                            &times;
                         </button>
                     </div>
                     <div class="response-modal-body">
                         <div class="response-modal-row">
-                            <div class="response-modal-label">ФИО</div>
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Full name{% else %}ФИО{% endif %}</div>
                             <div class="response-modal-value">
-                                {% firstof response.applicant.first_name response.applicant_name "Не указано" %}
+                                {% if response.applicant.first_name or response.applicant_name %}
+                                {% firstof response.applicant.first_name response.applicant_name %}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указано{% endif %}
+                                {% endif %}
                                 {% if response.applicant.last_name %} {{ response.applicant.last_name }}{% endif %}
                             </div>
                         </div>
                         <div class="response-modal-row">
                             <div class="response-modal-label">Email</div>
-                            <div class="response-modal-value">{{ response.applicant.user.email|default:'Не указан' }}</div>
+                            <div class="response-modal-value">
+                                {% if response.applicant.user.email %}
+                                {{ response.applicant.user.email }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указан{% endif %}
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="response-modal-row">
-                            <div class="response-modal-label">Телефон</div>
-                            <div class="response-modal-value">{{ response.applicant.user.phone|default:'Не указан' }}</div>
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Phone{% else %}Телефон{% endif %}</div>
+                            <div class="response-modal-value">
+                                {% if response.applicant.user.phone %}
+                                {{ response.applicant.user.phone }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указан{% endif %}
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="response-modal-row">
-                            <div class="response-modal-label">Дата рождения</div>
-                            <div class="response-modal-value">{{ response.applicant.birth_date|default:'Не указана' }}</div>
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Birth date{% else %}Дата рождения{% endif %}</div>
+                            <div class="response-modal-value">
+                                {% if response.applicant.birth_date %}
+                                {{ response.applicant.birth_date }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указана{% endif %}
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="response-modal-row">
-                            <div class="response-modal-label">Резюме</div>
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Resume{% else %}Резюме{% endif %}</div>
                             <div class="response-modal-value response-modal-text">
-                                {{ response.applicant.resume|default:'Резюме не заполнено'|linebreaksbr }}
+                                {% if response.applicant.resume %}
+                                {{ response.applicant.resume|linebreaksbr }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Resume is empty{% else %}Резюме не заполнено{% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Resume file{% else %}Файл резюме{% endif %}</div>
+                            <div class="response-modal-value">
+                                {% if response.applicant.resume_file %}
+                                <a class="btn btn-secondary" href="{{ response.applicant.resume_file }}" target="_blank" rel="noopener">{% if request.LANGUAGE_CODE == 'en' %}Open file{% else %}Открыть файл{% endif %}</a>
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not attached{% else %}Не прикреплён{% endif %}
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -381,67 +441,103 @@
             <div class="response-modal" id="vacancy-modal-{{ response.id }}" aria-hidden="true">
                 <div class="response-modal-dialog">
                     <div class="response-modal-header">
-                        <h2 class="response-modal-title">Подробно о вакансии</h2>
-                        <button type="button" class="response-modal-close" data-modal-close="vacancy-modal-{{ response.id }}" aria-label="Закрыть">
-                            ×
+                        <h2 class="response-modal-title">{% if request.LANGUAGE_CODE == 'en' %}Vacancy details{% else %}Подробно о вакансии{% endif %}</h2>
+                        <button type="button" class="response-modal-close" data-modal-close="vacancy-modal-{{ response.id }}" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Close{% else %}Закрыть{% endif %}">
+                            &times;
                         </button>
                     </div>
                     <div class="response-modal-body">
                         <div class="response-modal-row">
-                            <div class="response-modal-label">Должность</div>
-                            <div class="response-modal-value">{{ response.vacancy.position|default:response.vacancy_position|default:'Не указана' }}</div>
-                        </div>
-                        <div class="response-modal-row">
-                            <div class="response-modal-label">Город</div>
-                            <div class="response-modal-value">{{ response.vacancy.city|default:'Не указан' }}</div>
-                        </div>
-                        <div class="response-modal-row">
-                            <div class="response-modal-label">Категория</div>
-                            <div class="response-modal-value">{{ response.vacancy.category|default:'Не указана' }}</div>
-                        </div>
-                        <div class="response-modal-row">
-                            <div class="response-modal-label">Опыт</div>
-                            <div class="response-modal-value">{{ response.vacancy.experience|default:'Не указан' }}</div>
-                        </div>
-                        <div class="response-modal-row">
-                            <div class="response-modal-label">Зарплата</div>
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Position{% else %}Должность{% endif %}</div>
                             <div class="response-modal-value">
-                                {% if response.vacancy.salary_min or response.vacancy.salary_max %}
-                                    {{ response.vacancy.salary_min|default:'0' }} - {{ response.vacancy.salary_max|default:'0' }}
+                                {% if response.vacancy.position or response.vacancy_position %}
+                                {{ response.vacancy.position|default:response.vacancy_position }}
                                 {% else %}
-                                    Не указана
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указана{% endif %}
                                 {% endif %}
                             </div>
                         </div>
                         <div class="response-modal-row">
-                            <div class="response-modal-label">Требования</div>
-                            <div class="response-modal-value response-modal-text">
-                                {{ response.vacancy.requirements|default:'Не указаны'|linebreaksbr }}
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}City{% else %}Город{% endif %}</div>
+                            <div class="response-modal-value">
+                                {% if response.vacancy.city %}
+                                {{ response.vacancy.city }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указан{% endif %}
+                                {% endif %}
                             </div>
                         </div>
                         <div class="response-modal-row">
-                            <div class="response-modal-label">Описание</div>
-                            <div class="response-modal-value response-modal-text">
-                                {{ response.vacancy.description|default:'Не указано'|linebreaksbr }}
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Category{% else %}Категория{% endif %}</div>
+                            <div class="response-modal-value">
+                                {% if response.vacancy.category %}
+                                {{ response.vacancy.category }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указана{% endif %}
+                                {% endif %}
                             </div>
                         </div>
                         <div class="response-modal-row">
-                            <div class="response-modal-label">Условия</div>
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Experience{% else %}Опыт{% endif %}</div>
+                            <div class="response-modal-value">
+                                {% if response.vacancy.experience %}
+                                {{ response.vacancy.experience }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указан{% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Salary{% else %}Зарплата{% endif %}</div>
+                            <div class="response-modal-value">
+                                {% if response.vacancy.salary_min or response.vacancy.salary_max %}
+                                    {{ response.vacancy.salary_min|default:'0' }} - {{ response.vacancy.salary_max|default:'0' }}
+                                {% else %}
+                                    {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указана{% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Requirements{% else %}Требования{% endif %}</div>
                             <div class="response-modal-value response-modal-text">
-                                {{ response.vacancy.work_conditions_details|default:'Не указаны'|linebreaksbr }}
+                                {% if response.vacancy.requirements %}
+                                {{ response.vacancy.requirements|linebreaksbr }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указаны{% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Description{% else %}Описание{% endif %}</div>
+                            <div class="response-modal-value response-modal-text">
+                                {% if response.vacancy.description %}
+                                {{ response.vacancy.description|linebreaksbr }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указано{% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="response-modal-row">
+                            <div class="response-modal-label">{% if request.LANGUAGE_CODE == 'en' %}Conditions{% else %}Условия{% endif %}</div>
+                            <div class="response-modal-value response-modal-text">
+                                {% if response.vacancy.work_conditions_details %}
+                                {{ response.vacancy.work_conditions_details|linebreaksbr }}
+                                {% else %}
+                                {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указаны{% endif %}
+                                {% endif %}
                             </div>
                         </div>
                         <div class="response-modal-footer">
                             {% if response.chat_id %}
                             <a class="btn btn-primary" href="{% url 'company_chat_detail' response.chat_id %}">
-                                Перейти в чат
+                                {% if request.LANGUAGE_CODE == 'en' %}Open chat{% else %}Перейти в чат{% endif %}
                             </a>
                             {% else %}
-                            <span class="response-chat-disabled">Чат пока недоступен</span>
+                            <span class="response-chat-disabled">{% if request.LANGUAGE_CODE == 'en' %}Chat is not available yet{% else %}Чат пока недоступен{% endif %}</span>
                             {% endif %}
                             {% if response.vacancy.id %}
                             <a class="btn btn-secondary" href="{% url 'edit_vacancy' response.vacancy.id %}">
-                                Редактировать вакансию
+                                {% if request.LANGUAGE_CODE == 'en' %}Edit vacancy{% else %}Редактировать вакансию{% endif %}
                             </a>
                             {% endif %}
                         </div>
@@ -450,7 +546,7 @@
             </div>
             {% endfor %}
         {% else %}
-            <div class="response-empty">Отклики не найдены</div>
+            <div class="response-empty">{% if request.LANGUAGE_CODE == 'en' %}No responses found{% else %}Отклики не найдены{% endif %}</div>
         {% endif %}
     </div>
 </section>
@@ -512,3 +608,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 {% endblock %}
+

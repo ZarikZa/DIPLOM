@@ -21,49 +21,95 @@
         </div>
 
         <div class="profile-actions">
-          <button class="theme-toggle-btn-profile" onclick="toggleTheme()" title="Переключить тему">
+          <button class="theme-toggle-btn-profile" onclick="toggleTheme()" title="{% if request.LANGUAGE_CODE == 'en' %}Toggle theme{% else %}Переключить тему{% endif %}">
             <span class="theme-icon">🌓</span>
           </button>
-          <div class="text-size-controls" aria-label="Размер текста">
-            <span class="text-size-label">Текст:</span>
+          <div class="text-size-controls" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Text size{% else %}Размер текста{% endif %}">
+            <span class="text-size-label">{% if request.LANGUAGE_CODE == 'en' %}Text:{% else %}Текст:{% endif %}</span>
             <button type="button" class="text-size-btn" data-text-size-option="small" onclick="setTextSize('small')" aria-pressed="false">A-</button>
             <button type="button" class="text-size-btn" data-text-size-option="normal" onclick="setTextSize('normal')" aria-pressed="false">A</button>
             <button type="button" class="text-size-btn" data-text-size-option="large" onclick="setTextSize('large')" aria-pressed="false">A+</button>
           </div>
-          <a href="{% url 'edit_applicant_profile' %}" class="btn btn-edit">Редактировать</a>
-          <button type="button" class="btn btn-edit" onclick="openInterestsModal()">Интересы</button>
-          <button type="button" class="btn btn-delete" onclick="openDeleteModal()">Удалить профиль</button>
+          <div class="language-controls" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Language{% else %}Язык{% endif %}">
+            <span class="language-label">{% if request.LANGUAGE_CODE == 'en' %}Language:{% else %}Язык:{% endif %}</span>
+            <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'ru' %} active{% endif %}" data-language-option="ru" onclick="setLanguage('ru')" aria-pressed="{% if request.LANGUAGE_CODE == 'ru' %}true{% else %}false{% endif %}">RU</button>
+            <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'en' %} active{% endif %}" data-language-option="en" onclick="setLanguage('en')" aria-pressed="{% if request.LANGUAGE_CODE == 'en' %}true{% else %}false{% endif %}">EN</button>
+          </div>
+          <a href="{% url 'edit_applicant_profile' %}" class="btn btn-edit">{% if request.LANGUAGE_CODE == 'en' %}Edit{% else %}Редактировать{% endif %}</a>
+          <button type="button" class="btn btn-edit" onclick="openInterestsModal()">{% if request.LANGUAGE_CODE == 'en' %}Interests{% else %}Интересы{% endif %}</button>
+          <button type="button" class="btn btn-edit" onclick="openSkillsModal()">{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</button>
+          <button type="button" class="btn btn-delete" onclick="openDeleteModal()">{% if request.LANGUAGE_CODE == 'en' %}Delete profile{% else %}Удалить профиль{% endif %}</button>
         </div>
       </div>
 
       <div class="profile-details">
         <div class="detail-item">
-          <div class="detail-label">Телефон</div>
-          <div class="detail-value">{{ applicant.phone|default:'Не указан' }}</div>
+          <div class="detail-label">{% if request.LANGUAGE_CODE == 'en' %}Phone{% else %}Телефон{% endif %}</div>
+          <div class="detail-value">
+            {% if applicant.phone %}
+              {{ applicant.phone }}
+            {% else %}
+              {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указан{% endif %}
+            {% endif %}
+          </div>
         </div>
         <div class="detail-item">
-          <div class="detail-label">Дата рождения</div>
-          <div class="detail-value">{{ applicant.birth_date|default:''|slice:":10"|default:'Не указана' }}</div>
+          <div class="detail-label">{% if request.LANGUAGE_CODE == 'en' %}Birth date{% else %}Дата рождения{% endif %}</div>
+          <div class="detail-value">
+            {% if applicant.birth_date %}
+              {{ applicant.birth_date|slice:":10" }}
+            {% else %}
+              {% if request.LANGUAGE_CODE == 'en' %}Not specified{% else %}Не указана{% endif %}
+            {% endif %}
+          </div>
         </div>
         <div class="detail-item">
-          <div class="detail-label">Интересы</div>
+          <div class="detail-label">{% if request.LANGUAGE_CODE == 'en' %}Interests{% else %}Интересы{% endif %}</div>
           <div class="detail-value">
             {% if applicant_interests %}
               {{ applicant_interests|join:', ' }}
             {% else %}
-              Не выбраны
+              {% if request.LANGUAGE_CODE == 'en' %}Not selected{% else %}Не выбраны{% endif %}
+            {% endif %}
+          </div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</div>
+          <div class="detail-value">
+            {% if applicant_skills %}
+              <div class="profile-skill-list">
+                {% for skill in applicant_skills %}
+                  <span class="profile-skill-chip">
+                    {{ skill.skill_name }}
+                    {% if skill.level %}
+                      <span class="profile-skill-level">
+                        {% if request.LANGUAGE_CODE == 'en' %}Level{% else %}Уровень{% endif %}: {{ skill.level }}/5
+                      </span>
+                    {% endif %}
+                  </span>
+                {% endfor %}
+              </div>
+            {% else %}
+              {% if request.LANGUAGE_CODE == 'en' %}Not added{% else %}Не добавлены{% endif %}
             {% endif %}
           </div>
         </div>
       </div>
 
       <div class="resume-section">
-        <h3>резюме</h3>
+        <h3>{% if request.LANGUAGE_CODE == 'en' %}Resume{% else %}Резюме{% endif %}</h3>
         <div class="resume-content">
+          {% if applicant.resume_file %}
+            <p>
+              <a href="{{ applicant.resume_file }}" target="_blank" rel="noopener" class="btn btn-secondary">
+                {% if request.LANGUAGE_CODE == 'en' %}Open attached resume file{% else %}Открыть прикреплённый файл резюме{% endif %}
+              </a>
+            </p>
+          {% endif %}
           {% if applicant.resume %}
             {{ applicant.resume|linebreaks }}
-          {% else %}
-            <p class="no-resume">резюме не заполнено</p>
+          {% elif not applicant.resume_file %}
+            <p class="no-resume">{% if request.LANGUAGE_CODE == 'en' %}Resume is empty{% else %}Резюме не заполнено{% endif %}</p>
           {% endif %}
         </div>
       </div>
@@ -71,7 +117,7 @@
 
     <div class="profile-sections">
       <div class="section-card">
-        <h3>Избранные вакансии</h3>
+        <h3>{% if request.LANGUAGE_CODE == 'en' %}Favorite vacancies{% else %}Избранные вакансии{% endif %}</h3>
         {% if favorites %}
           {% for favorite in favorites %}
             <a href="{% url 'vacancy_detail' favorite.vacancy %}" class="favorite-item clickable-item">
@@ -83,12 +129,12 @@
             </a>
           {% endfor %}
         {% else %}
-          <div class="empty-state"><p>У вас пока нет избранных вакансий</p></div>
+          <div class="empty-state"><p>{% if request.LANGUAGE_CODE == 'en' %}You have no favorite vacancies yet{% else %}У вас пока нет избранных вакансий{% endif %}</p></div>
         {% endif %}
       </div>
 
       <div class="section-card">
-        <h3>Мои отклики</h3>
+        <h3>{% if request.LANGUAGE_CODE == 'en' %}My responses{% else %}Мои отклики{% endif %}</h3>
         {% if responses %}
           {% for response in responses %}
             <a href="{% url 'vacancy_detail' response.vacancy_id %}" class="response-item clickable-item">
@@ -99,7 +145,7 @@
             </a>
           {% endfor %}
         {% else %}
-          <div class="empty-state"><p>У вас пока нет откликов</p></div>
+          <div class="empty-state"><p>{% if request.LANGUAGE_CODE == 'en' %}You have no responses yet{% else %}У вас пока нет откликов{% endif %}</p></div>
         {% endif %}
       </div>
     </div>
@@ -109,17 +155,17 @@
 <div id="deleteModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <h3>Подтверждение удаления</h3>
+      <h3>{% if request.LANGUAGE_CODE == 'en' %}Delete confirmation{% else %}Подтверждение удаления{% endif %}</h3>
       <span class="close" onclick="closeDeleteModal()">&times;</span>
     </div>
     <div class="modal-body">
-      <p>Удаление аккаунта на оне API может быть недоступно. сейчас кнопка выполнит выход из системы.</p>
+      <p>{% if request.LANGUAGE_CODE == 'en' %}Account deletion may be unavailable via this API. This button will sign you out now.{% else %}Удаление аккаунта через API может быть недоступно. Сейчас кнопка выполнит выход из системы.{% endif %}</p>
     </div>
     <div class="modal-actions">
-      <button type="button" class="btn btn-cancel" onclick="closeDeleteModal()">Отмена</button>
+      <button type="button" class="btn btn-cancel" onclick="closeDeleteModal()">{% if request.LANGUAGE_CODE == 'en' %}Cancel{% else %}Отмена{% endif %}</button>
       <form method="post" action="{% url 'delete_applicant_profile' %}" style="display: inline;">
         {% csrf_token %}
-        <button type="submit" class="btn btn-delete-confirm">Продолжить</button>
+        <button type="submit" class="btn btn-delete-confirm">{% if request.LANGUAGE_CODE == 'en' %}Continue{% else %}Продолжить{% endif %}</button>
       </form>
     </div>
   </div>
@@ -128,14 +174,14 @@
 <div id="interestsModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <h3>Интересующие сферы</h3>
+      <h3>{% if request.LANGUAGE_CODE == 'en' %}Interest areas{% else %}Интересующие сферы{% endif %}</h3>
       <span class="close" onclick="closeInterestsModal()">&times;</span>
     </div>
     <form method="post" action="{% url 'update_applicant_interests' %}">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <div class="modal-body">
-        <p style="margin-top:0;">Выберите сферы, по которым вам показывать рекомендации.</p>
+        <p style="margin-top:0;">{% if request.LANGUAGE_CODE == 'en' %}Choose the areas used to build your recommendations.{% else %}Выберите сферы, по которым вам показывать рекомендации.{% endif %}</p>
         <div class="interest-grid">
           {% for category in interest_categories %}
           <label class="interest-option">
@@ -146,14 +192,93 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-cancel" onclick="closeInterestsModal()">Отмена</button>
-        <button type="submit" class="btn btn-edit">Сохранить</button>
+        <button type="button" class="btn btn-cancel" onclick="closeInterestsModal()">{% if request.LANGUAGE_CODE == 'en' %}Cancel{% else %}Отмена{% endif %}</button>
+        <button type="submit" class="btn btn-edit">{% if request.LANGUAGE_CODE == 'en' %}Save{% else %}Сохранить{% endif %}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="skillsModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>{% if request.LANGUAGE_CODE == 'en' %}Skills and levels{% else %}Навыки и уровни{% endif %}</h3>
+      <span class="close" onclick="closeSkillsModal()">&times;</span>
+    </div>
+    <form method="post" action="{% url 'update_applicant_skills' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="modal-body">
+        <p style="margin-top:0;">
+          {% if request.LANGUAGE_CODE == 'en' %}
+          Select skills from the list and set level from 1 to 5.
+          {% else %}
+          Выберите навыки из списка и укажите уровень от 1 до 5.
+          {% endif %}
+        </p>
+        {% if skill_options %}
+        <div class="skill-editor-grid">
+          {% for item in skill_options %}
+          <div class="skill-editor-row">
+            <label class="skill-editor-check">
+              <input
+                type="checkbox"
+                name="skill_ids"
+                value="{{ item.id }}"
+                {% if item.selected_level %}checked{% endif %}
+              >
+              <span>{{ item.name }}</span>
+            </label>
+            <select name="skill_level_{{ item.id }}" class="form-control skill-level-select">
+              {% for level in "12345" %}
+              {% with level_int=level|add:0 %}
+              <option value="{{ level_int }}" {% if item.selected_level == level_int %}selected{% elif not item.selected_level and level_int == 3 %}selected{% endif %}>
+                {% if request.LANGUAGE_CODE == 'en' %}Level{% else %}Уровень{% endif %} {{ level_int }}
+              </option>
+              {% endwith %}
+              {% endfor %}
+            </select>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-resume">{% if request.LANGUAGE_CODE == 'en' %}Skills list is empty{% else %}Список навыков пока пустой{% endif %}</p>
+        {% endif %}
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeSkillsModal()">{% if request.LANGUAGE_CODE == 'en' %}Cancel{% else %}Отмена{% endif %}</button>
+        <button type="submit" class="btn btn-edit">{% if request.LANGUAGE_CODE == 'en' %}Save{% else %}Сохранить{% endif %}</button>
       </div>
     </form>
   </div>
 </div>
 
 <style>
+.profile-skill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  line-height: 1.2;
+}
+
+.profile-skill-level {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
 .interest-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -168,6 +293,33 @@
   border-radius: 10px;
   background: var(--bg-primary);
   color: var(--text-primary);
+}
+
+.skill-editor-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.skill-editor-row {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-primary);
+}
+
+.skill-editor-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.skill-level-select {
+  min-width: 120px;
 }
 
 .profile-actions .text-size-controls {
@@ -230,15 +382,21 @@ function openDeleteModal() { document.getElementById('deleteModal').style.displa
 function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; }
 function openInterestsModal() { document.getElementById('interestsModal').style.display = 'block'; }
 function closeInterestsModal() { document.getElementById('interestsModal').style.display = 'none'; }
+function openSkillsModal() { document.getElementById('skillsModal').style.display = 'block'; }
+function closeSkillsModal() { document.getElementById('skillsModal').style.display = 'none'; }
 
 window.onclick = function(event) {
   const deleteModal = document.getElementById('deleteModal');
   const interestsModal = document.getElementById('interestsModal');
+  const skillsModal = document.getElementById('skillsModal');
   if (event.target === deleteModal) {
     closeDeleteModal();
   }
   if (event.target === interestsModal) {
     closeInterestsModal();
+  }
+  if (event.target === skillsModal) {
+    closeSkillsModal();
   }
 };
 

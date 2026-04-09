@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from datetime import date
 from functools import wraps
+import json
 import re
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login as auth_login, logout as auth_logout
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.utils import translation
+from django.views.decorators.http import require_POST
 
-from .api_client import api_get, api_patch, api_post, api_put, clear_tokens, set_tokens
+from .api_client import api_base_url, api_get, api_patch, api_post, api_put, clear_tokens, set_tokens
 from .forms import CodeVerificationForm, PasswordResetRequestForm, SetNewPasswordForm
 
 
@@ -38,6 +41,38 @@ def _is_local_path(value: str | None) -> bool:
     return bool(value) and value.startswith('/') and not value.startswith('//')
 
 
+def _absolute_api_media_url(value: str | None) -> str | None:
+    if not value:
+        return value
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    if text.startswith(('http://', 'https://')):
+        return text
+
+    if text.startswith('//'):
+        return f'https:{text}'
+
+    return urljoin(api_base_url(), text)
+
+
+def _normalize_language_code(value: str | None) -> str:
+    code = str(value or '').strip().lower()
+    if code not in SUPPORTED_UI_LANGUAGES:
+        return 'ru'
+    return code
+
+
+def _is_english_ui(request: HttpRequest) -> bool:
+    return str(getattr(request, 'LANGUAGE_CODE', '') or '').lower().startswith('en')
+
+
+def _ui_text(request: HttpRequest, ru_text: str, en_text: str) -> str:
+    return en_text if _is_english_ui(request) else ru_text
+
+
 CYRILLIC_NAME_PATTERN = re.compile(
     r"^[\u0410-\u042F\u0430-\u044F\u0401\u0451]+(?:[ -][\u0410-\u042F\u0430-\u044F\u0401\u0451]+)*$"
 )
@@ -46,6 +81,8 @@ VALID_COMPLAINT_TYPES = {'spam', 'fraud', 'inappropriate', 'discrimination', 'fa
 PASSWORD_RESET_EMAIL_SESSION_KEY = 'password_reset_email'
 PASSWORD_RESET_CODE_SESSION_KEY = 'password_reset_code'
 PASSWORD_RESET_ATTEMPTS_SESSION_KEY = 'password_reset_attempts_left'
+LANGUAGE_SESSION_KEY = 'django_language'
+SUPPORTED_UI_LANGUAGES = {'ru', 'en'}
 
 
 def _clear_password_reset_session(request: HttpRequest) -> None:
@@ -195,6 +232,102 @@ def _load_interest_preferences(request: HttpRequest) -> tuple[list[str], list[st
         pass
 
     return selected_categories, default_categories
+
+
+def _load_applicant_skills(request: HttpRequest) -> list[dict]:
+    if not request.session.get('api_access') or not _is_applicant_user(request):
+        return []
+
+    try:
+        resp = api_get(request, 'applicants/me/skills/')
+        payload = _safe_json(resp)
+        if resp.status_code >= 400:
+            return []
+
+        if isinstance(payload, list):
+            rows = payload
+        elif isinstance(payload, dict):
+            rows = _extract_results(payload)
+        else:
+            rows = []
+
+        skills: list[dict] = []
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+
+            skill_id = item.get('skill')
+            try:
+                skill_id = int(skill_id)
+            except (TypeError, ValueError):
+                skill_id = None
+
+            skill_name = str(item.get('skill_name') or '').strip()
+            if not skill_name and item.get('skill') is not None:
+                skill_name = str(item.get('skill')).strip()
+            if not skill_name:
+                continue
+
+            level = item.get('level')
+            try:
+                level = int(level)
+            except (TypeError, ValueError):
+                level = None
+
+            skill_data = {
+                'skill_id': skill_id,
+                'skill_name': skill_name,
+                'level': level,
+            }
+            skills.append(skill_data)
+
+        skills.sort(key=lambda row: str(row.get('skill_name') or '').lower())
+        return skills
+    except Exception:
+        return []
+
+
+def _load_available_skills(request: HttpRequest) -> list[dict]:
+    try:
+        options: list[dict] = []
+        seen_ids: set[int] = set()
+        page = 1
+
+        while page <= 20:
+            resp = api_get(request, 'skills/', params={'page': page})
+            payload = _safe_json(resp)
+            if resp.status_code >= 400:
+                return []
+
+            rows = _extract_results(payload)
+            for item in rows:
+                if not isinstance(item, dict):
+                    continue
+
+                skill_id = item.get('id')
+                try:
+                    skill_id = int(skill_id)
+                except (TypeError, ValueError):
+                    continue
+                if skill_id in seen_ids:
+                    continue
+
+                name = str(item.get('name') or '').strip()
+                if not name:
+                    continue
+
+                seen_ids.add(skill_id)
+                options.append({'id': skill_id, 'name': name})
+
+            next_url = payload.get('next') if isinstance(payload, dict) else None
+            if not next_url:
+                break
+            page += 1
+
+        options.sort(key=lambda row: row['name'].lower())
+        return options
+    except Exception:
+        return []
 
 
 def brendbook(request: HttpRequest) -> HttpResponse:
@@ -359,6 +492,7 @@ def custom_register(request: HttpRequest) -> HttpResponse:
         email = (request.POST.get('email') or '').strip()
         birth_date = (request.POST.get('birth_date') or '').strip()
         resume = (request.POST.get('resume') or '').strip()
+        resume_file = request.FILES.get('resume_file')
         password = request.POST.get('password1') or ''
         password2 = request.POST.get('password2') or ''
         agreement = request.POST.get('personal_data_agreement')
@@ -412,7 +546,15 @@ def custom_register(request: HttpRequest) -> HttpResponse:
         }
 
         try:
-            resp = api_post(request, 'user/register_applicant/', json=payload)
+            if resume_file:
+                resp = api_post(
+                    request,
+                    'user/register_applicant/',
+                    data=payload,
+                    files={'resume_file': resume_file},
+                )
+            else:
+                resp = api_post(request, 'user/register_applicant/', json=payload)
             data = _safe_json(resp)
             if resp.status_code >= 400:
                 messages.error(request, _first_error(data, 'Не удалось зарегистрироваться через API'))
@@ -604,12 +746,31 @@ def applicant_profile(request: HttpRequest) -> HttpResponse:
     responses = []
     chats = []
     applicant_interests, interest_categories = _load_interest_preferences(request)
+    applicant_skills = _load_applicant_skills(request)
+    available_skills = _load_available_skills(request)
+    selected_skill_levels: dict[int, int] = {}
+    for skill in applicant_skills:
+        skill_id = skill.get('skill_id')
+        level = skill.get('level')
+        if isinstance(skill_id, int) and isinstance(level, int):
+            selected_skill_levels[skill_id] = level
+    skill_options = [
+        {
+            'id': option['id'],
+            'name': option['name'],
+            'selected_level': selected_skill_levels.get(option['id']),
+        }
+        for option in available_skills
+    ]
     show_interests_modal = bool(request.session.pop('show_interests_modal', False))
 
     try:
         profile_resp = api_get(request, 'user/profile/')
         if profile_resp.status_code < 400:
             profile = _safe_json(profile_resp) or {}
+            if isinstance(profile, dict):
+                profile['avatar'] = _absolute_api_media_url(profile.get('avatar'))
+                profile['resume_file'] = _absolute_api_media_url(profile.get('resume_file'))
     except Exception:
         pass
 
@@ -643,6 +804,8 @@ def applicant_profile(request: HttpRequest) -> HttpResponse:
             'responses': responses,
             'chats_count': len(chats),
             'applicant_interests': applicant_interests,
+            'applicant_skills': applicant_skills,
+            'skill_options': skill_options,
             'interest_categories': interest_categories,
             'show_interests_modal': show_interests_modal,
             'api_user': request.session.get('api_user'),
@@ -664,8 +827,11 @@ def edit_applicant_profile(request: HttpRequest) -> HttpResponse:
 
         files = {}
         avatar = request.FILES.get('avatar')
+        resume_file = request.FILES.get('resume_file')
         if avatar:
             files['avatar'] = avatar
+        if resume_file:
+            files['resume_file'] = resume_file
 
         try:
             if files:
@@ -692,6 +858,9 @@ def edit_applicant_profile(request: HttpRequest) -> HttpResponse:
         profile_resp = api_get(request, 'user/profile/')
         if profile_resp.status_code < 400:
             profile = _safe_json(profile_resp) or {}
+            if isinstance(profile, dict):
+                profile['avatar'] = _absolute_api_media_url(profile.get('avatar'))
+                profile['resume_file'] = _absolute_api_media_url(profile.get('resume_file'))
     except Exception:
         pass
 
@@ -713,6 +882,35 @@ def update_theme(request: HttpRequest) -> HttpResponse:
     if theme:
         request.session['ui_theme'] = theme
     return redirect(request.META.get('HTTP_REFERER', 'home_page'))
+
+
+@require_POST
+def update_language(request: HttpRequest) -> HttpResponse:
+    payload = {}
+    if request.content_type and 'application/json' in request.content_type:
+        try:
+            payload = json.loads(request.body.decode('utf-8') or '{}')
+        except Exception:
+            payload = {}
+
+    requested = (
+        request.POST.get('language')
+        or request.POST.get('lang')
+        or payload.get('language')
+        or payload.get('lang')
+    )
+    language_code = _normalize_language_code(requested)
+    translation.activate(language_code)
+    request.session[LANGUAGE_SESSION_KEY] = language_code
+
+    response = JsonResponse({'ok': True, 'language': language_code})
+    response.set_cookie(
+        'django_language',
+        language_code,
+        max_age=60 * 60 * 24 * 365,
+        samesite='Lax',
+    )
+    return response
 
 
 @api_login_required
@@ -739,6 +937,69 @@ def update_applicant_interests(request: HttpRequest) -> HttpResponse:
             messages.success(request, 'Интересы обновлены')
     except Exception:
         messages.error(request, 'Ошибка сети при сохранении интересов')
+
+    return redirect(redirect_to)
+
+
+@api_login_required
+def update_applicant_skills(request: HttpRequest) -> HttpResponse:
+    redirect_to = request.POST.get('next') or request.META.get('HTTP_REFERER') or '/profile/'
+    if not _is_local_path(redirect_to):
+        redirect_to = '/profile/'
+
+    if request.method != 'POST':
+        return redirect(redirect_to)
+
+    if not _is_applicant_user(request):
+        messages.error(request, 'Изменение навыков доступно только соискателю')
+        return redirect(redirect_to)
+
+    available_skills = _load_available_skills(request)
+    available_skill_ids = {item['id'] for item in available_skills if isinstance(item.get('id'), int)}
+
+    selected_raw = request.POST.getlist('skill_ids')
+    selected_ids: list[int] = []
+    invalid_ids = False
+    for raw in selected_raw:
+        try:
+            skill_id = int(str(raw).strip())
+        except (TypeError, ValueError):
+            invalid_ids = True
+            continue
+        if skill_id not in available_skill_ids:
+            invalid_ids = True
+            continue
+        if skill_id not in selected_ids:
+            selected_ids.append(skill_id)
+
+    if invalid_ids:
+        messages.error(request, 'Обнаружены некорректные навыки в форме. Обновите страницу и попробуйте снова.')
+        return redirect(redirect_to)
+
+    payload_skills: list[dict] = []
+    for skill_id in selected_ids:
+        level_raw = request.POST.get(f'skill_level_{skill_id}', '')
+        try:
+            level = int(str(level_raw).strip())
+        except (TypeError, ValueError):
+            messages.error(request, f'Укажите уровень 1..5 для навыка ID {skill_id}.')
+            return redirect(redirect_to)
+
+        if level < 1 or level > 5:
+            messages.error(request, f'Уровень навыка (ID {skill_id}) должен быть от 1 до 5.')
+            return redirect(redirect_to)
+
+        payload_skills.append({'skill_id': skill_id, 'level': level})
+
+    try:
+        resp = api_put(request, 'applicants/me/skills/', json={'skills': payload_skills})
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            messages.error(request, _first_error(data, 'Не удалось сохранить навыки'))
+        else:
+            messages.success(request, 'Навыки обновлены')
+    except Exception:
+        messages.error(request, 'Ошибка сети при сохранении навыков')
 
     return redirect(redirect_to)
 
@@ -1014,7 +1275,9 @@ def video_toggle_like(request: HttpRequest, video_id: int) -> JsonResponse:
 @api_login_required
 def applicant_chats(request: HttpRequest) -> HttpResponse:
     page = request.GET.get('page') or 1
-    params = {'page': page}
+    archived_raw = str(request.GET.get('archived') or '0').strip().lower()
+    is_archived_view = archived_raw in {'1', 'true', 'yes', 'on'}
+    params = {'page': page, 'archived': 1 if is_archived_view else 0}
     chats = []
     count = 0
     next_url = None
@@ -1052,11 +1315,64 @@ def applicant_chats(request: HttpRequest) -> HttpResponse:
             'chats': chats,
             'count': count,
             'query': request.GET.get('q', ''),
+            'current_tab': 'archived' if is_archived_view else 'active',
             'next_url': next_url,
             'prev_url': prev_url,
             'api_user': request.session.get('api_user'),
         },
     )
+
+
+def _safe_chat_next_url(request: HttpRequest) -> str | None:
+    next_url = str(request.POST.get('next') or request.GET.get('next') or '').strip()
+    if next_url.startswith('/'):
+        return next_url
+    return None
+
+
+@api_login_required
+def applicant_chat_archive(request: HttpRequest, chat_id: int) -> HttpResponse:
+    if request.method != 'POST':
+        return redirect('applicant_chats')
+
+    try:
+        resp = api_post(request, f'chats/{chat_id}/archive/')
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            messages.error(
+                request,
+                _first_error(data, _ui_text(request, 'Не удалось архивировать чат', 'Failed to archive chat')),
+            )
+        else:
+            messages.success(request, _ui_text(request, 'Чат перенесен в архив', 'Chat moved to archive'))
+    except Exception:
+        messages.error(request, _ui_text(request, 'Ошибка сети при архивации чата', 'Network error while archiving chat'))
+
+    return redirect(_safe_chat_next_url(request) or 'applicant_chats')
+
+
+@api_login_required
+def applicant_chat_unarchive(request: HttpRequest, chat_id: int) -> HttpResponse:
+    if request.method != 'POST':
+        return redirect('applicant_chats')
+
+    try:
+        resp = api_post(request, f'chats/{chat_id}/unarchive/')
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            messages.error(
+                request,
+                _first_error(data, _ui_text(request, 'Не удалось вернуть чат из архива', 'Failed to restore chat from archive')),
+            )
+        else:
+            messages.success(request, _ui_text(request, 'Чат возвращен из архива', 'Chat restored from archive'))
+    except Exception:
+        messages.error(
+            request,
+            _ui_text(request, 'Ошибка сети при восстановлении чата', 'Network error while restoring chat'),
+        )
+
+    return redirect(_safe_chat_next_url(request) or 'applicant_chats')
 
 
 @api_login_required

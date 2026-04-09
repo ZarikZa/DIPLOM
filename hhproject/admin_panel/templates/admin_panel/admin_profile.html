@@ -658,13 +658,17 @@
                         </div>
                       
                         <div class="profile-actions">
-                            <button class="btn theme-toggle-btn-profile" onclick="toggleTheme()" title="Переключить тему">
+                            <button class="btn theme-toggle-btn-profile" onclick="toggleTheme()" title="{% if request.LANGUAGE_CODE == 'en' %}Toggle theme{% else %}Переключить тему{% endif %}">
                                 <span class="theme-icon">🌙</span>
                             </button>
-                            <!-- Новая кнопка редактирования профиля -->
+                            <div class="language-controls" aria-label="{% if request.LANGUAGE_CODE == 'en' %}Language{% else %}Язык{% endif %}">
+                                <span class="language-label">{% if request.LANGUAGE_CODE == 'en' %}Language:{% else %}Язык:{% endif %}</span>
+                                <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'ru' %} active{% endif %}" data-language-option="ru" onclick="setLanguage('ru')" aria-pressed="{% if request.LANGUAGE_CODE == 'ru' %}true{% else %}false{% endif %}">RU</button>
+                                <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'en' %} active{% endif %}" data-language-option="en" onclick="setLanguage('en')" aria-pressed="{% if request.LANGUAGE_CODE == 'en' %}true{% else %}false{% endif %}">EN</button>
+                            </div>
                             <a href="{% url 'admin_profile_edit' %}" class="btn btn-edit">
                                 <i class="fas fa-edit"></i>
-                                редактировать профиль
+                                {% if request.LANGUAGE_CODE == 'en' %}Edit profile{% else %}редактировать профиль{% endif %}
                             </a>
                         </div>
                     </div>

@@ -8,6 +8,7 @@ urlpatterns = [
     path('companies/', company_moderation, name='admin_company_moderation'),
     path('companies/<int:company_id>/', company_detail, name='admin_company_detail'),
     path('categories/', category_moderation, name='admin_category_moderation'),
+    path('taxonomy/', taxonomy_management, name='admin_taxonomy_management'),
     
     path('backups/', backup_dashboard, name='admin_backup_management'),
     path('backups/create/', create_backup_api, name='admin_create_backup'),

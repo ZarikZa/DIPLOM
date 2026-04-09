@@ -8,7 +8,7 @@ from collections import Counter
 from datetime import datetime
 from io import BytesIO
 from functools import wraps
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -23,36 +23,36 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
-from home.api_client import api_delete, api_get, api_patch, api_post, clear_tokens
+from home.api_client import api_base_url, api_delete, api_get, api_patch, api_post, clear_tokens
 from .forms import CompanyRegistrationApiForm
 
 ERROR_FIELD_LABELS = {
-    'name': 'Название компании',
-    'number': 'ИНН',
-    'industry': 'Сфера деятельности',
-    'description': 'Описание',
+    'name': 'РќР°Р·РІР°РЅРёРµ РєРѕРјРїР°РЅРёРё',
+    'number': 'РРќРќ',
+    'industry': 'РЎС„РµСЂР° РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё',
+    'description': 'РћРїРёСЃР°РЅРёРµ',
     'email': 'Email',
-    'phone': 'Телефон',
-    'password': 'Пароль',
-    'password1': 'Пароль',
-    'password2': 'Подтверждение пароля',
-    'old_password': 'Старый пароль',
-    'new_password': 'Новый пароль',
-    'new_password_confirm': 'Подтверждение нового пароля',
-    'verification_document': 'Документ',
-    'username': 'Логин',
-    'first_name': 'Имя',
-    'last_name': 'Фамилия',
-    'birth_date': 'Дата рождения',
-    'resume': 'Резюме',
-    'position': 'Должность',
-    'city': 'Город',
-    'category': 'Категория',
-    'experience': 'Опыт',
-    'salary_min': 'Зарплата от',
-    'salary_max': 'Зарплата до',
-    'requirements': 'Требования',
-    'work_conditions_details': 'Детали условий',
+    'phone': 'РўРµР»РµС„РѕРЅ',
+    'password': 'РџР°СЂРѕР»СЊ',
+    'password1': 'РџР°СЂРѕР»СЊ',
+    'password2': 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РїР°СЂРѕР»СЏ',
+    'old_password': 'РЎС‚Р°СЂС‹Р№ РїР°СЂРѕР»СЊ',
+    'new_password': 'РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ',
+    'new_password_confirm': 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РЅРѕРІРѕРіРѕ РїР°СЂРѕР»СЏ',
+    'verification_document': 'Р”РѕРєСѓРјРµРЅС‚',
+    'username': 'Р›РѕРіРёРЅ',
+    'first_name': 'РРјСЏ',
+    'last_name': 'Р¤Р°РјРёР»РёСЏ',
+    'birth_date': 'Р”Р°С‚Р° СЂРѕР¶РґРµРЅРёСЏ',
+    'resume': 'Р РµР·СЋРјРµ',
+    'position': 'Р”РѕР»Р¶РЅРѕСЃС‚СЊ',
+    'city': 'Р“РѕСЂРѕРґ',
+    'category': 'РљР°С‚РµРіРѕСЂРёСЏ',
+    'experience': 'РћРїС‹С‚',
+    'salary_min': 'Р—Р°СЂРїР»Р°С‚Р° РѕС‚',
+    'salary_max': 'Р—Р°СЂРїР»Р°С‚Р° РґРѕ',
+    'requirements': 'РўСЂРµР±РѕРІР°РЅРёСЏ',
+    'work_conditions_details': 'Р”РµС‚Р°Р»Рё СѓСЃР»РѕРІРёР№',
 }
 
 
@@ -61,6 +61,23 @@ def _safe_json(resp):
         return resp.json()
     except Exception:
         return None
+
+
+def _absolute_api_media_url(value: str | None) -> str | None:
+    if not value:
+        return value
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    if text.startswith(('http://', 'https://')):
+        return text
+
+    if text.startswith('//'):
+        return f'https:{text}'
+
+    return urljoin(api_base_url(), text)
 
 
 def _results(payload):
@@ -115,6 +132,14 @@ def _first_error(payload, default: str) -> str:
                 return f'{label}: {text}'
 
     return default
+
+
+def _is_english_ui(request: HttpRequest) -> bool:
+    return str(getattr(request, 'LANGUAGE_CODE', '') or '').lower().startswith('en')
+
+
+def _ui_text(request: HttpRequest, ru_text: str, en_text: str) -> str:
+    return en_text if _is_english_ui(request) else ru_text
 
 
 def _apply_api_errors_to_company_form(form: CompanyRegistrationApiForm, payload, default_message: str) -> None:
@@ -437,17 +462,17 @@ def company_register(request: HttpRequest) -> HttpResponse:
                 _apply_api_errors_to_company_form(
                     form,
                     data,
-                    'Не удалось зарегистрировать компанию. Проверьте введенные данные.',
+                    'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ РєРѕРјРїР°РЅРёСЋ. РџСЂРѕРІРµСЂСЊС‚Рµ РІРІРµРґРµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ.',
                 )
                 return render(request, 'auth/register_comp.html', {'form': form})
 
             if is_resubmit:
-                messages.success(request, 'Данные компании повторно отправлены на проверку администратором.')
+                messages.success(request, 'Р”Р°РЅРЅС‹Рµ РєРѕРјРїР°РЅРёРё РїРѕРІС‚РѕСЂРЅРѕ РѕС‚РїСЂР°РІР»РµРЅС‹ РЅР° РїСЂРѕРІРµСЂРєСѓ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј.')
             else:
-                messages.success(request, 'Данные компании отправлены на проверку администратором.')
+                messages.success(request, 'Р”Р°РЅРЅС‹Рµ РєРѕРјРїР°РЅРёРё РѕС‚РїСЂР°РІР»РµРЅС‹ РЅР° РїСЂРѕРІРµСЂРєСѓ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј.')
             return redirect('account_pending')
         except Exception:
-            form.add_error(None, 'Ошибка сети при регистрации компании. Попробуйте еще раз.')
+            form.add_error(None, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЂРµРіРёСЃС‚СЂР°С†РёРё РєРѕРјРїР°РЅРёРё. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰Рµ СЂР°Р·.')
             return render(request, 'auth/register_comp.html', {'form': form})
 
     return render(request, 'auth/register_comp.html', {'form': CompanyRegistrationApiForm()})
@@ -577,20 +602,20 @@ def change_password_request(request: HttpRequest) -> HttpResponse:
         }
 
         if not all(password_form.values()):
-            messages.error(request, 'Заполните все поля для смены пароля.')
+            messages.error(request, 'Р—Р°РїРѕР»РЅРёС‚Рµ РІСЃРµ РїРѕР»СЏ РґР»СЏ СЃРјРµРЅС‹ РїР°СЂРѕР»СЏ.')
         elif password_form['new_password'] != password_form['new_password_confirm']:
-            messages.error(request, 'Новый пароль и подтверждение не совпадают.')
+            messages.error(request, 'РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ Рё РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РЅРµ СЃРѕРІРїР°РґР°СЋС‚.')
         else:
             try:
                 password_resp = api_post(request, 'user/change-password/', json=password_form)
                 password_data = _safe_json(password_resp)
                 if password_resp.status_code >= 400:
-                    messages.error(request, _first_error(password_data, 'Не удалось сменить пароль.'))
+                    messages.error(request, _first_error(password_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРјРµРЅРёС‚СЊ РїР°СЂРѕР»СЊ.'))
                 else:
-                    messages.success(request, _first_error(password_data, 'Пароль успешно изменен.'))
+                    messages.success(request, _first_error(password_data, 'РџР°СЂРѕР»СЊ СѓСЃРїРµС€РЅРѕ РёР·РјРµРЅРµРЅ.'))
                     return redirect('company_profile')
             except Exception:
-                messages.error(request, 'Ошибка сети при смене пароля.')
+                messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЃРјРµРЅРµ РїР°СЂРѕР»СЏ.')
 
         password_form = {
             'old_password': '',
@@ -935,7 +960,7 @@ def _load_vacancy_meta(request: HttpRequest) -> tuple[list, list, list[str]]:
         pass
 
     if not categories:
-        categories = ['IT', 'Маркетинг', 'Продажи', 'HR']
+        categories = ['IT', 'РњР°СЂРєРµС‚РёРЅРі', 'РџСЂРѕРґР°Р¶Рё', 'HR']
 
     return work_conditions, statuses, categories
 
@@ -980,7 +1005,7 @@ def create_vacancy(request: HttpRequest) -> HttpResponse:
 
         if form_action == 'request_category':
             if not new_category:
-                messages.error(request, 'Введите категорию перед отправкой на проверку.')
+                messages.error(request, 'Р’РІРµРґРёС‚Рµ РєР°С‚РµРіРѕСЂРёСЋ РїРµСЂРµРґ РѕС‚РїСЂР°РІРєРѕР№ РЅР° РїСЂРѕРІРµСЂРєСѓ.')
             else:
                 try:
                     resp = api_post(
@@ -995,16 +1020,16 @@ def create_vacancy(request: HttpRequest) -> HttpResponse:
                             category_error = _first_error(data.get('name'), '')
                         messages.error(
                             request,
-                            f'Категория: {category_error}' if category_error else _first_error(data, 'Не удалось отправить категорию на проверку.')
+                            f'РљР°С‚РµРіРѕСЂРёСЏ: {category_error}' if category_error else _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РєР°С‚РµРіРѕСЂРёСЋ РЅР° РїСЂРѕРІРµСЂРєСѓ.')
                         )
                     else:
                         messages.success(
                             request,
-                            'Категория отправлена администратору на проверку.'
+                            'РљР°С‚РµРіРѕСЂРёСЏ РѕС‚РїСЂР°РІР»РµРЅР° Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂСѓ РЅР° РїСЂРѕРІРµСЂРєСѓ.'
                         )
                         new_category = ''
                 except Exception:
-                    messages.error(request, 'Ошибка сети при отправке категории на проверку.')
+                    messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕС‚РїСЂР°РІРєРµ РєР°С‚РµРіРѕСЂРёРё РЅР° РїСЂРѕРІРµСЂРєСѓ.')
 
             work_conditions, statuses, categories = _load_vacancy_meta(request)
             category_suggestions = _load_company_category_suggestions(request)
@@ -1022,7 +1047,7 @@ def create_vacancy(request: HttpRequest) -> HttpResponse:
                 if resp.status_code >= 400:
                     messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РІР°РєР°РЅСЃРёСЋ'))
                 else:
-                    messages.success(request, 'Вакансия создана')
+                    messages.success(request, 'Р’Р°РєР°РЅСЃРёСЏ СЃРѕР·РґР°РЅР°')
                     return redirect('vacancy_list')
             except Exception:
                 messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЃРѕР·РґР°РЅРёРё РІР°РєР°РЅСЃРёРё')
@@ -1078,7 +1103,7 @@ def edit_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
             if patch_resp.status_code >= 400:
                 messages.error(request, _first_error(patch_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РІР°РєР°РЅСЃРёСЋ'))
             else:
-                messages.success(request, 'Вакансия обновлена')
+                messages.success(request, 'Р’Р°РєР°РЅСЃРёСЏ РѕР±РЅРѕРІР»РµРЅР°')
                 return redirect('vacancy_list')
         except Exception:
             messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё РІР°РєР°РЅСЃРёРё')
@@ -1106,7 +1131,7 @@ def archive_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
         if resp.status_code >= 400:
             messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ Р°СЂС…РёРІРёСЂРѕРІР°С‚СЊ РІР°РєР°РЅСЃРёСЋ'))
         else:
-            messages.success(request, 'Вакансия отправлена в архив')
+            messages.success(request, 'Р’Р°РєР°РЅСЃРёСЏ РѕС‚РїСЂР°РІР»РµРЅР° РІ Р°СЂС…РёРІ')
     except Exception:
         messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р°СЂС…РёРІР°С†РёРё РІР°РєР°РЅСЃРёРё')
     return redirect('vacancy_list')
@@ -1120,7 +1145,7 @@ def unarchive_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
         if resp.status_code >= 400:
             messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЂР°Р·Р°СЂС…РёРІРёСЂРѕРІР°С‚СЊ РІР°РєР°РЅСЃРёСЋ'))
         else:
-            messages.success(request, 'Вакансия возвращена из архива')
+            messages.success(request, 'Р’Р°РєР°РЅСЃРёСЏ РІРѕР·РІСЂР°С‰РµРЅР° РёР· Р°СЂС…РёРІР°')
     except Exception:
         messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЂР°Р·Р°СЂС…РёРІР°С†РёРё РІР°РєР°РЅСЃРёРё')
     return redirect('vacancy_list')
@@ -1181,30 +1206,84 @@ def responses_list(request: HttpRequest) -> HttpResponse:
         response_id = request.POST.get('response_id')
         status_id = request.POST.get('status')
         if not response_id or not status_id:
+            missing_data_text = _ui_text(request, 'Не хватает данных', 'Missing required data')
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'status': 'error', 'message': 'РќРµ С…РІР°С‚Р°РµС‚ РґР°РЅРЅС‹С…'}, status=400)
-            messages.error(request, 'РќРµ С…РІР°С‚Р°РµС‚ РґР°РЅРЅС‹С… РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ СЃС‚Р°С‚СѓСЃР°')
+                return JsonResponse({'status': 'error', 'message': missing_data_text}, status=400)
+            messages.error(
+                request,
+                _ui_text(request, 'Не хватает данных для обновления статуса', 'Missing data to update response status'),
+            )
             return redirect('responses_list')
 
         try:
             resp = api_post(request, f'responses/{response_id}/update-status/', json={'status_id': status_id})
             data = _safe_json(resp)
             if resp.status_code >= 400:
-                text = _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ СЃС‚Р°С‚СѓСЃ РѕС‚РєР»РёРєР°')
+                text = _first_error(data, _ui_text(request, 'Не удалось обновить статус отклика', 'Failed to update response status'))
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'status': 'error', 'message': text}, status=resp.status_code)
                 messages.error(request, text)
             else:
-                text = _first_error(data, 'РЎС‚Р°С‚СѓСЃ РѕС‚РєР»РёРєР° РѕР±РЅРѕРІР»РµРЅ')
+                text = _first_error(data, _ui_text(request, 'Статус отклика обновлён', 'Response status updated'))
                 if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return JsonResponse({'status': 'success', 'message': text})
                 messages.success(request, text)
         except Exception:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'status': 'error', 'message': 'РћС€РёР±РєР° СЃРµС‚Рё'}, status=502)
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё СЃС‚Р°С‚СѓСЃР° РѕС‚РєР»РёРєР°')
+                return JsonResponse({'status': 'error', 'message': _ui_text(request, 'Ошибка сети', 'Network error')}, status=502)
+            messages.error(
+                request,
+                _ui_text(
+                    request,
+                    'Ошибка сети при обновлении статуса отклика',
+                    'Network error while updating response status',
+                ),
+            )
 
         return redirect('responses_list')
+
+    def _restore_mojibake(text_value: str | None) -> str:
+        raw = str(text_value or '')
+        if not raw:
+            return ''
+        try:
+            restored = raw.encode('cp1251').decode('utf-8')
+        except Exception:
+            return raw
+        return restored or raw
+
+    def _status_alias(status_name: str | None) -> str:
+        normalized = _restore_mojibake(status_name).strip().lower()
+        if not normalized:
+            return ''
+        if any(
+            token in normalized
+            for token in (
+                '\u043e\u0442\u043f\u0440\u0430\u0432',
+                'sent',
+            )
+        ):
+            return 'sent'
+        if any(
+            token in normalized
+            for token in (
+                '\u043f\u0440\u0438\u0433\u043b\u0430\u0448',
+                'invite',
+            )
+        ):
+            return 'invited'
+        if any(
+            token in normalized
+            for token in (
+                '\u043e\u0442\u043a\u0430\u0437',
+                '\u043e\u0442\u043a\u043b\u043e\u043d',
+                'reject',
+            )
+        ):
+            return 'rejected'
+        return ''
+
+    allowed_status_aliases = ('sent', 'invited', 'rejected')
 
     statuses = []
     status_by_id = {}
@@ -1212,7 +1291,16 @@ def responses_list(request: HttpRequest) -> HttpResponse:
         statuses_resp = api_get(request, 'status-responses/', params={'page': 1})
         statuses_data = _safe_json(statuses_resp) or {}
         if statuses_resp.status_code < 400:
-            statuses = _results(statuses_data)
+            raw_statuses = _results(statuses_data)
+            alias_map = {}
+            for item in raw_statuses:
+                status_name = _restore_mojibake(item.get('status_response_name'))
+                alias = _status_alias(status_name)
+                if alias and alias not in alias_map:
+                    alias_map[alias] = {**item, 'status_response_name': status_name}
+            statuses = [alias_map[alias] for alias in allowed_status_aliases if alias in alias_map]
+            if not statuses:
+                statuses = [{**item, 'status_response_name': _restore_mojibake(item.get('status_response_name'))} for item in raw_statuses[:3]]
             status_by_id = {item.get('id'): item.get('status_response_name') for item in statuses}
     except Exception:
         statuses = []
@@ -1222,11 +1310,29 @@ def responses_list(request: HttpRequest) -> HttpResponse:
         responses_resp = api_get(request, 'company/responses/', params={'page': 1})
         responses_data = _safe_json(responses_resp) or {}
         if responses_resp.status_code >= 400:
-            messages.error(request, _first_error(responses_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РѕС‚РєР»РёРєРё'))
+            messages.error(request, _first_error(responses_data, _ui_text(request, 'Не удалось загрузить отклики', 'Failed to load responses')))
         else:
             responses = _results(responses_data)
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ РѕС‚РєР»РёРєРѕРІ')
+        messages.error(request, _ui_text(request, 'Ошибка сети при загрузке откликов', 'Network error while loading responses'))
+
+    if not statuses:
+        alias_map = {}
+        for item in responses:
+            status_id = item.get('status')
+            status_name = _restore_mojibake(item.get('status_name'))
+            alias = _status_alias(status_name)
+            if not status_id or not alias or alias in alias_map:
+                continue
+            if alias == 'invited':
+                label = _ui_text(request, 'Приглашение', 'Invited')
+            elif alias == 'rejected':
+                label = _ui_text(request, 'Отказ', 'Rejected')
+            else:
+                label = _ui_text(request, 'Отправлено', 'Sent')
+            alias_map[alias] = {'id': status_id, 'status_response_name': label}
+        statuses = [alias_map[alias] for alias in allowed_status_aliases if alias in alias_map]
+        status_by_id = {item.get('id'): item.get('status_response_name') for item in statuses}
 
     def _as_int(value):
         try:
@@ -1243,6 +1349,8 @@ def responses_list(request: HttpRequest) -> HttpResponse:
             applicant_resp = api_get(request, f'applicants/{applicant_id}/')
             applicant_data = _safe_json(applicant_resp)
             if applicant_resp.status_code < 400 and isinstance(applicant_data, dict):
+                applicant_data['avatar'] = _absolute_api_media_url(applicant_data.get('avatar'))
+                applicant_data['resume_file'] = _absolute_api_media_url(applicant_data.get('resume_file'))
                 applicant_map[applicant_id] = applicant_data
         except Exception:
             continue
@@ -1277,7 +1385,18 @@ def responses_list(request: HttpRequest) -> HttpResponse:
 
     enriched = []
     for item in responses:
-        status_name = item.get('status_name') or status_by_id.get(item.get('status')) or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°'
+        status_name = _restore_mojibake(
+            item.get('status_name')
+            or status_by_id.get(item.get('status'))
+            or _ui_text(request, 'Без статуса', 'No status')
+        )
+        status_alias = _status_alias(status_name) or 'sent'
+        if status_alias == 'invited':
+            status_name = _ui_text(request, 'Приглашение', 'Invited')
+        elif status_alias == 'rejected':
+            status_name = _ui_text(request, 'Отказ', 'Rejected')
+        else:
+            status_name = _ui_text(request, 'Отправлено', 'Sent')
         applicant_id = _as_int(item.get('applicants'))
         vacancy_id = _as_int(item.get('vacancy_id'))
         applicant = applicant_map.get(applicant_id) or {}
@@ -1290,6 +1409,7 @@ def responses_list(request: HttpRequest) -> HttpResponse:
                 'status': item.get('status'),
                 'status_name': status_name,
                 'status_name_lc': str(status_name).lower(),
+                'status_alias': status_alias,
                 'applicant_id': applicant_id,
                 'vacancy_id': vacancy_id,
                 'chat_id': chat_id,
@@ -1312,30 +1432,21 @@ def responses_list(request: HttpRequest) -> HttpResponse:
             or search in str(((item.get('applicant') or {}).get('user') or {}).get('email', '')).lower()
         ]
 
-    def _match_alias(status_name_lc: str, alias: str) -> bool:
-        if alias == 'new':
-            return 'РЅРѕРІ' in status_name_lc or 'new' in status_name_lc
-        if alias == 'viewed':
-            return 'РїСЂРѕСЃРјРѕС‚СЂ' in status_name_lc or 'view' in status_name_lc
-        if alias == 'invited':
-            return 'РїСЂРёРіР»Р°С€' in status_name_lc or 'invite' in status_name_lc
-        if alias == 'rejected':
-            return 'РѕС‚РєР»РѕРЅ' in status_name_lc or 'reject' in status_name_lc
-        return False
-
     if current_status != 'all':
-        if current_status.isdigit():
-            status_id_int = int(current_status)
-            enriched = [item for item in enriched if int(item.get('status') or 0) == status_id_int]
+        if current_status in allowed_status_aliases:
+            enriched = [item for item in enriched if item.get('status_alias') == current_status]
         else:
-            enriched = [item for item in enriched if _match_alias(item.get('status_name_lc') or '', current_status)]
+            current_status = 'all'
+
+    def _status_alias_from_response(payload: dict) -> str:
+        alias = _status_alias(payload.get('status_name'))
+        return alias or 'sent'
 
     counts = {
         'total': len(responses),
-        'new': len([item for item in responses if _match_alias(str(item.get('status_name') or '').lower(), 'new')]),
-        'viewed': len([item for item in responses if _match_alias(str(item.get('status_name') or '').lower(), 'viewed')]),
-        'invited': len([item for item in responses if _match_alias(str(item.get('status_name') or '').lower(), 'invited')]),
-        'rejected': len([item for item in responses if _match_alias(str(item.get('status_name') or '').lower(), 'rejected')]),
+        'sent': len([item for item in responses if _status_alias_from_response(item) == 'sent']),
+        'invited': len([item for item in responses if _status_alias_from_response(item) == 'invited']),
+        'rejected': len([item for item in responses if _status_alias_from_response(item) == 'rejected']),
     }
 
     company, _ = _load_company_me(request)
@@ -1714,7 +1825,11 @@ def content_manager_videos(request: HttpRequest) -> HttpResponse:
 
 @company_owner_or_hr_required
 def company_chats(request: HttpRequest) -> HttpResponse:
-    chats, err = _fetch_paginated(request, 'chats/', params={'page': 1})
+    archived_raw = str(request.GET.get('archived') or '0').strip().lower()
+    is_archived_view = archived_raw in {'1', 'true', 'yes', 'on'}
+    archived_param = 1 if is_archived_view else 0
+
+    chats, err = _fetch_paginated(request, 'chats/', params={'page': 1, 'archived': archived_param})
     if err and not chats:
         messages.error(request, err)
 
@@ -1734,9 +1849,62 @@ def company_chats(request: HttpRequest) -> HttpResponse:
         {
             'chats': chats,
             'query': request.GET.get('q', ''),
+            'current_tab': 'archived' if is_archived_view else 'active',
             'api_user': _api_user(request),
         },
     )
+
+
+def _safe_chat_next_url(request: HttpRequest) -> str | None:
+    next_url = str(request.POST.get('next') or request.GET.get('next') or '').strip()
+    if next_url.startswith('/'):
+        return next_url
+    return None
+
+
+@company_owner_or_hr_required
+def company_chat_archive(request: HttpRequest, chat_id: int) -> HttpResponse:
+    if request.method != 'POST':
+        return redirect('company_chats')
+
+    try:
+        response = api_post(request, f'chats/{chat_id}/archive/')
+        payload = _safe_json(response)
+        if response.status_code >= 400:
+            messages.error(
+                request,
+                _first_error(payload, _ui_text(request, 'Не удалось архивировать чат', 'Failed to archive chat')),
+            )
+        else:
+            messages.success(request, _ui_text(request, 'Чат перенесен в архив', 'Chat moved to archive'))
+    except Exception:
+        messages.error(request, _ui_text(request, 'Ошибка сети при архивации чата', 'Network error while archiving chat'))
+
+    return redirect(_safe_chat_next_url(request) or 'company_chats')
+
+
+@company_owner_or_hr_required
+def company_chat_unarchive(request: HttpRequest, chat_id: int) -> HttpResponse:
+    if request.method != 'POST':
+        return redirect('company_chats')
+
+    try:
+        response = api_post(request, f'chats/{chat_id}/unarchive/')
+        payload = _safe_json(response)
+        if response.status_code >= 400:
+            messages.error(
+                request,
+                _first_error(payload, _ui_text(request, 'Не удалось вернуть чат из архива', 'Failed to restore chat from archive')),
+            )
+        else:
+            messages.success(request, _ui_text(request, 'Чат возвращен из архива', 'Chat restored from archive'))
+    except Exception:
+        messages.error(
+            request,
+            _ui_text(request, 'Ошибка сети при восстановлении чата', 'Network error while restoring chat'),
+        )
+
+    return redirect(_safe_chat_next_url(request) or 'company_chats')
 
 
 @company_owner_or_hr_required
@@ -1901,47 +2069,47 @@ def export_company_stats_csv(request: HttpRequest) -> HttpResponse:
 
     writer = csv.writer(response, delimiter=';')
     writer.writerow(['WorkMPT Analytics Report'])
-    writer.writerow(['Дата формирования', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
-    writer.writerow(['Компания', company.get('name') or 'WorkMPT'])
+    writer.writerow(['Р”Р°С‚Р° С„РѕСЂРјРёСЂРѕРІР°РЅРёСЏ', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+    writer.writerow(['РљРѕРјРїР°РЅРёСЏ', company.get('name') or 'WorkMPT'])
     writer.writerow([])
 
-    writer.writerow(['Сводка'])
-    writer.writerow(['Метрика', 'Значение'])
-    writer.writerow(['Всего вакансий', summary.get('vacancies_total', 0)])
-    writer.writerow(['Активные вакансии', summary.get('vacancies_active', 0)])
-    writer.writerow(['Архивные вакансии', summary.get('vacancies_archived', 0)])
-    writer.writerow(['Отклики', summary.get('responses_total', 0)])
-    writer.writerow(['Сотрудники', summary.get('employees_total', 0)])
-    writer.writerow(['HR-агенты', summary.get('hr_agents_total', 0)])
-    writer.writerow(['Контент-менеджеры', summary.get('content_managers_total', 0)])
-    writer.writerow(['Чаты', summary.get('chats_total', 0)])
+    writer.writerow(['РЎРІРѕРґРєР°'])
+    writer.writerow(['РњРµС‚СЂРёРєР°', 'Р—РЅР°С‡РµРЅРёРµ'])
+    writer.writerow(['Р’СЃРµРіРѕ РІР°РєР°РЅСЃРёР№', summary.get('vacancies_total', 0)])
+    writer.writerow(['РђРєС‚РёРІРЅС‹Рµ РІР°РєР°РЅСЃРёРё', summary.get('vacancies_active', 0)])
+    writer.writerow(['РђСЂС…РёРІРЅС‹Рµ РІР°РєР°РЅСЃРёРё', summary.get('vacancies_archived', 0)])
+    writer.writerow(['РћС‚РєР»РёРєРё', summary.get('responses_total', 0)])
+    writer.writerow(['РЎРѕС‚СЂСѓРґРЅРёРєРё', summary.get('employees_total', 0)])
+    writer.writerow(['HR-Р°РіРµРЅС‚С‹', summary.get('hr_agents_total', 0)])
+    writer.writerow(['РљРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂС‹', summary.get('content_managers_total', 0)])
+    writer.writerow(['Р§Р°С‚С‹', summary.get('chats_total', 0)])
     writer.writerow([])
 
-    writer.writerow(['Отклики по статусам'])
-    writer.writerow(['Статус', 'Количество'])
+    writer.writerow(['РћС‚РєР»РёРєРё РїРѕ СЃС‚Р°С‚СѓСЃР°Рј'])
+    writer.writerow(['РЎС‚Р°С‚СѓСЃ', 'РљРѕР»РёС‡РµСЃС‚РІРѕ'])
     if status_items:
         for item in status_items:
-            writer.writerow([item.get('name') or 'Без статуса', item.get('count') or 0])
+            writer.writerow([item.get('name') or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°', item.get('count') or 0])
     else:
-        writer.writerow(['Нет данных', 0])
+        writer.writerow(['РќРµС‚ РґР°РЅРЅС‹С…', 0])
     writer.writerow([])
 
-    writer.writerow(['Активность откликов по месяцам'])
-    writer.writerow(['Месяц', 'Количество'])
+    writer.writerow(['РђРєС‚РёРІРЅРѕСЃС‚СЊ РѕС‚РєР»РёРєРѕРІ РїРѕ РјРµСЃСЏС†Р°Рј'])
+    writer.writerow(['РњРµСЃСЏС†', 'РљРѕР»РёС‡РµСЃС‚РІРѕ'])
     if activity_points:
         for item in activity_points:
             writer.writerow([item.get('label') or '', item.get('count') or 0])
     else:
-        writer.writerow(['Нет данных', 0])
+        writer.writerow(['РќРµС‚ РґР°РЅРЅС‹С…', 0])
     writer.writerow([])
 
-    writer.writerow(['Топ вакансий по откликам'])
-    writer.writerow(['Вакансия', 'Отклики'])
+    writer.writerow(['РўРѕРї РІР°РєР°РЅСЃРёР№ РїРѕ РѕС‚РєР»РёРєР°Рј'])
+    writer.writerow(['Р’Р°РєР°РЅСЃРёСЏ', 'РћС‚РєР»РёРєРё'])
     if top_vacancies:
         for item in top_vacancies:
-            writer.writerow([item.get('name') or 'Вакансия', item.get('responses_count') or 0])
+            writer.writerow([item.get('name') or 'Р’Р°РєР°РЅСЃРёСЏ', item.get('responses_count') or 0])
     else:
-        writer.writerow(['Нет данных', 0])
+        writer.writerow(['РќРµС‚ РґР°РЅРЅС‹С…', 0])
 
     return response
 
@@ -2008,7 +2176,7 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
         if not rows:
             pdf.setFillColor(colors.HexColor('#64748b'))
             pdf.setFont(font_regular, 9)
-            pdf.drawString(x + 14, y + h - 58, 'Нет данных')
+            pdf.drawString(x + 14, y + h - 58, 'РќРµС‚ РґР°РЅРЅС‹С…')
 
     pdf.setTitle(f'{brand_name} Company Analytics Report')
     pdf.setFillColor(colors.HexColor('#f5f8fc'))
@@ -2033,19 +2201,19 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
     pdf.drawString(header_x + 56, header_y + 55, brand_name)
     pdf.setFont(font_regular, 10)
     pdf.setFillColor(colors.HexColor('#cbd5e1'))
-    pdf.drawString(header_x + 56, header_y + 38, f'Аналитический отчет компании: {company_name}')
-    pdf.drawString(header_x + 56, header_y + 24, f'Дата формирования: {generated_at}')
+    pdf.drawString(header_x + 56, header_y + 38, f'РђРЅР°Р»РёС‚РёС‡РµСЃРєРёР№ РѕС‚С‡РµС‚ РєРѕРјРїР°РЅРёРё: {company_name}')
+    pdf.drawString(header_x + 56, header_y + 24, f'Р”Р°С‚Р° С„РѕСЂРјРёСЂРѕРІР°РЅРёСЏ: {generated_at}')
 
     # Summary cards
     metrics = [
-        ('Вакансии', summary.get('vacancies_total', 0)),
-        ('Активные', summary.get('vacancies_active', 0)),
-        ('Архивные', summary.get('vacancies_archived', 0)),
-        ('Отклики', summary.get('responses_total', 0)),
-        ('Сотрудники', summary.get('employees_total', 0)),
-        ('HR-агенты', summary.get('hr_agents_total', 0)),
-        ('Контент-менеджеры', summary.get('content_managers_total', 0)),
-        ('Чаты', summary.get('chats_total', 0)),
+        ('Р’Р°РєР°РЅСЃРёРё', summary.get('vacancies_total', 0)),
+        ('РђРєС‚РёРІРЅС‹Рµ', summary.get('vacancies_active', 0)),
+        ('РђСЂС…РёРІРЅС‹Рµ', summary.get('vacancies_archived', 0)),
+        ('РћС‚РєР»РёРєРё', summary.get('responses_total', 0)),
+        ('РЎРѕС‚СЂСѓРґРЅРёРєРё', summary.get('employees_total', 0)),
+        ('HR-Р°РіРµРЅС‚С‹', summary.get('hr_agents_total', 0)),
+        ('РљРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂС‹', summary.get('content_managers_total', 0)),
+        ('Р§Р°С‚С‹', summary.get('chats_total', 0)),
     ]
 
     card_w = (header_w - 30) / 4
@@ -2075,8 +2243,8 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
 
     pdf.setFillColor(colors.HexColor('#0f172a'))
     pdf.setFont(font_bold, 11)
-    pdf.drawString(left_chart_x + 12, chart_y + chart_h - 18, 'Динамика откликов')
-    pdf.drawString(right_chart_x + 12, chart_y + chart_h - 18, 'Структура статусов')
+    pdf.drawString(left_chart_x + 12, chart_y + chart_h - 18, 'Р”РёРЅР°РјРёРєР° РѕС‚РєР»РёРєРѕРІ')
+    pdf.drawString(right_chart_x + 12, chart_y + chart_h - 18, 'РЎС‚СЂСѓРєС‚СѓСЂР° СЃС‚Р°С‚СѓСЃРѕРІ')
 
     activity_labels = [str(item.get('label') or '') for item in activity_points] or [datetime.now().strftime('%m.%Y')]
     activity_values = [int(item.get('count') or 0) for item in activity_points] or [0]
@@ -2109,12 +2277,12 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
 
     pie_items = status_items[:6]
     if len(status_items) > 6:
-        pie_items.append({'name': 'Остальные', 'count': sum(int(x.get('count') or 0) for x in status_items[6:])})
+        pie_items.append({'name': 'РћСЃС‚Р°Р»СЊРЅС‹Рµ', 'count': sum(int(x.get('count') or 0) for x in status_items[6:])})
 
-    pie_labels = [str(item.get('name') or 'Без статуса') for item in pie_items]
+    pie_labels = [str(item.get('name') or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°') for item in pie_items]
     pie_values = [int(item.get('count') or 0) for item in pie_items]
     if not pie_values or sum(pie_values) <= 0:
-        pie_labels = ['Нет данных']
+        pie_labels = ['РќРµС‚ РґР°РЅРЅС‹С…']
         pie_values = [1]
 
     pie_drawing = Drawing(right_chart_w - 16, chart_h - 34)
@@ -2149,21 +2317,21 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
     table_w = (header_w - table_gap) / 2
 
     vacancy_rows = [
-        (str(item.get('name') or 'Вакансия'), int(item.get('responses_count') or 0))
+        (str(item.get('name') or 'Р’Р°РєР°РЅСЃРёСЏ'), int(item.get('responses_count') or 0))
         for item in top_vacancies
     ]
     status_rows = [
-        (str(item.get('name') or 'Без статуса'), int(item.get('count') or 0))
+        (str(item.get('name') or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°'), int(item.get('count') or 0))
         for item in status_items
     ]
 
-    _draw_table(margin, table_y, table_w, table_h, 'Топ вакансий по откликам', vacancy_rows)
-    _draw_table(margin + table_w + table_gap, table_y, table_w, table_h, 'Отклики по статусам', status_rows)
+    _draw_table(margin, table_y, table_w, table_h, 'РўРѕРї РІР°РєР°РЅСЃРёР№ РїРѕ РѕС‚РєР»РёРєР°Рј', vacancy_rows)
+    _draw_table(margin + table_w + table_gap, table_y, table_w, table_h, 'РћС‚РєР»РёРєРё РїРѕ СЃС‚Р°С‚СѓСЃР°Рј', status_rows)
 
     # Footer
     pdf.setFillColor(colors.HexColor('#94a3b8'))
     pdf.setFont(font_regular, 8)
-    pdf.drawString(margin, 18, 'WorkMPT · Company Analytics Report')
+    pdf.drawString(margin, 18, 'WorkMPT В· Company Analytics Report')
 
     pdf.save()
     buffer.seek(0)

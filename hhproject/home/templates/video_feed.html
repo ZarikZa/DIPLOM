@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block title_name %}Видео-лента{% endblock %}
 
@@ -16,7 +16,7 @@
     {% if messages %}
     <div class="feed-messages">
         {% for message in messages %}
-        <div class="feed-alert">{{ message }}</div>
+        <div class="feed-alert alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}

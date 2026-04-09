@@ -21,13 +21,13 @@
                 {% endif %}
                 <div class="search-box">
                     <form method="get" action="{% url 'vakansi_page' %}" id="search-form">
-                       <div class="row g-2 align-items-center">
-                            <div class="col-md-10">
+                       <div class="row g-2 align-items-stretch search-row">
+                            <div class="col-md-10 d-flex">
                                 <input type="text" name="search" class="form-control form-control-lg border-0" 
                                     placeholder="Должность, ключевые слова или компания" 
                                     value="{{ request.GET.search }}" id="search-input">
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-2 d-flex">
                                 <button type="submit" class="btn btn-primary btn-lg w-100" id="search-btn">Найти</button>
                             </div>
                         </div>

@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block header %}
     {% include '_inc/header.html' %}
@@ -21,7 +21,7 @@
     {% if messages %}
     <div style="margin-top:10px;">
         {% for message in messages %}
-        <div style="padding:10px 12px;border-radius:10px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;margin-bottom:8px;">{{ message }}</div>
+        <div class="alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
