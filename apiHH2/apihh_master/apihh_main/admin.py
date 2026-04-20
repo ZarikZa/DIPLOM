@@ -85,6 +85,12 @@ class VacancyVideoLikeAdmin(admin.ModelAdmin):
 class SkillAdmin(admin.ModelAdmin):
     pass
 
+@admin.register(ApplicantSkillSuggestion)
+class ApplicantSkillSuggestionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'applicant', 'status', 'created_at', 'reviewed_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('name', 'applicant__user__email', 'applicant__first_name', 'applicant__last_name')
+
 @admin.register(Message)
 class MessegeAdmin(admin.ModelAdmin):
     pass

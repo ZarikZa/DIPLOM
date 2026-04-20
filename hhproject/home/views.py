@@ -6,6 +6,7 @@ import json
 import re
 from urllib.parse import quote, urljoin
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login as auth_login, logout as auth_logout
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -330,6 +331,52 @@ def _load_available_skills(request: HttpRequest) -> list[dict]:
         return []
 
 
+def _load_applicant_skill_suggestions(request: HttpRequest) -> list[dict]:
+    if not request.session.get('api_access') or not _is_applicant_user(request):
+        return []
+
+    try:
+        resp = api_get(request, 'applicants/me/skill-suggestions/')
+        payload = _safe_json(resp)
+        if resp.status_code >= 400:
+            return []
+
+        if isinstance(payload, list):
+            rows = payload
+        elif isinstance(payload, dict):
+            rows = _extract_results(payload)
+        else:
+            rows = []
+
+        suggestions: list[dict] = []
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+
+            name = str(item.get('name') or '').strip()
+            if not name:
+                continue
+
+            status = str(item.get('status') or '').strip().lower()
+            if status not in {'pending', 'approved', 'rejected'}:
+                status = 'pending'
+
+            suggestions.append(
+                {
+                    'id': item.get('id'),
+                    'name': name,
+                    'status': status,
+                    'admin_notes': str(item.get('admin_notes') or '').strip(),
+                    'created_at': str(item.get('created_at') or '')[:10],
+                    'reviewed_at': str(item.get('reviewed_at') or '')[:10],
+                }
+            )
+
+        return suggestions
+    except Exception:
+        return []
+
+
 def brendbook(request: HttpRequest) -> HttpResponse:
     return render(request, 'brandbook.html')
 
@@ -480,8 +527,21 @@ def custom_login(request: HttpRequest) -> HttpResponse:
 
 def custom_logout(request: HttpRequest) -> HttpResponse:
     clear_tokens(request)
+    request.session.pop('ui_theme', None)
+    request.session.pop('ui_font_size', None)
+    request.session.pop('font_size', None)
+    request.session.pop('theme', None)
     auth_logout(request)
-    return redirect('home_page')
+    response = redirect('home_page')
+    response.set_cookie('reset_ui_preferences', '1', max_age=120, path='/', samesite='Lax')
+    response.set_cookie(
+        settings.LANGUAGE_COOKIE_NAME,
+        'ru',
+        max_age=60 * 60 * 24 * 365,
+        path='/',
+        samesite='Lax',
+    )
+    return response
 
 
 def custom_register(request: HttpRequest) -> HttpResponse:
@@ -747,6 +807,7 @@ def applicant_profile(request: HttpRequest) -> HttpResponse:
     chats = []
     applicant_interests, interest_categories = _load_interest_preferences(request)
     applicant_skills = _load_applicant_skills(request)
+    applicant_skill_suggestions = _load_applicant_skill_suggestions(request)
     available_skills = _load_available_skills(request)
     selected_skill_levels: dict[int, int] = {}
     for skill in applicant_skills:
@@ -805,6 +866,7 @@ def applicant_profile(request: HttpRequest) -> HttpResponse:
             'chats_count': len(chats),
             'applicant_interests': applicant_interests,
             'applicant_skills': applicant_skills,
+            'applicant_skill_suggestions': applicant_skill_suggestions,
             'skill_options': skill_options,
             'interest_categories': interest_categories,
             'show_interests_modal': show_interests_modal,
@@ -1000,6 +1062,75 @@ def update_applicant_skills(request: HttpRequest) -> HttpResponse:
             messages.success(request, 'Навыки обновлены')
     except Exception:
         messages.error(request, 'Ошибка сети при сохранении навыков')
+
+    return redirect(redirect_to)
+
+
+@api_login_required
+def submit_applicant_skill_suggestion(request: HttpRequest) -> HttpResponse:
+    redirect_to = request.POST.get('next') or request.META.get('HTTP_REFERER') or '/profile/'
+    if not _is_local_path(redirect_to):
+        redirect_to = '/profile/'
+
+    if request.method != 'POST':
+        return redirect(redirect_to)
+
+    if not _is_applicant_user(request):
+        messages.error(
+            request,
+            _ui_text(
+                request,
+                'Отправка навыка доступна только соискателю',
+                'Only applicants can submit skill suggestions',
+            ),
+        )
+        return redirect(redirect_to)
+
+    skill_name = str(request.POST.get('suggested_skill_name') or '').strip()
+    if not skill_name:
+        messages.error(
+            request,
+            _ui_text(
+                request,
+                'Укажите название навыка',
+                'Enter a skill name',
+            ),
+        )
+        return redirect(redirect_to)
+
+    try:
+        resp = api_post(request, 'applicants/me/skill-suggestions/', json={'name': skill_name})
+        data = _safe_json(resp)
+        if resp.status_code >= 400:
+            messages.error(
+                request,
+                _first_error(
+                    data,
+                    _ui_text(
+                        request,
+                        'Не удалось отправить навык на проверку',
+                        'Failed to submit skill for review',
+                    ),
+                ),
+            )
+        else:
+            messages.success(
+                request,
+                _ui_text(
+                    request,
+                    'Навык отправлен на проверку администратору',
+                    'Skill suggestion has been sent to admin review',
+                ),
+            )
+    except Exception:
+        messages.error(
+            request,
+            _ui_text(
+                request,
+                'Ошибка сети при отправке навыка',
+                'Network error while submitting skill suggestion',
+            ),
+        )
 
     return redirect(redirect_to)
 

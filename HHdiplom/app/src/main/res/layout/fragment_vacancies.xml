@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorBackgroundPrimary"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvVacanciesTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/vacancies_title"
+        android:textColor="?attr/colorTextPrimary"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tvVacanciesSubtitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/vacancies_subtitle"
+        android:textColor="?attr/colorTextSecondary"
+        android:textSize="13sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvVacanciesTitle" />
+
+    <LinearLayout
+        android:id="@+id/searchRow"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvVacanciesSubtitle">
+
+        <LinearLayout
+            android:id="@+id/searchContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/bg_search"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="10dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginEnd="10dp"
+                app:tint="?attr/colorTextSecondary"
+                app:srcCompat="@drawable/ic_search" />
+
+            <EditText
+                android:id="@+id/searchEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:hint="@string/vacancies_search_hint"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:singleLine="true"
+                android:textColor="?attr/colorTextPrimary"
+                android:textColorHint="?attr/colorTextSecondary" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/filterButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="10dp"
+            android:background="@drawable/bg_filter_button"
+            android:contentDescription="@string/vacancies_filter_desc"
+            android:padding="12dp"
+            android:src="@drawable/ic_filter"
+            app:tint="?attr/colorTextPrimary" />
+    </LinearLayout>
+
+    <HorizontalScrollView
+        android:id="@+id/stateFiltersScroll"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:overScrollMode="never"
+        android:scrollbars="none"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/searchRow">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipGroupVacancyState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleLine="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipVacancyAll"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="@string/vacancies_chip_all"
+                app:chipCornerRadius="14dp" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipVacancyActive"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/vacancies_chip_active"
+                app:chipCornerRadius="14dp" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipVacancyApplied"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/vacancies_chip_applied"
+                app:chipCornerRadius="14dp" />
+        </com.google.android.material.chip.ChipGroup>
+    </HorizontalScrollView>
+
+    <LinearLayout
+        android:id="@+id/sortAndCountRow"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/stateFiltersScroll">
+
+        <TextView
+            android:id="@+id/tvVacancyCount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/vacancies_count_initial"
+            android:textColor="?attr/colorTextSecondary"
+            android:textSize="13sp" />
+
+        <FrameLayout
+            android:layout_width="176dp"
+            android:layout_height="42dp"
+            android:background="@drawable/bg_search"
+            android:paddingHorizontal="10dp">
+
+            <Spinner
+                android:id="@+id/spinnerVacancySort"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/transparent"
+                android:popupBackground="?attr/colorCardBackground"
+                android:spinnerMode="dropdown" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/vacanciesRecyclerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:clipToPadding="false"
+        android:paddingBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/sortAndCountRow" />
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/emptyState"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/sortAndCountRow">
+
+        <ImageView
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginBottom="16dp"
+            android:alpha="0.75"
+            app:tint="?attr/colorTextSecondary"
+            app:srcCompat="@drawable/ic_empty" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/vacancies_empty_title"
+            android:textColor="?attr/colorTextPrimary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="@string/vacancies_empty_subtitle"
+            android:textColor="?attr/colorTextSecondary"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

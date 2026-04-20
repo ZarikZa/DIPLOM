@@ -270,6 +270,91 @@
     color: var(--text-secondary);
 }
 
+.suggestion-list {
+    display: grid;
+    gap: 12px;
+}
+
+.suggestion-item {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    background: var(--bg-primary);
+}
+
+.suggestion-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.suggestion-meta {
+    margin-top: 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+
+.status-pending {
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    border-color: rgba(245, 158, 11, 0.28);
+}
+
+.status-approved {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+    border-color: rgba(16, 185, 129, 0.28);
+}
+
+.status-rejected {
+    background: rgba(239, 68, 68, 0.12);
+    color: #b91c1c;
+    border-color: rgba(239, 68, 68, 0.28);
+}
+
+.suggestion-actions {
+    margin-top: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.suggestion-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-outline {
+    background: transparent;
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.btn-outline:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.btn-danger {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #b91c1c;
+}
+
+.btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
 @media (max-width: 1200px) {
     .grid {
         grid-template-columns: 1fr;
@@ -408,6 +493,10 @@
                     <div class="num">{{ pending_category_suggestions_count }}</div>
                     <div class="label">{% if request.LANGUAGE_CODE == 'en' %}Categories Pending Review{% else %}Категорий на модерации{% endif %}</div>
                 </div>
+                <div class="stat-card">
+                    <div class="num">{{ pending_skill_suggestions_count }}</div>
+                    <div class="label">{% if request.LANGUAGE_CODE == 'en' %}Skills Pending Review{% else %}Навыков на модерации{% endif %}</div>
+                </div>
             </div>
 
             <div class="grid" style="margin-bottom:18px;">
@@ -455,6 +544,66 @@
                         </div>
                         {% else %}
                         <p class="muted">{% if request.LANGUAGE_CODE == 'en' %}Skills list is empty{% else %}Список навыков пока пуст{% endif %}</p>
+                        {% endif %}
+                    </div>
+                </section>
+                <section class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-user-check"></i> {% if request.LANGUAGE_CODE == 'en' %}Skill Suggestions{% else %}Заявки на навыки{% endif %}</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="muted" style="margin-top:0;">
+                            {% if request.LANGUAGE_CODE == 'en' %}
+                            Pending: {{ pending_skill_suggestions_count }}, Approved: {{ approved_skill_suggestions_count }}, Rejected: {{ rejected_skill_suggestions_count }}
+                            {% else %}
+                            На проверке: {{ pending_skill_suggestions_count }}, Одобрено: {{ approved_skill_suggestions_count }}, Отклонено: {{ rejected_skill_suggestions_count }}
+                            {% endif %}
+                        </p>
+                        {% if skill_suggestions %}
+                        <div class="suggestion-list">
+                            {% for suggestion in skill_suggestions %}
+                            <div class="suggestion-item">
+                                <div class="suggestion-head">
+                                    <strong>{{ suggestion.name }}</strong>
+                                    <span class="status-pill {% if suggestion.status == 'approved' %}status-approved{% elif suggestion.status == 'rejected' %}status-rejected{% else %}status-pending{% endif %}">
+                                        {% if suggestion.status == 'approved' %}
+                                            {% if request.LANGUAGE_CODE == 'en' %}Approved{% else %}Одобрено{% endif %}
+                                        {% elif suggestion.status == 'rejected' %}
+                                            {% if request.LANGUAGE_CODE == 'en' %}Rejected{% else %}Отклонено{% endif %}
+                                        {% else %}
+                                            {% if request.LANGUAGE_CODE == 'en' %}Pending{% else %}На проверке{% endif %}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="suggestion-meta">
+                                    {% if request.LANGUAGE_CODE == 'en' %}Applicant{% else %}Соискатель{% endif %}: {{ suggestion.applicant_full_name|default:'-' }}
+                                    <br>
+                                    Email: {{ suggestion.applicant_email|default:suggestion.requested_by_email|default:'-' }}
+                                </div>
+                                <form method="post" class="suggestion-actions">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="form_action" value="review_skill_suggestion">
+                                    <input type="hidden" name="suggestion_id" value="{{ suggestion.id }}">
+                                    <textarea
+                                        name="admin_notes"
+                                        class="field"
+                                        rows="2"
+                                        placeholder="{% if request.LANGUAGE_CODE == 'en' %}Optional admin comment{% else %}Необязательный комментарий администратора{% endif %}"
+                                    >{{ suggestion.admin_notes|default:'' }}</textarea>
+                                    <div class="suggestion-buttons">
+                                        <button type="submit" class="btn btn-primary" name="suggestion_status" value="approved">
+                                            {% if request.LANGUAGE_CODE == 'en' %}Approve{% else %}Одобрить{% endif %}
+                                        </button>
+                                        <button type="submit" class="btn btn-danger" name="suggestion_status" value="rejected">
+                                            {% if request.LANGUAGE_CODE == 'en' %}Reject{% else %}Отклонить{% endif %}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="muted">{% if request.LANGUAGE_CODE == 'en' %}No pending skill suggestions{% else %}Нет заявок на навыки в ожидании{% endif %}</p>
                         {% endif %}
                     </div>
                 </section>

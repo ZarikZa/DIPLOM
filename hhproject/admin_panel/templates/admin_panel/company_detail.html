@@ -568,6 +568,22 @@ form select.admin-form-control:focus {
                     <span class="badge">{{ pending_companies_count }}</span>
                 {% endif %}
             </a>
+            
+                        <a href="{% url 'admin_category_moderation' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tags"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Vacancy Categories{% else %}Категории вакансий{% endif %}</span>
+                </div>
+                {% if pending_category_suggestions_count %}
+                    <span class="badge">{{ pending_category_suggestions_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_taxonomy_management' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_taxonomy_management' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-layer-group"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</span>
+                </div>
+            </a>
             <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
                 <div style="display: flex; align-items: center;">
                     <i class="fas fa-flag"></i>
@@ -708,10 +724,14 @@ form select.admin-form-control:focus {
                     </div>
                     <div class="admin-card-body">
                         <div class="document-info">
-                            <p><strong>Файл:</strong> {{ company.verification_document.name }}</p>
-                            <a href="{{ company.verification_document.url }}" target="_blank" class="btn-admin btn-admin-primary">
-                                <i class="fas fa-external-link-alt"></i> Просмотреть документ
-                            </a>
+                            <p><strong>Файл:</strong> {{ company_document_name|default:company.verification_document.name }}</p>
+                            {% if company_document_url %}
+                                <a href="{{ company_document_url }}" target="_blank" rel="noopener" class="btn-admin btn-admin-primary">
+                                    <i class="fas fa-external-link-alt"></i> Просмотреть документ
+                                </a>
+                            {% else %}
+                                <p style="margin-top:8px;color:#dc2626;">Файл временно недоступен</p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -740,3 +760,5 @@ form select.admin-form-control:focus {
     </main>
 </div>
 {% endblock %}
+
+

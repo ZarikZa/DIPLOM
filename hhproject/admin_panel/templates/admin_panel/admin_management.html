@@ -527,6 +527,22 @@
                     <span class="badge">{{ pending_companies_count }}</span>
                 {% endif %}
             </a>
+            
+                        <a href="{% url 'admin_category_moderation' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tags"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Vacancy Categories{% else %}Категории вакансий{% endif %}</span>
+                </div>
+                {% if pending_category_suggestions_count %}
+                    <span class="badge">{{ pending_category_suggestions_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_taxonomy_management' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_taxonomy_management' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-layer-group"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</span>
+                </div>
+            </a>
             <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
                 <div style="display: flex; align-items: center;">
                     <i class="fas fa-flag"></i>
@@ -677,3 +693,5 @@
     </main>
 </div>
 {% endblock %}
+
+

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btnBackUpload"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_back" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Новое видео"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Selected vacancy from fragment -->
+        <TextView
+            android:id="@+id/tvChosenVacancy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Вакансия"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginTop="12dp"
+            android:visibility="gone" />
+
+        <!-- Spinner fallback -->
+        <LinearLayout
+            android:id="@+id/spinnerBlock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                android:id="@+id/tvUploadVacancyTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Выберите вакансию"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Spinner
+                android:id="@+id/spinnerVacancies"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Preview block -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Предпросмотр"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_marginTop="8dp">
+
+            <com.google.android.exoplayer2.ui.PlayerView
+                android:id="@+id/previewPlayerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:use_controller="true"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvPreviewHint"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="Выберите или снимите видео — тут появится предпросмотр"
+                android:textColor="#888888" />
+
+            <ImageButton
+                android:id="@+id/btnClearVideo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="8dp"
+                android:background="@android:color/transparent"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:tint="@android:color/white"
+                android:visibility="gone"/>
+        </FrameLayout>
+
+        <!-- Description -->
+        <EditText
+            android:id="@+id/etUploadDesc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Описание (например: условия, стек, команда...)"
+            android:layout_marginTop="12dp"
+            android:minLines="3" />
+
+        <!-- Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp">
+
+            <Button
+                android:id="@+id/btnCaptureVideo"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Снять"
+                android:textAllCaps="false" />
+
+            <Space
+                android:layout_width="12dp"
+                android:layout_height="1dp" />
+
+            <Button
+                android:id="@+id/btnPickVideo"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Загрузить"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnUploadVideo"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="18dp"
+            android:text="Опубликовать"
+            android:textAllCaps="false" />
+
+        <ProgressBar
+            android:id="@+id/progressUpload"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>

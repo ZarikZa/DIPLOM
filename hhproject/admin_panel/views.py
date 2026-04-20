@@ -1,13 +1,15 @@
-﻿from pathlib import Path
+from pathlib import Path
 import subprocess
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.core.files import File
+from django.db import connection
+from django.db.utils import ProgrammingError
 from datetime import timedelta
 import os
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin, urlparse
 
 from django.urls import reverse
 from matplotlib import pyplot as plt
@@ -17,24 +19,26 @@ from .forms import AdminProfileEditForm, BackupUploadForm, SiteAdminCreateForm, 
 from home.models import *
 from home.models import Company, Complaint, User, Vacancy, StatusVacancies
 from home.models import Backup, AdminLog, ActionType
-from home.api_client import api_get, api_patch, api_post
+from home.api_client import api_base_url, api_get, api_patch, api_post
 from .forms import CompanyModerationForm
 
 def is_admin(user):
-    """РџСЂРѕРІРµСЂРєР° С‡С‚Рѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ (СЃСѓРїРµСЂРїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РёР»Рё adminsite)"""
+    """Проверка что пользователь администратор (суперпользователь или adminsite)"""
     return user.is_authenticated and (user.is_superuser or user.user_type == 'adminsite')
 
 def is_superuser_only(user):
-    """РџСЂРѕРІРµСЂРєР° С‡С‚Рѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РўРћР›Р¬РљРћ СЃСѓРїРµСЂРїРѕР»СЊР·РѕРІР°С‚РµР»СЊ"""
+    """Проверка что пользователь ТОЛЬКО суперпользователь"""
     return user.is_authenticated and user.is_superuser
 
 def get_admin_context(request):
     pending_count = Company.objects.filter(status=Company.STATUS_PENDING).count()
+    pending_complaints_count = Complaint.objects.filter(status='pending').count()
     site_admins_count = User.objects.filter(user_type='adminsite', is_active=True).count()
     pending_category_suggestions_count = _fetch_suggestions_count(request, 'pending')
     
     return {
         'pending_companies_count': pending_count,
+        'pending_complaints_count': pending_complaints_count,
         'pending_category_suggestions_count': pending_category_suggestions_count,
         'site_admins_count': site_admins_count,
         'is_superuser': request.user.is_superuser,
@@ -42,11 +46,11 @@ def get_admin_context(request):
 
 def get_or_create_action_type(code, name=None):
     """
-    Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РёР»Рё СЃРѕР·РґР°РЅРёСЏ С‚РёРїР° РґРµР№СЃС‚РІРёСЏ
-    РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РїСЂРё СЃРѕР·РґР°РЅРёРё Р»РѕРіРѕРІ
+    Вспомогательная функция для получения или создания типа действия
+    Используется при создании логов
     """
     if name is None:
-        # Р“РµРЅРµСЂРёСЂСѓРµРј С‡РёС‚Р°РµРјРѕРµ РёРјСЏ РёР· РєРѕРґР°
+        # Генерируем читаемое имя из кода
         name = ' '.join(word.capitalize() for word in code.split('_'))
     
     try:
@@ -55,7 +59,7 @@ def get_or_create_action_type(code, name=None):
         action_type = ActionType.objects.create(
             code=code,
             name=name,
-            description=f'РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё СЃРѕР·РґР°РЅРЅС‹Р№ С‚РёРї РґРµР№СЃС‚РІРёСЏ: {name}'
+            description=f'Автоматически созданный тип действия: {name}'
         )
     
     return action_type
@@ -121,12 +125,110 @@ def _api_first_error(payload, default_message: str) -> str:
     return default_message
 
 
+def _extract_company_document_path(raw_name: str) -> str:
+    normalized = str(raw_name or '').strip().replace('\\', '/')
+    if not normalized:
+        return ''
+
+    if normalized.startswith(('http://', 'https://')):
+        return normalized
+
+    lowered = normalized.lower()
+    for marker in ('company_documents/', 'vacancy_videos/', 'media/'):
+        idx = lowered.find(marker)
+        if idx != -1:
+            normalized = normalized[idx:]
+            lowered = normalized.lower()
+            break
+
+    if lowered.startswith('vacancy_videos/'):
+        normalized = normalized[len('vacancy_videos/'):]
+        lowered = normalized.lower()
+
+    if lowered.startswith('media/'):
+        normalized = normalized[len('media/'):]
+
+    return normalized.lstrip('/')
+
+
+def _resolve_company_document(company) -> tuple[str, str]:
+    document = getattr(company, 'verification_document', None)
+    if not document:
+        return '', ''
+
+    raw_name = str(getattr(document, 'name', '') or '').strip()
+    display_name = Path(raw_name.replace('\\', '/')).name or raw_name
+
+    if raw_name.startswith(('http://', 'https://')):
+        return raw_name, display_name
+
+    local_url = ''
+    local_exists = False
+    try:
+        local_url = document.url
+    except Exception:
+        local_url = ''
+
+    try:
+        local_exists = Path(document.path).exists()
+    except Exception:
+        local_exists = False
+
+    if local_url and local_exists:
+        return local_url, display_name
+
+    relative_path = _extract_company_document_path(raw_name)
+    if relative_path.startswith(('http://', 'https://')):
+        parsed_remote = urlparse(relative_path)
+        remote_name = Path(parsed_remote.path).name or display_name
+        return relative_path, remote_name
+
+    if not relative_path:
+        relative_path = display_name
+
+    api_url = api_base_url()
+    parsed = urlparse(api_url)
+    if parsed.scheme and parsed.netloc and relative_path:
+        origin = f'{parsed.scheme}://{parsed.netloc}/'
+        cleaned = relative_path.replace('\\', '/').lstrip('/')
+        candidates = []
+        if cleaned.lower().startswith(('vacancy_videos/', 'media/')):
+            candidates.append(urljoin(origin, cleaned))
+        candidates.append(urljoin(origin, f'vacancy_videos/{cleaned}'))
+        candidates.append(urljoin(origin, f'media/{cleaned}'))
+        candidates.append(urljoin(origin, cleaned))
+
+        seen = set()
+        for candidate in candidates:
+            if candidate and candidate not in seen:
+                seen.add(candidate)
+                return candidate, Path(cleaned).name or display_name
+
+    return local_url, display_name
+
+
 def _fetch_suggestions_count(request, status_value: str | None = None) -> int:
     params = {'page': 1}
     if status_value:
         params['status'] = status_value
     try:
         resp = api_get(request, 'admin/vacancy-category-suggestions/', params=params)
+        payload = _api_safe_json(resp) or {}
+        if resp.status_code >= 400:
+            return 0
+        if isinstance(payload, dict) and 'count' in payload:
+            return int(payload.get('count') or 0)
+        return len(_api_results(payload))
+    except Exception:
+        return 0
+
+
+def _fetch_skill_suggestions_count(request, status_value: str | None = None) -> int:
+    params = {'page': 1}
+    if status_value:
+        params['status'] = status_value
+    try:
+        resp = api_get(request, 'admin/skill-suggestions/', params=params)
         payload = _api_safe_json(resp) or {}
         if resp.status_code >= 400:
             return 0
@@ -161,7 +263,7 @@ def _collect_api_rows(request, path: str, params: dict | None = None, max_pages:
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def admin_dashboard(request):
-    """Р“Р»Р°РІРЅР°СЏ СЃС‚СЂР°РЅРёС†Р° Р°РґРјРёРЅРєРё"""
+    """Главная страница админки"""
     context = get_admin_context(request)
     
     pending_companies = Company.objects.filter(status=Company.STATUS_PENDING)
@@ -170,10 +272,10 @@ def admin_dashboard(request):
     rejected_companies = Company.objects.filter(status=Company.STATUS_REJECTED).count()
     pending_complaints_count = Complaint.objects.filter(status='pending').count()
     
-    # РџРѕСЃР»РµРґРЅРёРµ Р»РѕРіРё
+    # Последние логи
     recent_logs = AdminLog.objects.all().order_by('-created_at')[:10]
     
-    # РЎС‚Р°С‚РёСЃС‚РёРєР° РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
+    # Статистика пользователей
     total_users = User.objects.count()
     company_users = User.objects.filter(user_type='company').count()
     applicant_users = User.objects.filter(user_type='applicant').count()
@@ -482,6 +584,11 @@ def taxonomy_management(request):
                 'vacancy_categories': [],
                 'vacancy_categories_count': 0,
                 'recent_admin_categories': [],
+                'skill_suggestions': [],
+                'pending_skill_suggestions_count': 0,
+                'approved_skill_suggestions_count': 0,
+                'rejected_skill_suggestions_count': 0,
+                'total_skill_suggestions_count': 0,
             }
         )
         return render(request, 'admin_panel/taxonomy_management.html', context)
@@ -544,6 +651,104 @@ def taxonomy_management(request):
                             else 'Network error while adding skill.'
                         ),
                     )
+        elif action == 'review_skill_suggestion':
+            suggestion_id_raw = (request.POST.get('suggestion_id') or '').strip()
+            suggestion_status = (request.POST.get('suggestion_status') or '').strip().lower()
+            admin_notes = (request.POST.get('admin_notes') or '').strip()
+
+            try:
+                suggestion_id = int(suggestion_id_raw)
+            except (TypeError, ValueError):
+                suggestion_id = None
+
+            if not suggestion_id:
+                messages.error(
+                    request,
+                    (
+                        'Некорректный идентификатор заявки навыка.'
+                        if request.LANGUAGE_CODE != 'en'
+                        else 'Invalid skill suggestion id.'
+                    ),
+                )
+            elif suggestion_status not in {'approved', 'rejected'}:
+                messages.error(
+                    request,
+                    (
+                        'Выберите решение по заявке: одобрить или отклонить.'
+                        if request.LANGUAGE_CODE != 'en'
+                        else 'Choose approval or rejection for the suggestion.'
+                    ),
+                )
+            else:
+                payload = {'status': suggestion_status, 'admin_notes': admin_notes}
+                try:
+                    resp = api_patch(request, f'admin/skill-suggestions/{suggestion_id}/', json=payload)
+                    response_payload = _api_safe_json(resp)
+                    if resp.status_code >= 400:
+                        messages.error(
+                            request,
+                            _api_first_error(
+                                response_payload,
+                                (
+                                    'Не удалось обработать заявку навыка.'
+                                    if request.LANGUAGE_CODE != 'en'
+                                    else 'Failed to review skill suggestion.'
+                                ),
+                            ),
+                        )
+                    else:
+                        suggestion_name = str((response_payload or {}).get('name') or '').strip() or f'ID {suggestion_id}'
+                        if suggestion_status == 'approved':
+                            action_type = get_or_create_action_type(
+                                'skill_suggestion_approved',
+                                'Заявка навыка одобрена' if request.LANGUAGE_CODE != 'en' else 'Skill suggestion approved',
+                            )
+                            details = (
+                                f'Одобрена заявка на навык: "{suggestion_name}"'
+                                if request.LANGUAGE_CODE != 'en'
+                                else f'Approved skill suggestion: "{suggestion_name}"'
+                            )
+                            messages.success(
+                                request,
+                                (
+                                    f'Заявка "{suggestion_name}" одобрена.'
+                                    if request.LANGUAGE_CODE != 'en'
+                                    else f'Suggestion "{suggestion_name}" approved.'
+                                ),
+                            )
+                        else:
+                            action_type = get_or_create_action_type(
+                                'skill_suggestion_rejected',
+                                'Заявка навыка отклонена' if request.LANGUAGE_CODE != 'en' else 'Skill suggestion rejected',
+                            )
+                            details = (
+                                f'Отклонена заявка на навык: "{suggestion_name}"'
+                                if request.LANGUAGE_CODE != 'en'
+                                else f'Rejected skill suggestion: "{suggestion_name}"'
+                            )
+                            messages.success(
+                                request,
+                                (
+                                    f'Заявка "{suggestion_name}" отклонена.'
+                                    if request.LANGUAGE_CODE != 'en'
+                                    else f'Suggestion "{suggestion_name}" rejected.'
+                                ),
+                            )
+
+                        AdminLog.objects.create(
+                            admin=request.user,
+                            action=action_type,
+                            details=details,
+                        )
+                except Exception:
+                    messages.error(
+                        request,
+                        (
+                            'Ошибка сети при проверке заявки навыка.'
+                            if request.LANGUAGE_CODE != 'en'
+                            else 'Network error while reviewing skill suggestion.'
+                        ),
+                    )
         else:
             messages.error(
                 request,
@@ -559,6 +764,7 @@ def taxonomy_management(request):
     skills: list[dict] = []
     vacancy_categories: list[dict] = []
     recent_admin_categories: list[dict] = []
+    skill_suggestions: list[dict] = []
 
     try:
         skill_rows, skill_error = _collect_api_rows(request, 'skills/', params={})
@@ -583,6 +789,36 @@ def taxonomy_management(request):
                 'Ошибка сети при загрузке навыков.'
                 if request.LANGUAGE_CODE != 'en'
                 else 'Network error while loading skills.'
+            ),
+        )
+
+    try:
+        skill_suggestions_rows, skill_suggestions_error = _collect_api_rows(
+            request,
+            'admin/skill-suggestions/',
+            params={'status': 'pending'},
+        )
+        if skill_suggestions_error is not None:
+            messages.error(
+                request,
+                _api_first_error(
+                    skill_suggestions_error,
+                    (
+                        'Не удалось загрузить заявки навыков.'
+                        if request.LANGUAGE_CODE != 'en'
+                        else 'Failed to load skill suggestions.'
+                    ),
+                ),
+            )
+        else:
+            skill_suggestions = skill_suggestions_rows or []
+    except Exception:
+        messages.error(
+            request,
+            (
+                'Ошибка сети при загрузке заявок навыков.'
+                if request.LANGUAGE_CODE != 'en'
+                else 'Network error while loading skill suggestions.'
             ),
         )
 
@@ -624,6 +860,15 @@ def taxonomy_management(request):
     except Exception:
         recent_admin_categories = []
 
+    pending_skill_suggestions_count = _fetch_skill_suggestions_count(request, 'pending')
+    approved_skill_suggestions_count = _fetch_skill_suggestions_count(request, 'approved')
+    rejected_skill_suggestions_count = _fetch_skill_suggestions_count(request, 'rejected')
+    total_skill_suggestions_count = (
+        pending_skill_suggestions_count
+        + approved_skill_suggestions_count
+        + rejected_skill_suggestions_count
+    )
+
     context.update(
         {
             'skills': skills,
@@ -631,6 +876,11 @@ def taxonomy_management(request):
             'vacancy_categories': vacancy_categories,
             'vacancy_categories_count': len(vacancy_categories),
             'recent_admin_categories': recent_admin_categories,
+            'skill_suggestions': skill_suggestions,
+            'pending_skill_suggestions_count': pending_skill_suggestions_count,
+            'approved_skill_suggestions_count': approved_skill_suggestions_count,
+            'rejected_skill_suggestions_count': rejected_skill_suggestions_count,
+            'total_skill_suggestions_count': total_skill_suggestions_count,
         }
     )
     return render(request, 'admin_panel/taxonomy_management.html', context)
@@ -736,9 +986,13 @@ def company_detail(request, company_id):
     else:
         form = CompanyModerationForm(instance=company)
 
+    company_document_url, company_document_name = _resolve_company_document(company)
+
     context.update({
         'company': company,
         'form': form,
+        'company_document_url': company_document_url,
+        'company_document_name': company_document_name,
     })
     return render(request, 'admin_panel/company_detail.html', context)
 def send_company_status_email(company, old_status):
@@ -853,17 +1107,17 @@ import os
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def backup_dashboard(request):
-    """Р“Р»Р°РІРЅР°СЏ РїР°РЅРµР»СЊ СѓРїСЂР°РІР»РµРЅРёСЏ Р±СЌРєР°РїР°РјРё"""
+    """Главная панель управления бэкапами"""
     context = get_admin_context(request)
     backup_manager = DjangoBackupManager()
     
-    # РџРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЃРёСЃС‚РµРјРµ
+    # Получаем информацию о системе
     system_info = backup_manager.get_system_info()
     
-    # РџРѕР»СѓС‡Р°РµРј СЃРїРёСЃРѕРє Р±СЌРєР°РїРѕРІ РёР· Р‘Р”
+    # Получаем список бэкапов из БД
     backups = Backup.objects.all().order_by('-created_at')
     
-    # РўРµСЃС‚РёСЂСѓРµРј РїРѕРґРєР»СЋС‡РµРЅРёРµ Рє Р‘Р”
+    # Тестируем подключение к БД
     connection_test = backup_manager.test_connection()
     
     context.update({
@@ -876,20 +1130,20 @@ def backup_dashboard(request):
     
     return render(request, 'admin_panel/backup_management.html', context)
 
-# Р“Р»РѕР±Р°Р»СЊРЅР°СЏ РїРµСЂРµРјРµРЅРЅР°СЏ РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РїСЂРѕРіСЂРµСЃСЃР° (РІ РїСЂРѕРґР°РєС€РµРЅРµ РёСЃРїРѕР»СЊР·СѓР№С‚Рµ Redis РёР»Рё Р‘Р”)
+# Глобальная переменная для хранения прогресса (в продакшене используйте Redis или БД)
 current_progress = {"message": "", "percent": 0}
 @user_passes_test(is_admin, login_url='/admin/login/')
 def create_backup_api(request):
-    """API РґР»СЏ СЃРѕР·РґР°РЅРёСЏ Р±СЌРєР°РїР° СЃ РѕС‚СЃР»РµР¶РёРІР°РЅРёРµРј РїСЂРѕРіСЂРµСЃСЃР°"""
+    """API для создания бэкапа с отслеживанием прогресса"""
     if request.method == 'POST':
         backup_type = request.POST.get('type', 'database')
         custom_name = request.POST.get('custom_name', '')
         
         backup_manager = DjangoBackupManager()
         
-        # РЎР±СЂР°СЃС‹РІР°РµРј РїСЂРѕРіСЂРµСЃСЃ
+        # Сбрасываем прогресс
         global current_progress
-        current_progress = {"message": "РќР°С‡РёРЅР°РµРј СЃРѕР·РґР°РЅРёРµ Р±СЌРєР°РїР°...", "percent": 0}
+        current_progress = {"message": "Начинаем создание бэкапа...", "percent": 0}
         
         def progress_callback(message, percent=None):
             global current_progress
@@ -897,7 +1151,7 @@ def create_backup_api(request):
                 "message": message,
                 "percent": percent if percent is not None else current_progress["percent"]
             }
-            print(f"Backup Progress: {percent}% - {message}")  # Р›РѕРіРёСЂСѓРµРј РІ РєРѕРЅСЃРѕР»СЊ
+            print(f"Backup Progress: {percent}% - {message}")  # Логируем в консоль
         
         backup_manager.set_progress_callback(progress_callback)
         
@@ -909,7 +1163,7 @@ def create_backup_api(request):
             )
             
             if result['success']:
-                # РЎРѕС…СЂР°РЅСЏРµРј РІ Р±Р°Р·Сѓ РґР°РЅРЅС‹С…
+                # Сохраняем в базу данных
                 backup = Backup(
                     name=result['filename'],
                     backup_type=backup_type,
@@ -917,32 +1171,32 @@ def create_backup_api(request):
                     created_by=request.user
                 )
                 
-                # РЎРѕС…СЂР°РЅСЏРµРј С„Р°Р№Р»
+                # Сохраняем файл
                 with open(result['filepath'], 'rb') as f:
                     backup.backup_file.save(result['filename'], File(f))
                 backup.save()
                 
-                # РЈРґР°Р»СЏРµРј РІСЂРµРјРµРЅРЅС‹Р№ С„Р°Р№Р»
+                # Удаляем временный файл
                 if os.path.exists(result['filepath']):
                     os.remove(result['filepath'])
                 
-                # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-                action_type = get_or_create_action_type('backup_created', 'Р‘СЌРєР°Рї СЃРѕР·РґР°РЅ')
+                # Логируем - ИСПРАВЛЕНО
+                action_type = get_or_create_action_type('backup_created', 'Бэкап создан')
                 AdminLog.objects.create(
                     admin=request.user,
                     action=action_type,
-                    details=f"РЎРѕР·РґР°РЅ Р±СЌРєР°Рї: {result['filename']}"
+                    details=f"Создан бэкап: {result['filename']}"
                 )
                 
                 return JsonResponse({
                     'success': True, 
-                    'message': 'Р‘СЌРєР°Рї СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅ',
+                    'message': 'Бэкап успешно создан',
                     'filename': result['filename']
                 })
             else:
                 return JsonResponse({
                     'success': False, 
-                    'error': result.get('error', 'РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё Р±СЌРєР°РїР°')
+                    'error': result.get('error', 'Ошибка при создании бэкапа')
                 }, status=400)
                 
         except Exception as e:
@@ -952,14 +1206,14 @@ def create_backup_api(request):
             
             return JsonResponse({
                 'success': False, 
-                'error': f'РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё Р±СЌРєР°РїР°: {str(e)}'
+                'error': f'Ошибка при создании бэкапа: {str(e)}'
             }, status=400)
     
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def upload_backup_api(request):
-    """API РґР»СЏ Р·Р°РіСЂСѓР·РєРё Р±СЌРєР°РїР°"""
+    """API для загрузки бэкапа"""
     if request.method == 'POST':
         form = BackupUploadForm(request.POST, request.FILES)
         
@@ -968,19 +1222,19 @@ def upload_backup_api(request):
             backup_manager = DjangoBackupManager()
             
             try:
-                # РџСЂРѕРІРµСЂСЏРµРј Р±СЌРєР°Рї
+                # Проверяем бэкап
                 if not backup_manager.validate_backup(backup_file):
                     return JsonResponse({
                         'success': False,
-                        'error': 'Р¤Р°Р№Р» Р±СЌРєР°РїР° РїРѕРІСЂРµР¶РґРµРЅ РёР»Рё РёРјРµРµС‚ РЅРµРІРµСЂРЅС‹Р№ С„РѕСЂРјР°С‚'
+                        'error': 'Файл бэкапа поврежден или имеет неверный формат'
                     }, status=400)
                 
-                # РћРїСЂРµРґРµР»СЏРµРј С‚РёРї Р±СЌРєР°РїР° РїРѕ СЂР°СЃС€РёСЂРµРЅРёСЋ
+                # Определяем тип бэкапа по расширению
                 backup_type = 'database'
                 if backup_file.name.endswith('.zip'):
                     backup_type = 'full'
                 
-                # РЎРѕС…СЂР°РЅСЏРµРј Р±СЌРєР°Рї
+                # Сохраняем бэкап
                 backup = Backup(
                     name=backup_file.name,
                     backup_type=backup_type,
@@ -990,34 +1244,34 @@ def upload_backup_api(request):
                 backup.backup_file.save(backup_file.name, backup_file)
                 backup.save()
                 
-                # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-                action_type = get_or_create_action_type('backup_uploaded', 'Р‘СЌРєР°Рї Р·Р°РіСЂСѓР¶РµРЅ')
+                # Логируем - ИСПРАВЛЕНО
+                action_type = get_or_create_action_type('backup_uploaded', 'Бэкап загружен')
                 AdminLog.objects.create(
                     admin=request.user,
                     action=action_type,
-                    details=f"Р—Р°РіСЂСѓР¶РµРЅ Р±СЌРєР°Рї: {backup_file.name}"
+                    details=f"Загружен бэкап: {backup_file.name}"
                 )
                 
                 return JsonResponse({
                     'success': True,
-                    'message': 'Р‘СЌРєР°Рї СѓСЃРїРµС€РЅРѕ Р·Р°РіСЂСѓР¶РµРЅ'
+                    'message': 'Бэкап успешно загружен'
                 })
                 
             except Exception as e:
                 return JsonResponse({
                     'success': False,
-                    'error': f'РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё Р±СЌРєР°РїР°: {str(e)}'
+                    'error': f'Ошибка загрузки бэкапа: {str(e)}'
                 }, status=400)
         else:
             return JsonResponse({
                 'success': False,
-                'error': 'РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё С„РѕСЂРјС‹'
+                'error': 'Ошибка валидации формы'
             }, status=400)
     
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
 def get_media_stats(self):
-    """РџРѕР»СѓС‡РµРЅРёРµ СЃС‚Р°С‚РёСЃС‚РёРєРё РјРµРґРёР° С„Р°Р№Р»РѕРІ"""
+    """Получение статистики медиа файлов"""
     media_dir = Path(settings.MEDIA_ROOT)
     stats = {
         'exists': False,
@@ -1032,7 +1286,7 @@ def get_media_stats(self):
         media_files = []
         
         try:
-            # РЎРѕР±РёСЂР°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ С„Р°Р№Р»Р°С…
+            # Собираем информацию о файлах
             for file_path in media_dir.rglob('*'):
                 if file_path.is_file():
                     try:
@@ -1042,17 +1296,17 @@ def get_media_stats(self):
                         stats['total_files'] += 1
                         stats['total_size'] += file_size
                         
-                        # РЎС‡РёС‚Р°РµРј С‚РёРїС‹ С„Р°Р№Р»РѕРІ
+                        # Считаем типы файлов
                         stats['file_types'][file_ext] = stats['file_types'].get(file_ext, 0) + 1
                         
-                        # РЎРѕС…СЂР°РЅСЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ С„Р°Р№Р»Рµ РґР»СЏ РєСЂСѓРїРЅРµР№С€РёС…
+                        # Сохраняем информацию о файле для крупнейших
                         media_files.append((file_path, file_size))
                         
                     except Exception as e:
                         print(f"Error processing file {file_path}: {e}")
                         continue
             
-            # РЎРѕСЂС‚РёСЂСѓРµРј РїРѕ СЂР°Р·РјРµСЂСѓ Рё Р±РµСЂРµРј 10 РєСЂСѓРїРЅРµР№С€РёС…
+            # Сортируем по размеру и берем 10 крупнейших
             media_files.sort(key=lambda x: x[1], reverse=True)
             stats['largest_files'] = [(str(path), size) for path, size in media_files[:10]]
             
@@ -1063,11 +1317,11 @@ def get_media_stats(self):
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def media_stats_api(request):
-    """API РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ СЃС‚Р°С‚РёСЃС‚РёРєРё РјРµРґРёР° С„Р°Р№Р»РѕРІ"""
+    """API для получения статистики медиа файлов"""
     backup_manager = DjangoBackupManager()
     stats = backup_manager.get_media_stats()
     
-    # Р¤РѕСЂРјР°С‚РёСЂСѓРµРј СЂР°Р·РјРµСЂС‹ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ
+    # Форматируем размеры для отображения
     stats['total_size_formatted'] = backup_manager._format_file_size(stats['total_size'])
     stats['largest_files_formatted'] = [
         (path, backup_manager._format_file_size(size)) 
@@ -1078,48 +1332,48 @@ def media_stats_api(request):
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def restore_backup_api(request, backup_id):
-    """API РґР»СЏ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёСЏ РёР· Р±СЌРєР°РїР°"""
+    """API для восстановления из бэкапа"""
     if request.method == 'POST':
         backup = get_object_or_404(Backup, id=backup_id)
         backup_manager = DjangoBackupManager()
         
         try:
-            # Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕРµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РґР»СЏ РєСЂРёС‚РёС‡РµСЃРєРёС… РѕРїРµСЂР°С†РёР№
+            # Дополнительное подтверждение для критических операций
             if not request.POST.get('confirmed'):
                 return JsonResponse({
                     'requires_confirmation': True,
-                    'message': 'Р’РќРРњРђРќРР•: Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ Р±Р°Р·С‹ РґР°РЅРЅС‹С… РїРµСЂРµР·Р°РїРёС€РµС‚ РІСЃРµ С‚РµРєСѓС‰РёРµ РґР°РЅРЅС‹Рµ. Р­С‚Рѕ РґРµР№СЃС‚РІРёРµ РЅРµР»СЊР·СЏ РѕС‚РјРµРЅРёС‚СЊ. РџРѕРґС‚РІРµСЂРґРёС‚Рµ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ.'
+                    'message': 'ВНИМАНИЕ: Восстановление базы данных перезапишет все текущие данные. Это действие нельзя отменить. Подтвердите восстановление.'
                 })
             
-            # РџСЂРѕРІРµСЂСЏРµРј СЃСѓС‰РµСЃС‚РІРѕРІР°РЅРёРµ С„Р°Р№Р»Р°
+            # Проверяем существование файла
             if not backup.backup_file:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Р¤Р°Р№Р» Р±СЌРєР°РїР° РЅРµ РЅР°Р№РґРµРЅ'
+                    'error': 'Файл бэкапа не найден'
                 }, status=404)
             
-            # РћС‚РєСЂС‹РІР°РµРј С„Р°Р№Р» РґР»СЏ С‡С‚РµРЅРёСЏ
+            # Открываем файл для чтения
             with backup.backup_file.open('rb') as f:
-                # Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј Р±СЌРєР°Рї
+                # Восстанавливаем бэкап
                 result = backup_manager.restore_backup(f, request.user)
             
             if result['success']:
-                # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-                action_type = get_or_create_action_type('backup_restored', 'Р‘СЌРєР°Рї РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ')
+                # Логируем - ИСПРАВЛЕНО
+                action_type = get_or_create_action_type('backup_restored', 'Бэкап восстановлен')
                 AdminLog.objects.create(
                     admin=request.user,
                     action=action_type,
-                    details=f"Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ Р±СЌРєР°Рї: {backup.name}"
+                    details=f"Восстановлен бэкап: {backup.name}"
                 )
                 
                 return JsonResponse({
                     'success': True, 
-                    'message': result['message'] or 'Р‘Р°Р·Р° РґР°РЅРЅС‹С… СѓСЃРїРµС€РЅРѕ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅР°'
+                    'message': result['message'] or 'База данных успешно восстановлена'
                 })
             else:
                 return JsonResponse({
                     'success': False,
-                    'error': result.get('error', 'РћС€РёР±РєР° РїСЂРё РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРё')
+                    'error': result.get('error', 'Ошибка при восстановлении')
                 }, status=400)
                 
         except Exception as e:
@@ -1127,33 +1381,33 @@ def restore_backup_api(request, backup_id):
             print(f"Restore error: {error_message}")
             return JsonResponse({
                 'success': False, 
-                'error': f'РћС€РёР±РєР° РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёСЏ: {error_message}'
+                'error': f'Ошибка восстановления: {error_message}'
             }, status=500)
     
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def download_backup_api(request, backup_id):
-    """РЎРєР°С‡РёРІР°РЅРёРµ Р±СЌРєР°РїР°"""
+    """Скачивание бэкапа"""
     backup = get_object_or_404(Backup, id=backup_id)
     
     try:
         if not backup.backup_file:
             return JsonResponse({
                 'success': False,
-                'error': 'Р¤Р°Р№Р» Р±СЌРєР°РїР° РЅРµ РЅР°Р№РґРµРЅ'
+                'error': 'Файл бэкапа не найден'
             }, status=404)
         
         response = HttpResponse(backup.backup_file, content_type='application/octet-stream')
         response['Content-Disposition'] = f'attachment; filename="{backup.name}"'
         response['Content-Length'] = backup.backup_file.size
         
-        # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-        action_type = get_or_create_action_type('backup_downloaded', 'Р‘СЌРєР°Рї СЃРєР°С‡Р°РЅ')
+        # Логируем - ИСПРАВЛЕНО
+        action_type = get_or_create_action_type('backup_downloaded', 'Бэкап скачан')
         AdminLog.objects.create(
             admin=request.user,
             action=action_type,
-            details=f"РЎРєР°С‡Р°РЅ Р±СЌРєР°Рї: {backup.name}"
+            details=f"Скачан бэкап: {backup.name}"
         )
         
         return response
@@ -1161,12 +1415,12 @@ def download_backup_api(request, backup_id):
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': f'РћС€РёР±РєР° СЃРєР°С‡РёРІР°РЅРёСЏ: {str(e)}'
+            'error': f'Ошибка скачивания: {str(e)}'
         }, status=400)
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def delete_backup_api(request, backup_id):
-    """РЈРґР°Р»РµРЅРёРµ Р±СЌРєР°РїР°"""
+    """Удаление бэкапа"""
     if request.method == 'POST':
         backup = get_object_or_404(Backup, id=backup_id)
         
@@ -1174,17 +1428,17 @@ def delete_backup_api(request, backup_id):
             backup_name = backup.name
             backup.delete()
             
-            # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-            action_type = get_or_create_action_type('backup_deleted', 'Р‘СЌРєР°Рї СѓРґР°Р»РµРЅ')
+            # Логируем - ИСПРАВЛЕНО
+            action_type = get_or_create_action_type('backup_deleted', 'Бэкап удален')
             AdminLog.objects.create(
                 admin=request.user,
                 action=action_type,
-                details=f"РЈРґР°Р»РµРЅ Р±СЌРєР°Рї: {backup_name}"
+                details=f"Удален бэкап: {backup_name}"
             )
             
             return JsonResponse({
                 'success': True, 
-                'message': 'Р‘СЌРєР°Рї СѓСЃРїРµС€РЅРѕ СѓРґР°Р»РµРЅ'
+                'message': 'Бэкап успешно удален'
             })
             
         except Exception as e:
@@ -1197,7 +1451,7 @@ def delete_backup_api(request, backup_id):
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def get_backups_list_api(request):
-    """API РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ СЃРїРёСЃРєР° Р±СЌРєР°РїРѕРІ"""
+    """API для получения списка бэкапов"""
     try:
         backups = Backup.objects.all().order_by('-created_at')
         backups_data = []
@@ -1228,7 +1482,7 @@ def get_backups_list_api(request):
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def system_status_api(request):
-    """API РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ СЃС‚Р°С‚СѓСЃР° СЃРёСЃС‚РµРјС‹"""
+    """API для получения статуса системы"""
     backup_manager = DjangoBackupManager()
     system_info = backup_manager.get_system_info()
     
@@ -1240,7 +1494,7 @@ from django.db import models
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def admin_logs(request):
-    """РџСЂРѕСЃРјРѕС‚СЂ Р»РѕРіРѕРІ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРІ"""
+    """Просмотр логов администраторов"""
     context = get_admin_context(request)
     
     logs = AdminLog.objects.all().select_related('action', 'admin', 'target_company').order_by('-created_at')
@@ -1258,7 +1512,7 @@ def admin_logs(request):
             models.Q(target_company__name__icontains=search_query)
         )
     
-    # РџРѕР»СѓС‡Р°РµРј РІСЃРµ С‚РёРїС‹ РґРµР№СЃС‚РІРёР№ РґР»СЏ С„РёР»СЊС‚СЂР°
+    # Получаем все типы действий для фильтра
     action_types = ActionType.objects.all()
     
     context.update({
@@ -1271,28 +1525,28 @@ def admin_logs(request):
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def clear_logs(request):
-    """РћС‡РёСЃС‚РєР° Р»РѕРіРѕРІ"""
+    """Очистка логов"""
     if request.method == 'POST':
         days_old = int(request.POST.get('days_old', 30))
         cutoff_date = timezone.now() - timedelta(days=days_old)
         
         deleted_count = AdminLog.objects.filter(created_at__lt=cutoff_date).delete()[0]
         
-        # РЎРѕР·РґР°РµРј Р·Р°РїРёСЃСЊ РІ Р»РѕРіР°С… Рѕ РѕС‡РёСЃС‚РєРµ
-        action_type = get_or_create_action_type('logs_cleared', 'Р›РѕРіРё РѕС‡РёС‰РµРЅС‹')
+        # Создаем запись в логах о очистке
+        action_type = get_or_create_action_type('logs_cleared', 'Логи очищены')
         AdminLog.objects.create(
             admin=request.user,
             action=action_type,
-            details=f'РћС‡РёС‰РµРЅРѕ {deleted_count} Р»РѕРіРѕРІ СЃС‚Р°СЂС€Рµ {days_old} РґРЅРµР№'
+            details=f'Очищено {deleted_count} логов старше {days_old} дней'
         )
         
-        messages.success(request, f'РЈСЃРїРµС€РЅРѕ РѕС‡РёС‰РµРЅРѕ {deleted_count} Р»РѕРіРѕРІ СЃС‚Р°СЂС€Рµ {days_old} РґРЅРµР№')
+        messages.success(request, f'Успешно очищено {deleted_count} логов старше {days_old} дней')
     
     return redirect('admin_logs')
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def api_company_stats(request):
-    """API РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ СЃС‚Р°С‚РёСЃС‚РёРєРё РєРѕРјРїР°РЅРёР№"""
+    """API для получения статистики компаний"""
     stats = {
         'pending': Company.objects.filter(status=Company.STATUS_PENDING).count(),
         'approved': Company.objects.filter(status=Company.STATUS_APPROVED).count(),
@@ -1303,7 +1557,7 @@ def api_company_stats(request):
 
 @user_passes_test(is_admin, login_url='/admin/login/')
 def api_recent_activity(request):
-    """API РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РїРѕСЃР»РµРґРЅРµР№ Р°РєС‚РёРІРЅРѕСЃС‚Рё"""
+    """API для получения последней активности"""
     logs = AdminLog.objects.all().order_by('-created_at')[:5]
     
     activity = []
@@ -1320,7 +1574,7 @@ def api_recent_activity(request):
 
 @user_passes_test(is_superuser_only, login_url='/admin/login/')
 def admin_management(request):
-    """РЈРїСЂР°РІР»РµРЅРёРµ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°РјРё СЃР°Р№С‚Р° (С‚РѕР»СЊРєРѕ РґР»СЏ superuser)"""
+    """Управление администраторами сайта (только для superuser)"""
     context = get_admin_context(request)
     site_admins = User.objects.filter(user_type='adminsite').order_by('-date_joined')
     
@@ -1331,7 +1585,7 @@ def admin_management(request):
 
 @user_passes_test(is_superuser_only, login_url='/admin/login/')
 def create_site_admin(request):
-    """РЎРѕР·РґР°РЅРёРµ РЅРѕРІРѕРіРѕ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° СЃР°Р№С‚Р°"""
+    """Создание нового администратора сайта"""
     context = get_admin_context(request)
     
     if request.method == 'POST':
@@ -1339,28 +1593,27 @@ def create_site_admin(request):
         if form.is_valid():
             try:
                 admin = form.save()
-                # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-                action_type = get_or_create_action_type('admin_created', 'РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃРѕР·РґР°РЅ')
+                # Логируем - ИСПРАВЛЕНО
+                action_type = get_or_create_action_type('admin_created', 'Администратор создан')
                 AdminLog.objects.create(
                     admin=request.user,
                     action=action_type,
-                    details=f'РЎРѕР·РґР°РЅ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃР°Р№С‚Р°: {admin.get_full_name()} ({admin.email})'
+                    details=f'Создан администратор сайта: {admin.get_full_name()} ({admin.email})'
                 )
                 return redirect('admin_management')
-            except Exception as e:
-                pass
+            except Exception:
+                messages.error(request, 'Не удалось создать администратора сайта.')
     else:
         form = SiteAdminCreateForm()
     
     context.update({
         'form': form,
-        'title': 'РЎРѕР·РґР°РЅРёРµ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° СЃР°Р№С‚Р°'
     })
     return render(request, 'admin_panel/admin_form.html', context)
 
 @user_passes_test(is_superuser_only, login_url='/admin/login/')
 def edit_site_admin(request, admin_id):
-    """Р РµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° СЃР°Р№С‚Р°"""
+    """Редактирование администратора сайта"""
     context = get_admin_context(request)
     admin_user = get_object_or_404(User, id=admin_id, user_type='adminsite')
 
@@ -1369,29 +1622,35 @@ def edit_site_admin(request, admin_id):
         if form.is_valid():
             try:
                 admin = form.save()
-                # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-                action_type = get_or_create_action_type('admin_updated', 'РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ РѕР±РЅРѕРІР»РµРЅ')
+                # Логируем - ИСПРАВЛЕНО
+                action_type = get_or_create_action_type('admin_updated', 'Администратор обновлен')
                 AdminLog.objects.create(
                     admin=request.user,
                     action=action_type,
-                    details=f'РћР±РЅРѕРІР»РµРЅ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃР°Р№С‚Р°: {admin.get_full_name()} ({admin.email})'
+                    details=f'Обновлен администратор сайта: {admin.get_full_name()} ({admin.email})'
                 )
                 return redirect('admin_management')
-            except Exception as e:
-                pass
+            except Exception:
+                messages.error(request, 'Не удалось обновить администратора сайта.')
     else:
         form = SiteAdminEditForm(instance=admin_user)
     
     context.update({
         'form': form,
         'admin': admin_user,
-        'title': 'Р РµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° СЃР°Р№С‚Р°'
     })
     return render(request, 'admin_panel/admin_form.html', context)
 
+
+def _delete_user_row_raw(user_id: int) -> int:
+    """Fallback delete when ORM cascades break because legacy tables are missing."""
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM users WHERE id = %s", [user_id])
+        return cursor.rowcount
+
 @user_passes_test(is_superuser_only, login_url='/admin/login/')
 def toggle_site_admin_status(request, admin_id):
-    """РђРєС‚РёРІР°С†РёСЏ/РґРµР°РєС‚РёРІР°С†РёСЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° СЃР°Р№С‚Р°"""
+    """Активация/деактивация администратора сайта"""
     admin_user = get_object_or_404(User, id=admin_id, user_type='adminsite')
     
     if admin_user == request.user:
@@ -1399,43 +1658,63 @@ def toggle_site_admin_status(request, admin_id):
     
     if admin_user.is_active:
         admin_user.is_active = False
-        action_type = get_or_create_action_type('admin_deactivated', 'РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ РґРµР°РєС‚РёРІРёСЂРѕРІР°РЅ')
-        message = f'вњ… РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃР°Р№С‚Р° {admin_user.get_full_name()} РґРµР°РєС‚РёРІРёСЂРѕРІР°РЅ'
+        action_type = get_or_create_action_type('admin_deactivated', 'Администратор деактивирован')
+        message = f'✅ Администратор сайта {admin_user.get_full_name()} деактивирован'
     else:
         admin_user.is_active = True
-        action_type = get_or_create_action_type('admin_activated', 'РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ Р°РєС‚РёРІРёСЂРѕРІР°РЅ')
-        message = f'вњ… РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃР°Р№С‚Р° {admin_user.get_full_name()} Р°РєС‚РёРІРёСЂРѕРІР°РЅ'
+        action_type = get_or_create_action_type('admin_activated', 'Администратор активирован')
+        message = f'✅ Администратор сайта {admin_user.get_full_name()} активирован'
     
     admin_user.save()
     
     AdminLog.objects.create(
         admin=request.user,
         action=action_type,
-        details=f'РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃР°Р№С‚Р° {admin_user.get_full_name()} {"РґРµР°РєС‚РёРІРёСЂРѕРІР°РЅ" if not admin_user.is_active else "Р°РєС‚РёРІРёСЂРѕРІР°РЅ"}'
+        details=f'Администратор сайта {admin_user.get_full_name()} {"деактивирован" if not admin_user.is_active else "активирован"}'
     )
     
     return redirect('admin_management')
 
 @user_passes_test(is_superuser_only, login_url='/admin/login/')
 def delete_site_admin(request, admin_id):
-    """РЈРґР°Р»РµРЅРёРµ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° СЃР°Р№С‚Р°"""
+    """Удаление администратора сайта"""
     admin_user = get_object_or_404(User, id=admin_id, user_type='adminsite')
     
     if admin_user == request.user:
         return redirect('admin_management')
     
+    admin_user_id = admin_user.id
     admin_name = admin_user.get_full_name()
     admin_email = admin_user.email
+
+    fallback_used = False
+    deleted = False
+    try:
+        admin_user.delete()
+        deleted = True
+    except ProgrammingError as exc:
+        # Some deployments miss the legacy "employees" table, and ORM cascade fails.
+        if 'employees' in str(exc).lower():
+            deleted = _delete_user_row_raw(admin_user_id) > 0
+            fallback_used = deleted
+        else:
+            raise
+
+    if not deleted:
+        messages.error(request, 'Не удалось удалить администратора сайта.')
+        return redirect('admin_management')
     
-    admin_user.delete()
-    
-    # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-    action_type = get_or_create_action_type('admin_deleted', 'РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СѓРґР°Р»РµРЅ')
+    # Логируем - ИСПРАВЛЕНО
+    action_type = get_or_create_action_type('admin_deleted', 'Администратор удален')
+    details = f'Удален администратор сайта: {admin_name} ({admin_email})'
+    if fallback_used:
+        details += ' [raw-delete fallback]'
     AdminLog.objects.create(
         admin=request.user,
         action=action_type,
-        details=f'РЈРґР°Р»РµРЅ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ СЃР°Р№С‚Р°: {admin_name} ({admin_email})'
+        details=details
     )
+    messages.success(request, 'Администратор сайта удалён.')
     
     return redirect('admin_management')
 
@@ -1469,7 +1748,7 @@ def admin_required(view_func):
             return view_func(request, *args, **kwargs)
         
         if request.user.user_type not in ['adminsite']:
-            return HttpResponseForbidden("РЈ РІР°СЃ РЅРµС‚ РїСЂР°РІ РґР»СЏ РґРѕСЃС‚СѓРїР° Рє Р°РґРјРёРЅ-РїР°РЅРµР»Рё")
+            return HttpResponseForbidden("У вас нет прав для доступа к админ-панели")
         
         return view_func(request, *args, **kwargs)
     return _wrapped_view
@@ -1481,7 +1760,7 @@ import json
 from datetime import datetime
 from .statistics_service import StatisticsService
 
-# Р”РѕР±Р°РІСЊС‚Рµ СЌС‚Рё РёРјРїРѕСЂС‚С‹ РґР»СЏ СЌРєСЃРїРѕСЂС‚Р°
+# Добавьте эти импорты для экспорта
 import csv
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -1495,11 +1774,11 @@ import io
 @login_required
 @user_passes_test(is_admin)
 def admin_statistics(request):
-    """РЎС‚СЂР°РЅРёС†Р° СЃС‚Р°С‚РёСЃС‚РёРєРё СЃ РїРѕРґРґРµСЂР¶РєРѕР№ РїРµСЂРёРѕРґР°"""
+    """Страница статистики с поддержкой периода"""
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     
-    # Р’Р°Р»РёРґР°С†РёСЏ РґР°С‚
+    # Валидация дат
     if start_date and end_date:
         try:
             start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -1516,7 +1795,7 @@ def admin_statistics(request):
     response_stats = StatisticsService.get_response_statistics(start_date, end_date)
     complaint_stats = StatisticsService.get_complaint_statistics(start_date, end_date)
     
-    # РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РґР°РЅРЅС‹Рµ РґР»СЏ РєСЂСѓРіРѕРІС‹С… РґРёР°РіСЂР°РјРј
+    # Подготавливаем данные для круговых диаграмм
     user_chart_data = []
     cumulative_percent = 0
     for i, (label, count, percentage, color) in enumerate(zip(
@@ -1584,7 +1863,7 @@ def admin_statistics(request):
         })
         cumulative_percent += percentage
     
-    # РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РґР°РЅРЅС‹Рµ РґР»СЏ СЃС‚РѕР»Р±С‡Р°С‚С‹С… РґРёР°РіСЂР°РјРј
+    # Подготавливаем данные для столбчатых диаграмм
     vacancy_data = []
     if vacancy_stats['category']['data']:
         max_count = max(vacancy_stats['category']['data']) if vacancy_stats['category']['data'] else 1
@@ -1625,6 +1904,7 @@ def admin_statistics(request):
             response_daily_data.append((day['date'], day['count'], max(height, 5)))
     
     context = {
+        **get_admin_context(request),
         'main_stats': main_stats,
         'user_total': user_distribution['total'],
         'company_total': company_stats['status_distribution']['total'],
@@ -1650,12 +1930,16 @@ from reportlab.lib.units import inch
 @login_required
 @user_passes_test(is_admin)
 def export_statistics_pdf(request):
-    """Р­РєСЃРїРѕСЂС‚ СЃС‚Р°С‚РёСЃС‚РёРєРё РІ PDF СЃ РїРѕРґРґРµСЂР¶РєРѕР№ РїРµСЂРёРѕРґР°"""
+    """Экспорт статистики в PDF с поддержкой периода"""
     try:
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
-        
-        # Р’Р°Р»РёРґР°С†РёСЏ РґР°С‚
+
+        is_en = request.LANGUAGE_CODE == 'en'
+
+        def tr(ru_text: str, en_text: str) -> str:
+            return en_text if is_en else ru_text
+
         if start_date and end_date:
             try:
                 start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -1664,256 +1948,276 @@ def export_statistics_pdf(request):
                     start_date, end_date = None, None
             except ValueError:
                 start_date, end_date = None, None
-        
-        # РЎРѕР±РёСЂР°РµРј РґР°РЅРЅС‹Рµ СЃ СѓС‡РµС‚РѕРј РїРµСЂРёРѕРґР°
+
         main_stats = StatisticsService.get_main_statistics(start_date, end_date)
         user_distribution = StatisticsService.get_user_type_distribution(start_date, end_date)
         vacancy_stats = StatisticsService.get_vacancy_statistics(start_date, end_date)
         company_stats = StatisticsService.get_company_statistics(start_date, end_date)
         response_stats = StatisticsService.get_response_statistics(start_date, end_date)
         complaint_stats = StatisticsService.get_complaint_statistics(start_date, end_date)
-        
-        # РЎРѕР·РґР°РµРј PDF
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30)
-        elements = []
-        
-        # Р РµРіРёСЃС‚СЂРёСЂСѓРµРј С€СЂРёС„С‚С‹
+
+        from reportlab.lib.utils import ImageReader
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.lib.fonts import addMapping
-        
-        font_name = 'Times-Roman'
-        bold_font_name = 'Times-Bold'
-        
-        try:
-            # РџСЂРѕР±СѓРµРј РЅР°Р№С‚Рё Рё Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ Times New Roman
-            font_variants = [
-                'times.ttf', 'timesbd.ttf', 'timesi.ttf', 'timesbi.ttf',
-                'Times New Roman.ttf', 'Times New Roman Bold.ttf',
-                '/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf',
-                '/Library/Fonts/Times New Roman.ttf',
+
+        def _register_ttf_font(font_name: str, font_path: str) -> bool:
+            if not font_path or not os.path.exists(font_path):
+                return False
+            try:
+                if font_name not in pdfmetrics.getRegisteredFontNames():
+                    pdfmetrics.registerFont(TTFont(font_name, font_path))
+                return True
+            except Exception:
+                return False
+
+        def _pdf_font_names() -> tuple[str, str]:
+            windir = os.environ.get('WINDIR', r'C:\Windows')
+            candidates = [
+                (os.path.join(windir, 'Fonts', 'arial.ttf'), os.path.join(windir, 'Fonts', 'arialbd.ttf')),
+                ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
+                ('/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf', '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf'),
             ]
-            
-            for font_variant in font_variants:
-                try:
-                    if 'timesbd' in font_variant or 'Bold' in font_variant:
-                        pdfmetrics.registerFont(TTFont('TimesNewRoman-Bold', font_variant))
-                        bold_font_name = 'TimesNewRoman-Bold'
-                    else:
-                        pdfmetrics.registerFont(TTFont('TimesNewRoman', font_variant))
-                        font_name = 'TimesNewRoman'
-                except:
-                    continue
-            
-            if font_name == 'TimesNewRoman' and bold_font_name == 'TimesNewRoman-Bold':
-                addMapping('TimesNewRoman', 0, 0, 'TimesNewRoman')
-                addMapping('TimesNewRoman', 1, 0, 'TimesNewRoman-Bold')
-            else:
-                font_name = 'Times-Roman'
-                bold_font_name = 'Times-Bold'
-                
-        except Exception as e:
-            print(f"Font registration error: {e}")
-            font_name = 'Times-Roman'
-            bold_font_name = 'Times-Bold'
-        
-        # РЎС‚РёР»Рё
-        styles = getSampleStyleSheet()
-        
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontName=bold_font_name,
-            fontSize=16,
-            spaceAfter=30,
-            alignment=1
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontName=bold_font_name,
-            fontSize=12,
-            spaceAfter=12
-        )
-        
-        normal_style = ParagraphStyle(
-            'CustomNormal',
-            parent=styles['Normal'],
-            fontName=font_name,
-            fontSize=10
-        )
-        
-        # Р—Р°РіРѕР»РѕРІРѕРє
-        title = Paragraph("РЎС‚Р°С‚РёСЃС‚РёРєР° РїР»Р°С‚С„РѕСЂРјС‹ С‚СЂСѓРґРѕСѓСЃС‚СЂРѕР№СЃС‚РІР°", title_style)
-        elements.append(title)
-        
-        period_info = f"Р”Р°С‚Р° СЌРєСЃРїРѕСЂС‚Р°: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+
+            for index, (regular_path, bold_path) in enumerate(candidates, start=1):
+                regular_name = f'SiteReportSans{index}'
+                bold_name = f'SiteReportSansBold{index}'
+                regular_ok = _register_ttf_font(regular_name, regular_path)
+                bold_ok = _register_ttf_font(bold_name, bold_path)
+
+                if regular_ok and bold_ok:
+                    return regular_name, bold_name
+                if regular_ok:
+                    return regular_name, regular_name
+
+            return 'Helvetica', 'Helvetica-Bold'
+
+        def _format_iso_date(date_value: str | None) -> str:
+            if not date_value:
+                return ''
+            try:
+                return datetime.strptime(date_value, '%Y-%m-%d').strftime('%d.%m.%Y')
+            except Exception:
+                return str(date_value)
+
+        def _to_rows(labels, values) -> list[tuple[str, int]]:
+            rows: list[tuple[str, int]] = []
+            labels = labels or []
+            values = values or []
+            for idx, label in enumerate(labels):
+                value = values[idx] if idx < len(values) else 0
+                rows.append((str(label or tr('Без названия', 'Untitled')), int(value or 0)))
+            return rows
+
+        font_regular, font_bold = _pdf_font_names()
+        buffer = io.BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        margin = 28
+
+        brand_name = 'WorkMPT'
+        generated_at = datetime.now().strftime('%d.%m.%Y %H:%M')
         if start_date and end_date:
-            period_info += f" | РџРµСЂРёРѕРґ: {start_date} - {end_date}"
-        
-        elements.append(Paragraph(period_info, normal_style))
-        elements.append(Spacer(1, 20))
-        
-        # РћСЃРЅРѕРІРЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°
-        elements.append(Paragraph("РћСЃРЅРѕРІРЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°", heading_style))
-        
-        main_data = [
-            ['РџРѕРєР°Р·Р°С‚РµР»СЊ', 'Р—РЅР°С‡РµРЅРёРµ'],
-            ['Р’СЃРµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№', str(main_stats['total_users'])],
-            ['Р’СЃРµРіРѕ РєРѕРјРїР°РЅРёР№', str(main_stats['total_companies'])],
-            ['Р’СЃРµРіРѕ РІР°РєР°РЅСЃРёР№', str(main_stats['total_vacancies'])],
-            ['Р’СЃРµРіРѕ РѕС‚РєР»РёРєРѕРІ', str(main_stats['total_responses'])],
-            ['РђРєС‚РёРІРЅС‹С… РєРѕРјРїР°РЅРёР№', str(main_stats['active_companies'])],
+            period_text = tr(
+                f"Период: {_format_iso_date(start_date)} — {_format_iso_date(end_date)}",
+                f"Period: {_format_iso_date(start_date)} — {_format_iso_date(end_date)}",
+            )
+        else:
+            period_text = tr('Период: за всё время', 'Period: all time')
+
+        def _truncate(value: str, limit: int = 34) -> str:
+            text = str(value or '')
+            if len(text) <= limit:
+                return text
+            return text[: limit - 3] + '...'
+
+        def _draw_card(x: float, y: float, w: float, h: float, title: str, value: int) -> None:
+            pdf.setFillColor(colors.white)
+            pdf.setStrokeColor(colors.HexColor('#dbe4f0'))
+            pdf.roundRect(x, y, w, h, 10, fill=1, stroke=1)
+            pdf.setFillColor(colors.HexColor('#64748b'))
+            pdf.setFont(font_regular, 8)
+            pdf.drawString(x + 10, y + h - 16, title)
+            pdf.setFillColor(colors.HexColor('#0f172a'))
+            pdf.setFont(font_bold, 17)
+            pdf.drawString(x + 10, y + 14, str(int(value or 0)))
+
+        def _draw_chart_box(x: float, y: float, w: float, h: float, title: str, chart_buffer) -> None:
+            pdf.setFillColor(colors.white)
+            pdf.setStrokeColor(colors.HexColor('#dbe4f0'))
+            pdf.roundRect(x, y, w, h, 12, fill=1, stroke=1)
+            pdf.setFillColor(colors.HexColor('#0f172a'))
+            pdf.setFont(font_bold, 11)
+            pdf.drawString(x + 12, y + h - 18, title)
+
+            if not chart_buffer:
+                pdf.setFillColor(colors.HexColor('#64748b'))
+                pdf.setFont(font_regular, 9)
+                pdf.drawString(x + 12, y + h - 40, tr('Нет данных', 'No data'))
+                return
+
+            try:
+                image = ImageReader(chart_buffer)
+                img_w, img_h = image.getSize()
+                max_w = w - 18
+                max_h = h - 34
+                scale = min(max_w / float(img_w), max_h / float(img_h))
+                draw_w = img_w * scale
+                draw_h = img_h * scale
+                draw_x = x + (w - draw_w) / 2
+                draw_y = y + 8
+                pdf.drawImage(image, draw_x, draw_y, draw_w, draw_h, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pdf.setFillColor(colors.HexColor('#64748b'))
+                pdf.setFont(font_regular, 9)
+                pdf.drawString(x + 12, y + h - 40, tr('Не удалось отрисовать график', 'Failed to render chart'))
+
+        def _draw_table(x: float, y: float, w: float, h: float, title: str, rows: list[tuple[str, int]]) -> None:
+            pdf.setFillColor(colors.white)
+            pdf.setStrokeColor(colors.HexColor('#dbe4f0'))
+            pdf.roundRect(x, y, w, h, 12, fill=1, stroke=1)
+
+            pdf.setFillColor(colors.HexColor('#0f172a'))
+            pdf.setFont(font_bold, 11)
+            pdf.drawString(x + 12, y + h - 18, title)
+
+            row_y = y + h - 34
+            row_height = 20
+            for idx, (name, count) in enumerate(rows[:7]):
+                row_bg = colors.HexColor('#f8fafc') if idx % 2 == 0 else colors.white
+                pdf.setFillColor(row_bg)
+                pdf.rect(x + 10, row_y - row_height + 5, w - 20, row_height - 2, fill=1, stroke=0)
+                pdf.setFillColor(colors.HexColor('#1e293b'))
+                pdf.setFont(font_regular, 9)
+                pdf.drawString(x + 14, row_y - 8, _truncate(name, 30))
+                pdf.setFont(font_bold, 9)
+                pdf.drawRightString(x + w - 14, row_y - 8, str(int(count or 0)))
+                row_y -= row_height
+
+            if not rows:
+                pdf.setFillColor(colors.HexColor('#64748b'))
+                pdf.setFont(font_regular, 9)
+                pdf.drawString(x + 14, y + h - 58, tr('Нет данных', 'No data'))
+
+        pdf.setTitle(tr('Отчёт по статистике сайта WorkMPT', 'WorkMPT Site Analytics Report'))
+        pdf.setFillColor(colors.HexColor('#f5f8fc'))
+        pdf.rect(0, 0, width, height, fill=1, stroke=0)
+
+        header_h = 90
+        header_x = margin
+        header_y = height - margin - header_h
+        header_w = width - margin * 2
+
+        pdf.setFillColor(colors.HexColor('#0f172a'))
+        pdf.roundRect(header_x, header_y, header_w, header_h, 14, fill=1, stroke=0)
+        pdf.setFillColor(colors.HexColor('#f59e0b'))
+        pdf.circle(header_x + 28, header_y + header_h / 2, 18, fill=1, stroke=0)
+        pdf.setFillColor(colors.white)
+        pdf.setFont(font_bold, 11)
+        pdf.drawCentredString(header_x + 28, header_y + header_h / 2 - 4, 'WM')
+
+        pdf.setFillColor(colors.white)
+        pdf.setFont(font_bold, 22)
+        pdf.drawString(header_x + 56, header_y + 55, brand_name)
+        pdf.setFont(font_regular, 10)
+        pdf.setFillColor(colors.HexColor('#cbd5e1'))
+        pdf.drawString(header_x + 56, header_y + 38, tr('Аналитический отчёт по платформе', 'Platform analytics report'))
+        pdf.drawString(header_x + 56, header_y + 24, f"{tr('Дата формирования', 'Generated at')}: {generated_at} · {period_text}")
+
+        metrics = [
+            (tr('Пользователи', 'Users'), main_stats.get('total_users', 0)),
+            (tr('Компании', 'Companies'), main_stats.get('total_companies', 0)),
+            (tr('Вакансии', 'Vacancies'), main_stats.get('total_vacancies', 0)),
+            (tr('Отклики', 'Responses'), main_stats.get('total_responses', 0)),
+            (tr('Жалобы', 'Complaints'), main_stats.get('total_complaints', 0)),
+            (tr('Активные компании', 'Active companies'), main_stats.get('active_companies', 0)),
+            (tr('На проверке', 'Pending moderation'), main_stats.get('pending_companies', 0)),
+            (tr('Новые за неделю', 'New this week'), main_stats.get('new_users_week', 0)),
         ]
-        
-        # Р”РѕР±Р°РІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РїРµСЂРёРѕРґРµ, РµСЃР»Рё РѕРЅ СѓРєР°Р·Р°РЅ
-        if not start_date or not end_date:
-            main_data.extend([
-                ['РќРѕРІС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ (РЅРµРґРµР»СЏ)', str(main_stats['new_users_week'])],
-                ['РќРѕРІС‹С… РєРѕРјРїР°РЅРёР№ (РЅРµРґРµР»СЏ)', str(main_stats['new_companies_week'])],
-                ['РќРѕРІС‹С… РІР°РєР°РЅСЃРёР№ (РЅРµРґРµР»СЏ)', str(main_stats['new_vacancies_week'])],
-            ])
-        
-        main_table = Table(main_data, colWidths=[250, 100])
-        main_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), bold_font_name),
-            ('FONTNAME', (0, 1), (-1, -1), font_name),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(main_table)
-        elements.append(Spacer(1, 20))
-        
-        # РћСЃС‚Р°Р»СЊРЅС‹Рµ РіСЂР°С„РёРєРё Рё С‚Р°Р±Р»РёС†С‹ (Р°РЅР°Р»РѕРіРёС‡РЅРѕ РІР°С€РµРјСѓ РєРѕРґСѓ)
-        # Р“СЂР°С„РёРє СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
-        elements.append(Paragraph("Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РїРѕ С‚РёРїР°Рј", heading_style))
-        user_chart_buffer = create_user_distribution_chart(user_distribution)
-        if user_chart_buffer:
-            user_chart = Image(user_chart_buffer, width=6*inch, height=4*inch)
-            elements.append(user_chart)
-        elements.append(Spacer(1, 10))
-        
-        # РўР°Р±Р»РёС†Р° СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
-        user_data = [['РўРёРї РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ', 'РљРѕР»РёС‡РµСЃС‚РІРѕ', 'РџСЂРѕС†РµРЅС‚']]
-        for i, label in enumerate(user_distribution['labels']):
-            user_data.append([
-                label,
-                str(user_distribution['data'][i]),
-                f"{user_distribution['percentages'][i]}%"
-            ])
-        
-        user_table = Table(user_data, colWidths=[200, 80, 80])
-        user_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), bold_font_name),
-            ('FONTNAME', (0, 1), (-1, -1), font_name),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(user_table)
-        elements.append(Spacer(1, 20))
-        
-        # Р“СЂР°С„РёРє СЃС‚Р°С‚СѓСЃРѕРІ РєРѕРјРїР°РЅРёР№
-        elements.append(Paragraph("РЎС‚Р°С‚СѓСЃС‹ РєРѕРјРїР°РЅРёР№", heading_style))
-        company_chart_buffer = create_company_status_chart(company_stats)
-        if company_chart_buffer:
-            company_chart = Image(company_chart_buffer, width=6*inch, height=4*inch)
-            elements.append(company_chart)
-        elements.append(Spacer(1, 10))
-        
-        # РўР°Р±Р»РёС†Р° СЃС‚Р°С‚СѓСЃРѕРІ РєРѕРјРїР°РЅРёР№
-        company_data = [['РЎС‚Р°С‚СѓСЃ', 'РљРѕР»РёС‡РµСЃС‚РІРѕ', 'РџСЂРѕС†РµРЅС‚']]
-        for i, label in enumerate(company_stats['status_distribution']['labels']):
-            company_data.append([
-                label,
-                str(company_stats['status_distribution']['data'][i]),
-                f"{company_stats['status_distribution']['percentages'][i]}%"
-            ])
-        
-        company_table = Table(company_data, colWidths=[200, 80, 80])
-        company_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), bold_font_name),
-            ('FONTNAME', (0, 1), (-1, -1), font_name),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(company_table)
-        elements.append(Spacer(1, 20))
-        
-        # Р“СЂР°С„РёРє РєР°С‚РµРіРѕСЂРёР№ РІР°РєР°РЅСЃРёР№
-        elements.append(Paragraph("РљР°С‚РµРіРѕСЂРёРё РІР°РєР°РЅСЃРёР№", heading_style))
-        vacancy_chart_buffer = create_vacancy_categories_chart(vacancy_stats)
-        if vacancy_chart_buffer:
-            vacancy_chart = Image(vacancy_chart_buffer, width=6*inch, height=4*inch)
-            elements.append(vacancy_chart)
-        elements.append(Spacer(1, 10))
-        
-        # РўР°Р±Р»РёС†Р° РєР°С‚РµРіРѕСЂРёР№ РІР°РєР°РЅСЃРёР№
-        vacancy_data = [['РљР°С‚РµРіРѕСЂРёСЏ', 'РљРѕР»РёС‡РµСЃС‚РІРѕ']]
-        for i, label in enumerate(vacancy_stats['category']['labels']):
-            vacancy_data.append([
-                label,
-                str(vacancy_stats['category']['data'][i])
-            ])
-        
-        vacancy_table = Table(vacancy_data, colWidths=[200, 80])
-        vacancy_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), bold_font_name),
-            ('FONTNAME', (0, 1), (-1, -1), font_name),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(vacancy_table)
-        elements.append(Spacer(1, 20))
-        
-        # Р“СЂР°С„РёРє Р°РєС‚РёРІРЅРѕСЃС‚Рё РѕС‚РєР»РёРєРѕРІ
-        elements.append(Paragraph("РђРєС‚РёРІРЅРѕСЃС‚СЊ РѕС‚РєР»РёРєРѕРІ", heading_style))
+
+        card_w = (header_w - 30) / 4
+        card_h = 60
+        row_1_y = header_y - 14 - card_h
+        row_2_y = row_1_y - 10 - card_h
+        for idx, (title, value) in enumerate(metrics):
+            row = 0 if idx < 4 else 1
+            col = idx if idx < 4 else idx - 4
+            card_x = margin + col * (card_w + 10)
+            card_y = row_1_y if row == 0 else row_2_y
+            _draw_card(card_x, card_y, card_w, card_h, title, value)
+
         response_chart_buffer = create_response_activity_chart(response_stats)
-        if response_chart_buffer:
-            response_chart = Image(response_chart_buffer, width=6*inch, height=4*inch)
-            elements.append(response_chart)
-        
-        # РЎРѕР±РёСЂР°РµРј PDF
-        doc.build(elements)
-        
-        # Р’РѕР·РІСЂР°С‰Р°РµРј С„Р°Р№Р»
+        user_chart_buffer = create_user_distribution_chart(user_distribution)
+
+        chart_h = 220
+        chart_y = row_2_y - 14 - chart_h
+        left_chart_w = 340
+        right_chart_w = header_w - left_chart_w - 12
+        left_chart_x = margin
+        right_chart_x = left_chart_x + left_chart_w + 12
+
+        _draw_chart_box(
+            left_chart_x,
+            chart_y,
+            left_chart_w,
+            chart_h,
+            tr('Активность откликов', 'Response activity'),
+            response_chart_buffer,
+        )
+        _draw_chart_box(
+            right_chart_x,
+            chart_y,
+            right_chart_w,
+            chart_h,
+            tr('Распределение пользователей', 'User distribution'),
+            user_chart_buffer,
+        )
+
+        table_h = 185
+        table_y = chart_y - 14 - table_h
+        table_gap = 12
+        table_w = (header_w - table_gap) / 2
+
+        vacancy_rows = _to_rows(vacancy_stats.get('category', {}).get('labels'), vacancy_stats.get('category', {}).get('data'))
+        complaint_rows = _to_rows(
+            complaint_stats.get('type_distribution', {}).get('labels'),
+            complaint_stats.get('type_distribution', {}).get('data'),
+        )
+
+        _draw_table(margin, table_y, table_w, table_h, tr('Категории вакансий', 'Vacancy categories'), vacancy_rows)
+        _draw_table(
+            margin + table_w + table_gap,
+            table_y,
+            table_w,
+            table_h,
+            tr('Типы жалоб', 'Complaint types'),
+            complaint_rows,
+        )
+
+        pdf.setFillColor(colors.HexColor('#94a3b8'))
+        pdf.setFont(font_regular, 8)
+        pdf.drawString(margin, 18, tr('WorkMPT · Отчет по статистике сайта', 'WorkMPT · Site analytics report'))
+
+        pdf.save()
         buffer.seek(0)
-        filename = "statistics"
-        if start_date and end_date:
-            filename += f"_{start_date}_to_{end_date}"
-        filename += f"_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        
-        response = HttpResponse(buffer, content_type='application/pdf')
+        filename = f"workmpt_site_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
-        
+
     except Exception as e:
-        return HttpResponse(f"РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё PDF: {str(e)}")
+        is_en = getattr(request, 'LANGUAGE_CODE', 'ru') == 'en'
+        prefix = 'Failed to generate PDF' if is_en else 'Ошибка при создании PDF'
+        return HttpResponse(f"{prefix}: {str(e)}")
 
 @login_required
 @user_passes_test(is_admin)
 def export_statistics_excel(request):
-    """Р­РєСЃРїРѕСЂС‚ СЃС‚Р°С‚РёСЃС‚РёРєРё РІ Excel (CSV) СЃ РїРѕРґРґРµСЂР¶РєРѕР№ РїРµСЂРёРѕРґР°"""
+    """Экспорт статистики в Excel (CSV) с поддержкой периода"""
     try:
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
         
-        # Р’Р°Р»РёРґР°С†РёСЏ РґР°С‚
+        # Валидация дат
         if start_date and end_date:
             try:
                 start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -1923,7 +2227,7 @@ def export_statistics_excel(request):
             except ValueError:
                 start_date, end_date = None, None
         
-        # РЎРѕР±РёСЂР°РµРј РґР°РЅРЅС‹Рµ СЃ СѓС‡РµС‚РѕРј РїРµСЂРёРѕРґР°
+        # Собираем данные с учетом периода
         main_stats = StatisticsService.get_main_statistics(start_date, end_date)
         user_distribution = StatisticsService.get_user_type_distribution(start_date, end_date)
         vacancy_stats = StatisticsService.get_vacancy_statistics(start_date, end_date)
@@ -1940,36 +2244,36 @@ def export_statistics_excel(request):
         
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
-        # РЎРѕР·РґР°РµРј CSV writer СЃ РїРѕРґРґРµСЂР¶РєРѕР№ СЂСѓСЃСЃРєРѕРіРѕ
+        # Создаем CSV writer с поддержкой русского
         writer = csv.writer(response)
         
-        # Р—Р°РіРѕР»РѕРІРѕРє
-        writer.writerow(['РЎС‚Р°С‚РёСЃС‚РёРєР° РїР»Р°С‚С„РѕСЂРјС‹ С‚СЂСѓРґРѕСѓСЃС‚СЂРѕР№СЃС‚РІР°'])
-        period_info = f"Р”Р°С‚Р° СЌРєСЃРїРѕСЂС‚Р°: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+        # Заголовок
+        writer.writerow(['Статистика платформы трудоустройства'])
+        period_info = f"Дата экспорта: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
         if start_date and end_date:
-            period_info += f" | РџРµСЂРёРѕРґ: {start_date} - {end_date}"
+            period_info += f" | Период: {start_date} - {end_date}"
         writer.writerow([period_info])
         writer.writerow([])
         
-        # РћСЃРЅРѕРІРЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°
-        writer.writerow(['РћРЎРќРћР’РќРђРЇ РЎРўРђРўРРЎРўРРљРђ'])
-        writer.writerow(['РџРѕРєР°Р·Р°С‚РµР»СЊ', 'Р—РЅР°С‡РµРЅРёРµ'])
-        writer.writerow(['Р’СЃРµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№', main_stats['total_users']])
-        writer.writerow(['Р’СЃРµРіРѕ РєРѕРјРїР°РЅРёР№', main_stats['total_companies']])
-        writer.writerow(['Р’СЃРµРіРѕ РІР°РєР°РЅСЃРёР№', main_stats['total_vacancies']])
-        writer.writerow(['Р’СЃРµРіРѕ РѕС‚РєР»РёРєРѕРІ', main_stats['total_responses']])
-        writer.writerow(['РђРєС‚РёРІРЅС‹С… РєРѕРјРїР°РЅРёР№', main_stats['active_companies']])
+        # Основная статистика
+        writer.writerow(['ОСНОВНАЯ СТАТИСТИКА'])
+        writer.writerow(['Показатель', 'Значение'])
+        writer.writerow(['Всего пользователей', main_stats['total_users']])
+        writer.writerow(['Всего компаний', main_stats['total_companies']])
+        writer.writerow(['Всего вакансий', main_stats['total_vacancies']])
+        writer.writerow(['Всего откликов', main_stats['total_responses']])
+        writer.writerow(['Активных компаний', main_stats['active_companies']])
         
         if not start_date or not end_date:
-            writer.writerow(['РќРѕРІС‹С… РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ (РЅРµРґРµР»СЏ)', main_stats['new_users_week']])
-            writer.writerow(['РќРѕРІС‹С… РєРѕРјРїР°РЅРёР№ (РЅРµРґРµР»СЏ)', main_stats['new_companies_week']])
-            writer.writerow(['РќРѕРІС‹С… РІР°РєР°РЅСЃРёР№ (РЅРµРґРµР»СЏ)', main_stats['new_vacancies_week']])
+            writer.writerow(['Новых пользователей (неделя)', main_stats['new_users_week']])
+            writer.writerow(['Новых компаний (неделя)', main_stats['new_companies_week']])
+            writer.writerow(['Новых вакансий (неделя)', main_stats['new_vacancies_week']])
         
         writer.writerow([])
         
-        # Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
-        writer.writerow(['Р РђРЎРџР Р•Р”Р•Р›Р•РќРР• РџРћР›Р¬Р—РћР’РђРўР•Р›Р•Р™ РџРћ РўРРџРђРњ'])
-        writer.writerow(['РўРёРї РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ', 'РљРѕР»РёС‡РµСЃС‚РІРѕ', 'РџСЂРѕС†РµРЅС‚'])
+        # Распределение пользователей
+        writer.writerow(['РАСПРЕДЕЛЕНИЕ ПОЛЬЗОВАТЕЛЕЙ ПО ТИПАМ'])
+        writer.writerow(['Тип пользователя', 'Количество', 'Процент'])
         for i, label in enumerate(user_distribution['labels']):
             writer.writerow([
                 label,
@@ -1978,9 +2282,9 @@ def export_statistics_excel(request):
             ])
         writer.writerow([])
         
-        # РЎС‚Р°С‚СѓСЃС‹ РєРѕРјРїР°РЅРёР№
-        writer.writerow(['РЎРўРђРўРЈРЎР« РљРћРњРџРђРќРР™'])
-        writer.writerow(['РЎС‚Р°С‚СѓСЃ', 'РљРѕР»РёС‡РµСЃС‚РІРѕ', 'РџСЂРѕС†РµРЅС‚'])
+        # Статусы компаний
+        writer.writerow(['СТАТУСЫ КОМПАНИЙ'])
+        writer.writerow(['Статус', 'Количество', 'Процент'])
         for i, label in enumerate(company_stats['status_distribution']['labels']):
             writer.writerow([
                 label,
@@ -1989,34 +2293,34 @@ def export_statistics_excel(request):
             ])
         writer.writerow([])
         
-        # РљР°С‚РµРіРѕСЂРёРё РІР°РєР°РЅСЃРёР№
-        writer.writerow(['РљРђРўР•Р“РћР РР Р’РђРљРђРќРЎРР™'])
-        writer.writerow(['РљР°С‚РµРіРѕСЂРёСЏ', 'РљРѕР»РёС‡РµСЃС‚РІРѕ'])
+        # Категории вакансий
+        writer.writerow(['КАТЕГОРИИ ВАКАНСИЙ'])
+        writer.writerow(['Категория', 'Количество'])
         for i, label in enumerate(vacancy_stats['category']['labels']):
             writer.writerow([label, vacancy_stats['category']['data'][i]])
         writer.writerow([])
         
-        # РђРєС‚РёРІРЅРѕСЃС‚СЊ РѕС‚РєР»РёРєРѕРІ
-        writer.writerow(['РђРљРўРР’РќРћРЎРўР¬ РћРўРљР›РРљРћР’'])
-        writer.writerow(['Р”Р°С‚Р°', 'РљРѕР»РёС‡РµСЃС‚РІРѕ РѕС‚РєР»РёРєРѕРІ'])
+        # Активность откликов
+        writer.writerow(['АКТИВНОСТЬ ОТКЛИКОВ'])
+        writer.writerow(['Дата', 'Количество откликов'])
         for day in response_stats['daily_activity']:
             writer.writerow([day['date'], day['count']])
         writer.writerow([])
         
-        # РўРёРїС‹ Р¶Р°Р»РѕР±
-        writer.writerow(['РўРРџР« Р–РђР›РћР‘'])
-        writer.writerow(['РўРёРї Р¶Р°Р»РѕР±С‹', 'РљРѕР»РёС‡РµСЃС‚РІРѕ'])
+        # Типы жалоб
+        writer.writerow(['ТИПЫ ЖАЛОБ'])
+        writer.writerow(['Тип жалобы', 'Количество'])
         for i, label in enumerate(complaint_stats['type_distribution']['labels']):
             writer.writerow([label, complaint_stats['type_distribution']['data'][i]])
         
         return response
         
     except Exception as e:
-        return HttpResponse(f"РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё Excel: {str(e)}")
+        return HttpResponse(f"Ошибка при создании Excel: {str(e)}")
 
-# Р¤СѓРЅРєС†РёРё РґР»СЏ СЃРѕР·РґР°РЅРёСЏ РіСЂР°С„РёРєРѕРІ (РѕСЃС‚Р°СЋС‚СЃСЏ Р±РµР· РёР·РјРµРЅРµРЅРёР№)
+# Функции для создания графиков (остаются без изменений)
 def create_user_distribution_chart(user_distribution):
-    """РЎРѕР·РґР°РµС‚ РєСЂСѓРіРѕРІСѓСЋ РґРёР°РіСЂР°РјРјСѓ СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№"""
+    """Создает круговую диаграмму распределения пользователей"""
     try:
         plt.figure(figsize=(8, 6))
         plt.pie(
@@ -2026,7 +2330,7 @@ def create_user_distribution_chart(user_distribution):
             autopct='%1.1f%%',
             startangle=90
         )
-        plt.title('Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№ РїРѕ С‚РёРїР°Рј', fontsize=14, fontweight='bold')
+        plt.title('Распределение пользователей по типам', fontsize=14, fontweight='bold')
         plt.axis('equal')
         
         buffer = io.BytesIO()
@@ -2035,11 +2339,11 @@ def create_user_distribution_chart(user_distribution):
         plt.close()
         return buffer
     except Exception as e:
-        print(f"РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё РіСЂР°С„РёРєР° РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№: {e}")
+        print(f"Ошибка при создании графика пользователей: {e}")
         return None
 
 def create_company_status_chart(company_stats):
-    """РЎРѕР·РґР°РµС‚ РєСЂСѓРіРѕРІСѓСЋ РґРёР°РіСЂР°РјРјСѓ СЃС‚Р°С‚СѓСЃРѕРІ РєРѕРјРїР°РЅРёР№"""
+    """Создает круговую диаграмму статусов компаний"""
     try:
         plt.figure(figsize=(8, 6))
         plt.pie(
@@ -2049,7 +2353,7 @@ def create_company_status_chart(company_stats):
             autopct='%1.1f%%',
             startangle=90
         )
-        plt.title('РЎС‚Р°С‚СѓСЃС‹ РєРѕРјРїР°РЅРёР№', fontsize=14, fontweight='bold')
+        plt.title('Статусы компаний', fontsize=14, fontweight='bold')
         plt.axis('equal')
         
         buffer = io.BytesIO()
@@ -2058,11 +2362,11 @@ def create_company_status_chart(company_stats):
         plt.close()
         return buffer
     except Exception as e:
-        print(f"РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё РіСЂР°С„РёРєР° РєРѕРјРїР°РЅРёР№: {e}")
+        print(f"Ошибка при создании графика компаний: {e}")
         return None
 
 def create_vacancy_categories_chart(vacancy_stats):
-    """РЎРѕР·РґР°РµС‚ СЃС‚РѕР»Р±С‡Р°С‚СѓСЋ РґРёР°РіСЂР°РјРјСѓ РєР°С‚РµРіРѕСЂРёР№ РІР°РєР°РЅСЃРёР№"""
+    """Создает столбчатую диаграмму категорий вакансий"""
     try:
         plt.figure(figsize=(10, 6))
         bars = plt.bar(
@@ -2070,9 +2374,9 @@ def create_vacancy_categories_chart(vacancy_stats):
             vacancy_stats['category']['data'],
             color=vacancy_stats['category']['colors']
         )
-        plt.title('РљР°С‚РµРіРѕСЂРёРё РІР°РєР°РЅСЃРёР№', fontsize=14, fontweight='bold')
-        plt.xlabel('РљР°С‚РµРіРѕСЂРёРё')
-        plt.ylabel('РљРѕР»РёС‡РµСЃС‚РІРѕ РІР°РєР°РЅСЃРёР№')
+        plt.title('Категории вакансий', fontsize=14, fontweight='bold')
+        plt.xlabel('Категории')
+        plt.ylabel('Количество вакансий')
         plt.xticks(rotation=45, ha='right')
         
         for bar in bars:
@@ -2089,20 +2393,20 @@ def create_vacancy_categories_chart(vacancy_stats):
         plt.close()
         return buffer
     except Exception as e:
-        print(f"РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё РіСЂР°С„РёРєР° РІР°РєР°РЅСЃРёР№: {e}")
+        print(f"Ошибка при создании графика вакансий: {e}")
         return None
 
 def create_response_activity_chart(response_stats):
-    """РЎРѕР·РґР°РµС‚ Р»РёРЅРµР№РЅС‹Р№ РіСЂР°С„РёРє Р°РєС‚РёРІРЅРѕСЃС‚Рё РѕС‚РєР»РёРєРѕРІ"""
+    """Создает линейный график активности откликов"""
     try:
         dates = [day['date'] for day in response_stats['daily_activity']]
         counts = [day['count'] for day in response_stats['daily_activity']]
         
         plt.figure(figsize=(10, 6))
         plt.plot(dates, counts, marker='o', linewidth=2, markersize=6)
-        plt.title('РђРєС‚РёРІРЅРѕСЃС‚СЊ РѕС‚РєР»РёРєРѕРІ', fontsize=14, fontweight='bold')
-        plt.xlabel('Р”Р°С‚Р°')
-        plt.ylabel('РљРѕР»РёС‡РµСЃС‚РІРѕ РѕС‚РєР»РёРєРѕРІ')
+        plt.title('Активность откликов', fontsize=14, fontweight='bold')
+        plt.xlabel('Дата')
+        plt.ylabel('Количество откликов')
         plt.grid(True, alpha=0.3)
         
         for i, count in enumerate(counts):
@@ -2119,42 +2423,39 @@ def create_response_activity_chart(response_stats):
         plt.close()
         return buffer
     except Exception as e:
-        print(f"РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё РіСЂР°С„РёРєР° РѕС‚РєР»РёРєРѕРІ: {e}")
+        print(f"Ошибка при создании графика откликов: {e}")
         return None
     
 from django.core.paginator import Paginator
 @login_required
 @admin_required
 def admin_complaints(request):
-    # РџРѕР»СѓС‡Р°РµРј РїР°СЂР°РјРµС‚СЂС‹ С„РёР»СЊС‚СЂР°С†РёРё
+    # Получаем параметры фильтрации
     status_filter = request.GET.get('status', 'all')
     type_filter = request.GET.get('type', 'all')
     
-    # Р‘Р°Р·РѕРІС‹Р№ Р·Р°РїСЂРѕСЃ
+    # Базовый запрос
     complaints = Complaint.objects.select_related(
         'vacancy', 'vacancy__company', 'complainant'
     ).order_by('-created_at')
     
-    # РџСЂРёРјРµРЅСЏРµРј С„РёР»СЊС‚СЂС‹
+    # Применяем фильтры
     if status_filter != 'all':
         complaints = complaints.filter(status=status_filter)
     
     if type_filter != 'all':
         complaints = complaints.filter(complaint_type=type_filter)
     
-    # РџР°РіРёРЅР°С†РёСЏ
+    # Пагинация
     paginator = Paginator(complaints, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # РЎС‚Р°С‚РёСЃС‚РёРєР° РґР»СЏ Р±РѕРєРѕРІРѕРіРѕ РјРµРЅСЋ
-    pending_complaints_count = Complaint.objects.filter(status='pending').count()
-    
     context = {
+        **get_admin_context(request),
         'page_obj': page_obj,
         'status_filter': status_filter,
         'type_filter': type_filter,
-        'pending_complaints_count': pending_complaints_count,
         'total_complaints': complaints.count(),
         'pending_count': Complaint.objects.filter(status='pending').count(),
         'resolved_count': Complaint.objects.filter(status='resolved').count(),
@@ -2174,14 +2475,9 @@ def complaint_detail(request, complaint_id):
         id=complaint_id
     )
     
-    # РџРѕР»СѓС‡Р°РµРј СЃС‚Р°С‚РёСЃС‚РёРєСѓ РґР»СЏ Р±РѕРєРѕРІРѕРіРѕ РјРµРЅСЋ
-    pending_complaints_count = Complaint.objects.filter(status='pending').count()
-    pending_companies_count = Company.objects.filter(status='pending').count()
-    
     context = {
+        **get_admin_context(request),
         'complaint': complaint,
-        'pending_complaints_count': pending_complaints_count,
-        'pending_companies_count': pending_companies_count,
     }
     
     return render(request, 'admin_panel/complaint_detail.html', context)
@@ -2201,30 +2497,30 @@ def update_complaint_status(request, complaint_id):
             complaint.resolved_at = timezone.now() if new_status in ['resolved', 'rejected'] else None
             complaint.save()
             
-            # Р›РѕРіРёСЂСѓРµРј - РРЎРџР РђР’Р›Р•РќРћ
-            action_type = get_or_create_action_type('complaint_status_updated', 'РЎС‚Р°С‚СѓСЃ Р¶Р°Р»РѕР±С‹ РѕР±РЅРѕРІР»РµРЅ')
+            # Логируем - ИСПРАВЛЕНО
+            action_type = get_or_create_action_type('complaint_status_updated', 'Статус жалобы обновлен')
             AdminLog.objects.create(
                 admin=request.user,
                 action=action_type,
-                details=f'РР·РјРµРЅРµРЅ СЃС‚Р°С‚СѓСЃ Р¶Р°Р»РѕР±С‹ #{complaint.id} СЃ "{dict(Complaint.STATUS_CHOICES).get(old_status)}" РЅР° "{complaint.get_status_display()}"'
+                details=f'Изменен статус жалобы #{complaint.id} с "{dict(Complaint.STATUS_CHOICES).get(old_status)}" на "{complaint.get_status_display()}"'
             )
             
-            messages.success(request, f'РЎС‚Р°С‚СѓСЃ Р¶Р°Р»РѕР±С‹ РѕР±РЅРѕРІР»РµРЅ РЅР° "{complaint.get_status_display()}"')
+            messages.success(request, f'Статус жалобы обновлен на "{complaint.get_status_display()}"')
         else:
-            messages.error(request, 'РќРµРІРµСЂРЅС‹Р№ СЃС‚Р°С‚СѓСЃ')
+            messages.error(request, 'Неверный статус')
     
     return redirect('complaint_detail', complaint_id=complaint_id)
 
 def send_vacancy_archive_email(vacancy, archive_reason=""):
     """
-    РћС‚РїСЂР°РІР»СЏРµС‚ email СѓРІРµРґРѕРјР»РµРЅРёРµ РєРѕРјРїР°РЅРёРё РїСЂРё Р°СЂС…РёРІР°С†РёРё РІР°РєР°РЅСЃРёРё
+    Отправляет email уведомление компании при архивации вакансии
     """
     company_email = vacancy.company.user.email
     company_name = vacancy.company.name
     vacancy_title = vacancy.position
     
     try:
-        subject = f'Р’Р°РєР°РЅСЃРёСЏ "{vacancy_title}" РїРµСЂРµРјРµС‰РµРЅР° РІ Р°СЂС…РёРІ - HR-Lab'
+        subject = f'Вакансия "{vacancy_title}" перемещена в архив - HR-Lab'
         
         html_message = f"""
         <!DOCTYPE html>
@@ -2368,72 +2664,72 @@ def send_vacancy_archive_email(vacancy, archive_reason=""):
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>рџ“‹ HR-Lab</h1>
-                    <p>РЈРІРµРґРѕРјР»РµРЅРёРµ РѕР± Р°СЂС…РёРІР°С†РёРё РІР°РєР°РЅСЃРёРё</p>
+                    <h1>📋 HR-Lab</h1>
+                    <p>Уведомление об архивации вакансии</p>
                 </div>
                 
                 <div class="content">
-                    <h2 style="color: #1e293b; margin-top: 0;">РЈРІР°Р¶Р°РµРјС‹Р№ РїСЂРµРґСЃС‚Р°РІРёС‚РµР»СЊ РєРѕРјРїР°РЅРёРё {company_name}!</h2>
+                    <h2 style="color: #1e293b; margin-top: 0;">Уважаемый представитель компании {company_name}!</h2>
                     
                     <div class="warning-card">
-                        <div class="warning-icon">рџ“Ѓ</div>
-                        <div class="warning-title">Р’Р°РєР°РЅСЃРёСЏ РїРµСЂРµРјРµС‰РµРЅР° РІ Р°СЂС…РёРІ</div>
+                        <div class="warning-icon">📁</div>
+                        <div class="warning-title">Вакансия перемещена в архив</div>
                         <div class="warning-description">
-                            Р’Р°С€Р° РІР°РєР°РЅСЃРёСЏ "<strong>{vacancy_title}</strong>" Р±С‹Р»Р° РїРµСЂРµРјРµС‰РµРЅР° РІ Р°СЂС…РёРІ РјРѕРґРµСЂР°С‚РѕСЂРѕРј РїР»Р°С‚С„РѕСЂРјС‹.
+                            Ваша вакансия "<strong>{vacancy_title}</strong>" была перемещена в архив модератором платформы.
                         </div>
                     </div>
                     
                     <div class="vacancy-info">
                         <div class="info-item">
-                            <span class="info-label">Р’Р°РєР°РЅСЃРёСЏ:</span>
+                            <span class="info-label">Вакансия:</span>
                             <span class="info-value">{vacancy_title}</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">РљРѕРјРїР°РЅРёСЏ:</span>
+                            <span class="info-label">Компания:</span>
                             <span class="info-value">{company_name}</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">Р”Р°С‚Р° Р°СЂС…РёРІР°С†РёРё:</span>
-                            <span class="info-value">{timezone.now().strftime('%d.%m.%Y РІ %H:%M')}</span>
+                            <span class="info-label">Дата архивации:</span>
+                            <span class="info-value">{timezone.now().strftime('%d.%m.%Y в %H:%M')}</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">РЎС‚Р°С‚СѓСЃ:</span>
-                            <span class="info-value" style="color: #f59e0b; font-weight: 700;">РђСЂС…РёРІРёСЂРѕРІР°РЅР°</span>
+                            <span class="info-label">Статус:</span>
+                            <span class="info-value" style="color: #f59e0b; font-weight: 700;">Архивирована</span>
                         </div>
                     </div>
                     
                     {f'''
                     <div class="reason-section">
-                        <div class="reason-title">рџ“ќ РџСЂРёС‡РёРЅР° Р°СЂС…РёРІР°С†РёРё:</div>
+                        <div class="reason-title">📝 Причина архивации:</div>
                         <p style="color: #1e293b; margin: 0; line-height: 1.5;">{archive_reason}</p>
                     </div>
                     ''' if archive_reason else ''}
                     
                     <div class="action-buttons">
                         <p style="color: #64748b; margin-bottom: 20px;">
-                            Р’С‹ РјРѕР¶РµС‚Рµ СЃРѕР·РґР°С‚СЊ РЅРѕРІСѓСЋ РІР°РєР°РЅСЃРёСЋ РёР»Рё СЃРІСЏР·Р°С‚СЊСЃСЏ СЃ РїРѕРґРґРµСЂР¶РєРѕР№ РґР»СЏ СѓС‚РѕС‡РЅРµРЅРёСЏ РґРµС‚Р°Р»РµР№.
+                            Вы можете создать новую вакансию или связаться с поддержкой для уточнения деталей.
                         </p>
                         <a href="http://127.0.0.1:8000/create_vacancy/" class="action-button">
-                            рџ“ќ РЎРѕР·РґР°С‚СЊ РЅРѕРІСѓСЋ РІР°РєР°РЅСЃРёСЋ
+                            📝 Создать новую вакансию
                         </a>
                         <a href="http://127.0.0.1:8000/contact/" class="action-button secondary-button">
-                            рџ“ћ РЎРІСЏР·Р°С‚СЊСЃСЏ СЃ РїРѕРґРґРµСЂР¶РєРѕР№
+                            📞 Связаться с поддержкой
                         </a>
                     </div>
                     
                     <p style="color: #64748b; font-size: 14px; text-align: center;">
-                        <strong>Р’Р°Р¶РЅРѕ:</strong> РђСЂС…РёРІРЅС‹Рµ РІР°РєР°РЅСЃРёРё РЅРµ РѕС‚РѕР±СЂР°Р¶Р°СЋС‚СЃСЏ РІ РїРѕРёСЃРєРµ Рё РЅРµ РїРѕР»СѓС‡Р°СЋС‚ РѕС‚РєР»РёРєРѕРІ РѕС‚ СЃРѕРёСЃРєР°С‚РµР»РµР№.
+                        <strong>Важно:</strong> Архивные вакансии не отображаются в поиске и не получают откликов от соискателей.
                     </p>
                 </div>
                 
                 <div class="footer">
-                    <p><strong>РЎ СѓРІР°Р¶РµРЅРёРµРј, РєРѕРјР°РЅРґР° HR-Lab</strong></p>
-                    <p>РњС‹ Р·Р°Р±РѕС‚РёРјСЃСЏ Рѕ РєР°С‡РµСЃС‚РІРµ РІР°РєР°РЅСЃРёР№ РЅР° РЅР°С€РµР№ РїР»Р°С‚С„РѕСЂРјРµ</p>
+                    <p><strong>С уважением, команда HR-Lab</strong></p>
+                    <p>Мы заботимся о качестве вакансий на нашей платформе</p>
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
                         <p>Email: hr-labogency@mail.ru</p>
                     </div>
                     <p style="font-size: 12px; margin-top: 20px; color: #94a3b8;">
-                        Р­С‚Рѕ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ, РїРѕР¶Р°Р»СѓР№СЃС‚Р°, РЅРµ РѕС‚РІРµС‡Р°Р№С‚Рµ РЅР° РЅРµРіРѕ.
+                        Это автоматическое сообщение, пожалуйста, не отвечайте на него.
                     </p>
                 </div>
             </div>
@@ -2441,28 +2737,28 @@ def send_vacancy_archive_email(vacancy, archive_reason=""):
         </html>
         """
         
-        # РўРµРєСЃС‚РѕРІР°СЏ РІРµСЂСЃРёСЏ
+        # Текстовая версия
         plain_message = f"""
-        РЈРІР°Р¶Р°РµРјС‹Р№ РїСЂРµРґСЃС‚Р°РІРёС‚РµР»СЊ РєРѕРјРїР°РЅРёРё "{company_name}"!
+        Уважаемый представитель компании "{company_name}"!
 
-        Р’Р°С€Р° РІР°РєР°РЅСЃРёСЏ "{vacancy_title}" Р±С‹Р»Р° РїРµСЂРµРјРµС‰РµРЅР° РІ Р°СЂС…РёРІ РјРѕРґРµСЂР°С‚РѕСЂРѕРј РїР»Р°С‚С„РѕСЂРјС‹ HR-Lab.
+        Ваша вакансия "{vacancy_title}" была перемещена в архив модератором платформы HR-Lab.
 
-        РРЅС„РѕСЂРјР°С†РёСЏ Рѕ РІР°РєР°РЅСЃРёРё:
-        - Р’Р°РєР°РЅСЃРёСЏ: {vacancy_title}
-        - РљРѕРјРїР°РЅРёСЏ: {company_name}
-        - Р”Р°С‚Р° Р°СЂС…РёРІР°С†РёРё: {timezone.now().strftime('%d.%m.%Y РІ %H:%M')}
-        - РЎС‚Р°С‚СѓСЃ: РђСЂС…РёРІРёСЂРѕРІР°РЅР°
+        Информация о вакансии:
+        - Вакансия: {vacancy_title}
+        - Компания: {company_name}
+        - Дата архивации: {timezone.now().strftime('%d.%m.%Y в %H:%M')}
+        - Статус: Архивирована
 
-        {f'РџСЂРёС‡РёРЅР° Р°СЂС…РёРІР°С†РёРё: {archive_reason}' if archive_reason else ''}
+        {f'Причина архивации: {archive_reason}' if archive_reason else ''}
 
-        Р’Р°Р¶РЅРѕ: РђСЂС…РёРІРЅС‹Рµ РІР°РєР°РЅСЃРёРё РЅРµ РѕС‚РѕР±СЂР°Р¶Р°СЋС‚СЃСЏ РІ РїРѕРёСЃРєРµ Рё РЅРµ РїРѕР»СѓС‡Р°СЋС‚ РѕС‚РєР»РёРєРѕРІ РѕС‚ СЃРѕРёСЃРєР°С‚РµР»РµР№.
+        Важно: Архивные вакансии не отображаются в поиске и не получают откликов от соискателей.
 
-        Р’С‹ РјРѕР¶РµС‚Рµ:
-        - РЎРѕР·РґР°С‚СЊ РЅРѕРІСѓСЋ РІР°РєР°РЅСЃРёСЋ: http://127.0.0.1:8000/create_vacancy/
-        - РЎРІСЏР·Р°С‚СЊСЃСЏ СЃ РїРѕРґРґРµСЂР¶РєРѕР№: http://127.0.0.1:8000/contact/
+        Вы можете:
+        - Создать новую вакансию: http://127.0.0.1:8000/create_vacancy/
+        - Связаться с поддержкой: http://127.0.0.1:8000/contact/
 
-        РЎ СѓРІР°Р¶РµРЅРёРµРј,
-        РљРѕРјР°РЅРґР° HR-Lab
+        С уважением,
+        Команда HR-Lab
 
         ---
         Email: hr-labogency@mail.ru
@@ -2477,59 +2773,59 @@ def send_vacancy_archive_email(vacancy, archive_reason=""):
             fail_silently=False,
         )
         
-        print(f"вњ… [EMAIL] РЈРІРµРґРѕРјР»РµРЅРёРµ РѕР± Р°СЂС…РёРІР°С†РёРё РѕС‚РїСЂР°РІР»РµРЅРѕ РґР»СЏ {vacancy_title}")
+        print(f"✅ [EMAIL] Уведомление об архивации отправлено для {vacancy_title}")
         return True
         
     except Exception as e:
-        print(f"вќЊ [EMAIL] РћРЁРР‘РљРђ РїСЂРё РѕС‚РїСЂР°РІРєРµ СѓРІРµРґРѕРјР»РµРЅРёСЏ РѕР± Р°СЂС…РёРІР°С†РёРё: {str(e)}")
+        print(f"❌ [EMAIL] ОШИБКА при отправке уведомления об архивации: {str(e)}")
         return False
     
 @admin_required
 @user_passes_test(is_admin, login_url='/admin/login/')
 def archive_vacancy(request, vacancy_id):
     """
-    РђСЂС…РёРІР°С†РёСЏ РІР°РєР°РЅСЃРёРё СЃ РѕС‚РїСЂР°РІРєРѕР№ email СѓРІРµРґРѕРјР»РµРЅРёСЏ
+    Архивация вакансии с отправкой email уведомления
     """
     vacancy = get_object_or_404(Vacancy, id=vacancy_id)
     
     try:
-        archived_status = StatusVacancies.objects.get(status_vacancies_name='РђСЂС…РёРІРёСЂРѕРІР°РЅР°')
+        archived_status = StatusVacancies.objects.get(status_vacancies_name='Архивирована')
     except StatusVacancies.DoesNotExist:
-        messages.error(request, 'РЎС‚Р°С‚СѓСЃ "РђСЂС…РёРІРёСЂРѕРІР°РЅР°" РЅРµ РЅР°Р№РґРµРЅ РІ СЃРёСЃС‚РµРјРµ.')
+        messages.error(request, 'Статус "Архивирована" не найден в системе.')
         return redirect('admin_complaints')
     
     if request.method == 'POST':
         archive_reason = request.POST.get('archive_reason', '')
         
-        # РЎРѕС…СЂР°РЅСЏРµРј СЃС‚Р°СЂС‹Р№ СЃС‚Р°С‚СѓСЃ РґР»СЏ Р»РѕРіР°
+        # Сохраняем старый статус для лога
         old_status = vacancy.status.status_vacancies_name
         
-        # РћР±РЅРѕРІР»СЏРµРј СЃС‚Р°С‚СѓСЃ РІР°РєР°РЅСЃРёРё
+        # Обновляем статус вакансии
         vacancy.status = archived_status
         vacancy.archived_at = timezone.now()
         vacancy.archive_reason = archive_reason
         vacancy.save()
         
-        # РћС‚РїСЂР°РІР»СЏРµРј email СѓРІРµРґРѕРјР»РµРЅРёРµ
+        # Отправляем email уведомление
         email_sent = send_vacancy_archive_email(vacancy, archive_reason)
         
-        # РЎРѕР·РґР°РµРј Р»РѕРі РґРµР№СЃС‚РІРёСЏ - РРЎРџР РђР’Р›Р•РќРћ
-        action_type = get_or_create_action_type('vacancy_archived', 'Р’Р°РєР°РЅСЃРёСЏ Р°СЂС…РёРІРёСЂРѕРІР°РЅР°')
+        # Создаем лог действия - ИСПРАВЛЕНО
+        action_type = get_or_create_action_type('vacancy_archived', 'Вакансия архивирована')
         AdminLog.objects.create(
             admin=request.user,
             action=action_type,
             target_company=vacancy.company,
-            details=f'Р’Р°РєР°РЅСЃРёСЏ "{vacancy.position}" Р°СЂС…РёРІРёСЂРѕРІР°РЅР°. РџСЂРёС‡РёРЅР°: {archive_reason or "РќРµ СѓРєР°Р·Р°РЅР°"}. Email РѕС‚РїСЂР°РІР»РµРЅ: {"Р”Р°" if email_sent else "РќРµС‚"}'
+            details=f'Вакансия "{vacancy.position}" архивирована. Причина: {archive_reason or "Не указана"}. Email отправлен: {"Да" if email_sent else "Нет"}'
         )
         
         if email_sent:
-            messages.success(request, f'Р’Р°РєР°РЅСЃРёСЏ "{vacancy.position}" Р°СЂС…РёРІРёСЂРѕРІР°РЅР°. Email СѓРІРµРґРѕРјР»РµРЅРёРµ РѕС‚РїСЂР°РІР»РµРЅРѕ РєРѕРјРїР°РЅРёРё.')
+            messages.success(request, f'Вакансия "{vacancy.position}" архивирована. Email уведомление отправлено компании.')
         else:
-            messages.warning(request, f'Р’Р°РєР°РЅСЃРёСЏ "{vacancy.position}" Р°СЂС…РёРІРёСЂРѕРІР°РЅР°, РЅРѕ РЅРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ email СѓРІРµРґРѕРјР»РµРЅРёРµ.')
+            messages.warning(request, f'Вакансия "{vacancy.position}" архивирована, но не удалось отправить email уведомление.')
         
         return redirect('admin_complaints')
     
-    # GET Р·Р°РїСЂРѕСЃ - РїРѕРєР°Р·С‹РІР°РµРј С„РѕСЂРјСѓ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ
+    # GET запрос - показываем форму подтверждения
     return render(request, 'admin_panel/confirm_archive.html', {
         'vacancy': vacancy,
         'pending_complaints_count': Complaint.objects.filter(status='pending').count(),
@@ -2539,73 +2835,69 @@ def archive_vacancy(request, vacancy_id):
 @admin_required
 def unarchive_vacancy(request, vacancy_id):
     """
-    Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ РІР°РєР°РЅСЃРёРё РёР· Р°СЂС…РёРІР°
+    Восстановление вакансии из архива
     """
     vacancy = get_object_or_404(Vacancy, id=vacancy_id)
     
-    # РџРѕР»СѓС‡Р°РµРј Р°РєС‚РёРІРЅС‹Р№ СЃС‚Р°С‚СѓСЃ (РїСЂРµРґРїРѕР»РѕР¶РёРј, С‡С‚Рѕ РѕРЅ РЅР°Р·С‹РІР°РµС‚СЃСЏ "РђРєС‚РёРІРЅР°СЏ")
+    # Получаем активный статус (предположим, что он называется "Активная")
     try:
-        active_status = StatusVacancies.objects.get(status_vacancies_name='РђРєС‚РёРІРЅР°СЏ')
+        active_status = StatusVacancies.objects.get(status_vacancies_name='Активная')
     except StatusVacancies.DoesNotExist:
-        # Р•СЃР»Рё РЅРµС‚ "РђРєС‚РёРІРЅРѕР№", Р±РµСЂРµРј РїРµСЂРІС‹Р№ РґРѕСЃС‚СѓРїРЅС‹Р№ СЃС‚Р°С‚СѓСЃ РєСЂРѕРјРµ Р°СЂС…РёРІРЅРѕРіРѕ
-        active_status = StatusVacancies.objects.exclude(status_vacancies_name='РђСЂС…РёРІРёСЂРѕРІР°РЅР°').first()
+        # Если нет "Активной", берем первый доступный статус кроме архивного
+        active_status = StatusVacancies.objects.exclude(status_vacancies_name='Архивирована').first()
     
-    if vacancy.status.status_vacancies_name == 'РђСЂС…РёРІРёСЂРѕРІР°РЅР°':
+    if vacancy.status.status_vacancies_name == 'Архивирована':
         vacancy.status = active_status
         vacancy.archived_at = None
         vacancy.archive_reason = ''
         vacancy.save()
         
-        # РЎРѕР·РґР°РµРј Р»РѕРі РґРµР№СЃС‚РІРёСЏ - РРЎРџР РђР’Р›Р•РќРћ
-        action_type = get_or_create_action_type('vacancy_unarchived', 'Р’Р°РєР°РЅСЃРёСЏ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅР°')
+        # Создаем лог действия - ИСПРАВЛЕНО
+        action_type = get_or_create_action_type('vacancy_unarchived', 'Вакансия восстановлена')
         AdminLog.objects.create(
             admin=request.user,
             action=action_type,
             target_company=vacancy.company,
-            details=f'Р’Р°РєР°РЅСЃРёСЏ "{vacancy.position}" РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅР° РёР· Р°СЂС…РёРІР°'
+            details=f'Вакансия "{vacancy.position}" восстановлена из архива'
         )
         
-        messages.success(request, f'Р’Р°РєР°РЅСЃРёСЏ "{vacancy.position}" РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅР° РёР· Р°СЂС…РёРІР°.')
+        messages.success(request, f'Вакансия "{vacancy.position}" восстановлена из архива.')
     
     return redirect('admin_complaints')
 
 @login_required
 def admin_profile(request):
-    """РџСЂРѕС„РёР»СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°"""
-    # РџРѕР»СѓС‡Р°РµРј СЃС‚Р°С‚РёСЃС‚РёРєСѓ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ
+    """Профиль администратора"""
+    # Получаем статистику для отображения
     total_users = User.objects.count()
     total_companies = Company.objects.count()
     total_vacancies = Vacancy.objects.count()
     pending_complaints = Complaint.objects.filter(status='pending').count()
-    pending_companies_count = Company.objects.filter(status='pending').count()
-    pending_complaints_count = Complaint.objects.filter(status='pending').count()
-    
-    # РџРѕР»СѓС‡Р°РµРј РїРѕСЃР»РµРґРЅРёРµ РґРµР№СЃС‚РІРёСЏ (РїСЂРёРјРµСЂ)
+    # Получаем последние действия (пример)
     recent_activity = [
         {
             'icon': 'user-check',
-            'description': 'РћРґРѕР±СЂРµРЅР° РєРѕРјРїР°РЅРёСЏ "РўРµС…РЅРѕРџР°СЂРє"',
+            'description': 'Одобрена компания "ТехноПарк"',
             'timestamp': timezone.now() - timedelta(hours=2)
         },
         {
             'icon': 'flag',
-            'description': 'Р Р°СЃСЃРјРѕС‚СЂРµРЅР° Р¶Р°Р»РѕР±Р° РЅР° РІР°РєР°РЅСЃРёСЋ',
+            'description': 'Рассмотрена жалоба на вакансию',
             'timestamp': timezone.now() - timedelta(hours=4)
         },
         {
             'icon': 'database',
-            'description': 'РЎРѕР·РґР°РЅ СЂРµР·РµСЂРІРЅС‹Р№ Р±СЌРєР°Рї',
+            'description': 'Создан резервный бэкап',
             'timestamp': timezone.now() - timedelta(days=1)
         }
     ]
     
     context = {
+        **get_admin_context(request),
         'total_users': total_users,
         'total_companies': total_companies,
         'total_vacancies': total_vacancies,
         'pending_complaints': pending_complaints,
-        'pending_companies_count': pending_companies_count,
-        'pending_complaints_count': pending_complaints_count,
         'recent_activity': recent_activity,
     }
     
@@ -2614,29 +2906,21 @@ def admin_profile(request):
 
 @login_required
 def admin_profile_edit(request):
-    """Р РµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ РїСЂРѕС„РёР»СЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°"""
+    """Редактирование профиля администратора"""
     if request.method == 'POST':
         form = AdminProfileEditForm(request.POST, instance=request.user)
         if form.is_valid():
             form.save()
-            messages.success(request, 'РџСЂРѕС„РёР»СЊ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅ!')
+            messages.success(request, 'Профиль успешно обновлен!')
             return redirect('admin_profile')
         else:
-            messages.error(request, 'РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РёСЃРїСЂР°РІСЊС‚Рµ РѕС€РёР±РєРё РІ С„РѕСЂРјРµ.')
+            messages.error(request, 'Пожалуйста, исправьте ошибки в форме.')
     else:
         form = AdminProfileEditForm(instance=request.user)
     
-    # РЎС‚Р°С‚РёСЃС‚РёРєР° РґР»СЏ СЃР°Р№РґР±Р°СЂР°
-    pending_companies_count = Company.objects.filter(status='pending').count()
-    pending_complaints_count = Complaint.objects.filter(status='pending').count()
-    
     context = {
+        **get_admin_context(request),
         'form': form,
-        'pending_companies_count': pending_companies_count,
-        'pending_complaints_count': pending_complaints_count,
     }
     
     return render(request, 'admin_panel/admin_profile_edit.html', context)
-
-
-

@@ -28,6 +28,7 @@ from .views import (
     password_reset_verify,
     remove_from_favorites,
     send_metrics,
+    submit_applicant_skill_suggestion,
     update_applicant_interests,
     update_applicant_skills,
     update_language,
@@ -78,6 +79,7 @@ urlpatterns = [
     path('update-language/', update_language, name='update_language'),
     path('profile/interests/update/', update_applicant_interests, name='update_applicant_interests'),
     path('profile/skills/update/', update_applicant_skills, name='update_applicant_skills'),
+    path('profile/skills/suggest/', submit_applicant_skill_suggestion, name='submit_applicant_skill_suggestion'),
     path('update-metrics/', send_metrics, name='update_metrics'),
     path('brandbook/', brendbook, name='brandbook'),
 ]

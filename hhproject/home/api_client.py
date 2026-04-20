@@ -8,7 +8,6 @@ DEFAULT_TIMEOUT = 15
 
 
 def api_base_url() -> str:
-    """Base URL of external DRF API."""
     base = os.getenv('API_BASE_URL', 'http://192.168.0.16:8001/api/')
     if not base.endswith('/'):
         base += '/'

@@ -1,0 +1,21 @@
+﻿<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.VacancyApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#3B82F6</item>
+        <item name="colorPrimaryDark">#2563EB</item>
+        <item name="colorPrimaryVariant">#2563EB</item>
+        <item name="colorSecondary">#2DD4BF</item>
+        <item name="colorAccent">#2DD4BF</item>
+        <item name="colorSurface">#111827</item>
+        <item name="colorOnSurface">#F9FAFB</item>
+        <item name="android:statusBarColor">#1E3A8A</item>
+        <item name="android:navigationBarColor">#111827</item>
+
+        <item name="colorTextPrimary">#F8FAFC</item>
+        <item name="colorTextSecondary">#CBD5E1</item>
+        <item name="colorBackgroundPrimary">#0B1220</item>
+        <item name="colorBackgroundSecondary">#111827</item>
+        <item name="colorCardBackground">#111827</item>
+        <item name="colorBorder">#334155</item>
+    </style>
+</resources>
+

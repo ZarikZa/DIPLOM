@@ -36,7 +36,70 @@
     max-width: 1400px;
 }
 
-/* ��йдбар и о��‚альные базовые стили о��‚ают�� как е��‚ь */
+/* Sidebar styles should match all admin pages */
+.sidebar-header {
+    padding: 25px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 0 20px 0 0;
+}
+
+.sidebar-header h3 {
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-header h3 i {
+    color: var(--accent);
+}
+
+.sidebar-nav {
+    padding: 20px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 25px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+    margin: 5px 0;
+}
+
+.nav-item:hover {
+    background: var(--bg-secondary);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.nav-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 600;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+    margin-right: 12px;
+    color: var(--text-secondary);
+}
+
+.nav-item:hover i,
+.nav-item.active i {
+    color: var(--primary);
+}
 
 /* Новые стили для ����системы бэкапов */
 .backup-grid {
@@ -506,6 +569,17 @@
     font-weight: 500;
 }
 
+.sidebar-nav .badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 25px;
+    text-align: center;
+}
+
 /* Пу��‚ой ��и��к */
 .empty-state {
     text-align: center;
@@ -553,6 +627,22 @@
                 {% if pending_companies_count %}
                     <span class="badge">{{ pending_companies_count }}</span>
                 {% endif %}
+            </a>
+            
+            <a href="{% url 'admin_category_moderation' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tags"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Vacancy Categories{% else %}Категории вакансий{% endif %}</span>
+                </div>
+                {% if pending_category_suggestions_count %}
+                    <span class="badge">{{ pending_category_suggestions_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_taxonomy_management' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_taxonomy_management' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-layer-group"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</span>
+                </div>
             </a>
             <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
                 <div style="display: flex; align-items: center;">
@@ -1286,3 +1376,5 @@ function loadMediaStats() {
 }
 </script>
 {% endblock %}
+
+

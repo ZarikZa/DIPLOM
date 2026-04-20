@@ -43,6 +43,11 @@ router.register(r'admin/companies', views.AdminCompaniesViewSet, basename='admin
 router.register(r'admin/complaints', views.AdminComplaintsViewSet, basename='admin-complaints')
 router.register(r'admin/skills', views.AdminSkillViewSet, basename='admin-skills')
 router.register(
+    r'admin/skill-suggestions',
+    views.AdminApplicantSkillSuggestionViewSet,
+    basename='admin-skill-suggestions'
+)
+router.register(
     r'admin/vacancy-category-suggestions',
     views.AdminVacancyCategorySuggestionViewSet,
     basename='admin-vacancy-category-suggestions'

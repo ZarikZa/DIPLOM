@@ -226,6 +226,27 @@
             updateTextSizeButtons(normalizedSize);
         }
 
+        function resetUiPreferencesStorage() {
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.documentElement.setAttribute('data-font-size', 'normal');
+            localStorage.setItem('theme', 'light');
+            localStorage.setItem('font_size', 'normal');
+        }
+
+        function consumeResetUiPreferencesFlag() {
+            const hasResetFlag = document.cookie
+                .split(';')
+                .map((item) => item.trim())
+                .includes('reset_ui_preferences=1');
+
+            if (!hasResetFlag) {
+                return;
+            }
+
+            resetUiPreferencesStorage();
+            document.cookie = 'reset_ui_preferences=; Max-Age=0; path=/; SameSite=Lax';
+        }
+
         function initializeTextSize() {
             const savedSize = normalizeTextSize(localStorage.getItem('font_size'));
             document.documentElement.setAttribute('data-font-size', savedSize);
@@ -529,6 +550,7 @@
         }
         
         // Запускаем сразу
+        consumeResetUiPreferencesFlag();
         initializeTextSize();
         initializeTheme();
     </script>

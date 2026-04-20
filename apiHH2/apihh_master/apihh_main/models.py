@@ -201,6 +201,73 @@ class ApplicantSkill(models.Model):
         verbose_name_plural = 'Навыки соискателей'
         unique_together = ('applicant', 'skill')
 
+
+class ApplicantSkillSuggestion(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "На проверке"),
+        (STATUS_APPROVED, "Подтверждена"),
+        (STATUS_REJECTED, "Отклонена"),
+    ]
+
+    applicant = models.ForeignKey(
+        Applicant,
+        on_delete=models.CASCADE,
+        related_name='skill_suggestions',
+        verbose_name='Соискатель',
+    )
+    requested_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='requested_skill_suggestions',
+        verbose_name='Кто отправил',
+    )
+    name = models.CharField(max_length=80, verbose_name='Навык')
+    normalized_name = models.CharField(
+        max_length=80,
+        db_index=True,
+        editable=False,
+        verbose_name='Нормализованное имя навыка',
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        verbose_name='Статус заявки',
+    )
+    admin_notes = models.TextField(blank=True, verbose_name='Комментарий администратора')
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_skill_suggestions',
+        verbose_name='Проверил',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата проверки')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата отправки')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+
+    class Meta:
+        db_table = 'applicant_skill_suggestions'
+        verbose_name = 'Заявка на новый навык'
+        verbose_name_plural = 'Заявки на новые навыки'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_status_display()})"
+
+    def save(self, *args, **kwargs):
+        self.name = re.sub(r"\s+", " ", (self.name or "").strip())
+        self.normalized_name = normalize_vacancy_category_name(self.name)
+        super().save(*args, **kwargs)
+
+
 class Employee(models.Model):
     ROLE_CHOICES = (
         ('site_admin', 'Администратор сайта'),

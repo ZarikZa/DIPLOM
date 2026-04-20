@@ -1,7 +1,14 @@
 ﻿{% extends 'base.html' %}
 {% load static %}
 
-{% block title_name %}{{ title }} - Панель управления{% endblock %}
+{% block title_name %}
+{% if admin %}
+{% if request.LANGUAGE_CODE == 'en' %}Edit Site Administrator{% else %}Редактирование администратора сайта{% endif %}
+{% else %}
+{% if request.LANGUAGE_CODE == 'en' %}Create Site Administrator{% else %}Создание администратора сайта{% endif %}
+{% endif %}
+- {% if request.LANGUAGE_CODE == 'en' %}Control Panel{% else %}Панель управления{% endif %}
+{% endblock %}
 
 {% block style %}
 <style>
@@ -492,6 +499,22 @@
                     <span class="badge">{{ pending_companies_count }}</span>
                 {% endif %}
             </a>
+            
+                        <a href="{% url 'admin_category_moderation' %}" class="nav-item {% if 'category' in request.resolver_match.url_name %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-tags"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Vacancy Categories{% else %}Категории вакансий{% endif %}</span>
+                </div>
+                {% if pending_category_suggestions_count %}
+                    <span class="badge">{{ pending_category_suggestions_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'admin_taxonomy_management' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_taxonomy_management' %}active{% endif %}">
+                <div style="display: flex; align-items: center;">
+                    <i class="fas fa-layer-group"></i>
+                    <span>{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</span>
+                </div>
+            </a>
             <a href="{% url 'admin_complaints' %}" class="nav-item {% if 'complaint' in request.resolver_match.url_name %}active{% endif %}">
                 <div style="display: flex; align-items: center;">
                     <i class="fas fa-flag"></i>
@@ -545,11 +568,24 @@
             <div class="admin-content-header">
                 <div class="header-actions">
                     <a href="{% url 'admin_management' %}" class="btn-admin btn-admin-primary">
-                        <i class="fas fa-arrow-left"></i> Назад к иу
+                        <i class="fas fa-arrow-left"></i>
+                        {% if request.LANGUAGE_CODE == 'en' %}Back to Site Administrators{% else %}Назад к администраторам сайта{% endif %}
                     </a>
                 </div>
-                <h1 class="animate__animated animate__fadeInDown">{{ title }}</h1>
-                <p class="animate__animated animate__fadeInUp">Заполните информацию об администратор сайта</p>
+                <h1 class="animate__animated animate__fadeInDown">
+                    {% if admin %}
+                        {% if request.LANGUAGE_CODE == 'en' %}Edit Site Administrator{% else %}Редактирование администратора сайта{% endif %}
+                    {% else %}
+                        {% if request.LANGUAGE_CODE == 'en' %}Create Site Administrator{% else %}Создание администратора сайта{% endif %}
+                    {% endif %}
+                </h1>
+                <p class="animate__animated animate__fadeInUp">
+                    {% if request.LANGUAGE_CODE == 'en' %}
+                        Fill in the site administrator details.
+                    {% else %}
+                        Заполните информацию об администраторе сайта.
+                    {% endif %}
+                </p>
             </div>
             
              {% if messages %}
@@ -679,10 +715,15 @@
                         <div class="form-actions">
                             <button type="submit" class="btn-admin btn-admin-success">
                                 <i class="fas fa-save"></i>
-                                {% if admin %}Обновить{% else %}Создать администратора{% endif %}
+                                {% if admin %}
+                                    {% if request.LANGUAGE_CODE == 'en' %}Update{% else %}Обновить{% endif %}
+                                {% else %}
+                                    {% if request.LANGUAGE_CODE == 'en' %}Create Administrator{% else %}Создать администратора{% endif %}
+                                {% endif %}
                             </button>
                             <a href="{% url 'admin_management' %}" class="btn-admin btn-admin-primary">
-                                <i class="fas fa-times"></i> Отмена
+                                <i class="fas fa-times"></i>
+                                {% if request.LANGUAGE_CODE == 'en' %}Cancel{% else %}Отмена{% endif %}
                             </a>
                         </div>
                     </form>
@@ -692,3 +733,5 @@
     </main>
 </div>
 {% endblock %}
+
+

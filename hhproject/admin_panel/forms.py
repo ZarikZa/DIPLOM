@@ -1,5 +1,27 @@
+import re
+
 from django import forms
 from home.models import Company, User
+
+
+PHONE_INPUT_PATTERN = re.compile(r"^\+?[0-9()\-\s]+$")
+
+
+def _normalize_ru_phone(value: str) -> str | None:
+    raw = (value or '').strip()
+    if not raw or not PHONE_INPUT_PATTERN.fullmatch(raw):
+        return None
+
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) == 10:
+        digits = f"7{digits}"
+    elif len(digits) == 11 and digits.startswith("8"):
+        digits = f"7{digits[1:]}"
+
+    if len(digits) != 11 or not digits.startswith("7"):
+        return None
+
+    return f"+{digits}"
 
 class CompanyModerationForm(forms.ModelForm):
     class Meta:
@@ -59,7 +81,10 @@ class SiteAdminCreateForm(forms.ModelForm):
         widget=forms.TextInput(attrs={
             'class': 'form-control',
             'placeholder': '+7 (999) 999-99-99',
-            'autocomplete': 'tel'
+            'autocomplete': 'tel',
+            'inputmode': 'tel',
+            'pattern': r'\+?[0-9()\-\s]{10,20}',
+            'title': 'Введите телефон в формате +7XXXXXXXXXX'
         })
     )
     password1 = forms.CharField(
@@ -96,6 +121,12 @@ class SiteAdminCreateForm(forms.ModelForm):
             raise forms.ValidationError('Пароли не совпадают')
         return password2
 
+    def clean_phone(self):
+        normalized_phone = _normalize_ru_phone(self.cleaned_data.get('phone'))
+        if not normalized_phone:
+            raise forms.ValidationError('Введите телефон в формате +7XXXXXXXXXX.')
+        return normalized_phone
+
     def save(self, commit=True):
         user = User.objects.create_user(
             username=self.cleaned_data['email'],
@@ -125,7 +156,10 @@ class SiteAdminEditForm(forms.ModelForm):
         label="Телефон",
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': '+7 (999) 999-99-99'
+            'placeholder': '+7 (999) 999-99-99',
+            'inputmode': 'tel',
+            'pattern': r'\+?[0-9()\-\s]{10,20}',
+            'title': 'Введите телефон в формате +7XXXXXXXXXX'
         })
     )
     first_name = forms.CharField(
@@ -173,6 +207,12 @@ class SiteAdminEditForm(forms.ModelForm):
         if qs.exists():
             raise forms.ValidationError('Пользователь с таким email уже существует')
         return email
+
+    def clean_phone(self):
+        normalized_phone = _normalize_ru_phone(self.cleaned_data.get('phone'))
+        if not normalized_phone:
+            raise forms.ValidationError('Введите телефон в формате +7XXXXXXXXXX.')
+        return normalized_phone
 
     def save(self, commit=True):
         user = super().save(commit=False)

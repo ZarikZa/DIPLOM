@@ -8,6 +8,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.db import DatabaseError
 from django.db.models import Exists, OuterRef, Count, Sum, F
 from django.http import HttpResponse
 
@@ -35,7 +36,7 @@ from .models import (
     StatusVacancies, StatusResponse, Complaint, Favorites,
     AdminLog, Backup, Chat, Message,
     VacancyVideo, VacancyVideoView, VacancyVideoLike,
-    Response as ResponseModel, Skill, ApplicantSkill, ApplicantInterest,
+    Response as ResponseModel, Skill, ApplicantSkill, ApplicantInterest, ApplicantSkillSuggestion,
     VacancyCategorySuggestion,
     get_available_vacancy_categories,
     PasswordResetCode,
@@ -46,6 +47,7 @@ from .serializers import (
     CompanyStatusSerializer,
     VacancyListSerializer, VacancyDetailSerializer, CompanyVacancySerializer,
     ApplicantSerializer, ApplicantSkillSerializer, ApplicantSkillUpsertSerializer,
+    ApplicantSkillSuggestionSerializer, ApplicantSkillSuggestionCreateSerializer,
     EmployeeSerializer,
     ComplaintSerializer,
     AdminComplaintSerializer,
@@ -75,6 +77,8 @@ from .serializers import (
     AdminVacancyCategorySuggestionSerializer,
     AdminVacancyCategorySuggestionCreateSerializer,
     AdminVacancyCategorySuggestionUpdateSerializer,
+    AdminApplicantSkillSuggestionSerializer,
+    AdminApplicantSkillSuggestionUpdateSerializer,
 )
 
 from .jwt_serializers import CustomTokenObtainPairSerializer
@@ -496,12 +500,15 @@ class VacancyViewSet(viewsets.ModelViewSet):
 
     pagination_class = VacancyPagination
 
+    def _use_recommended_mode(self):
+        search_query = (self.request.query_params.get('search') or '').strip()
+        recommended_raw = (self.request.query_params.get('recommended') or '').strip().lower()
+        return recommended_raw in ('1', 'true', 'yes') and not search_query
+
     def get_queryset(self):
         # Публичная выдача: не показываем архивные вакансии
         queryset = Vacancy.objects.select_related('company', 'work_conditions', 'status').filter(is_archived=False)
-        search_query = (self.request.query_params.get('search') or '').strip()
-        recommended_raw = (self.request.query_params.get('recommended') or '').strip().lower()
-        use_recommended = recommended_raw in ('1', 'true', 'yes') and not search_query
+        use_recommended = self._use_recommended_mode()
 
         user = self.request.user
         if user.is_authenticated:
@@ -522,6 +529,16 @@ class VacancyViewSet(viewsets.ModelViewSet):
             except Applicant.DoesNotExist:
                 pass
 
+        return queryset
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+
+        # Для режима рекомендаций без явной сортировки отдаём вакансии в случайном порядке.
+        # Это не влияет на обычный поиск/каталог.
+        ordering = (self.request.query_params.get('ordering') or '').strip()
+        if self._use_recommended_mode() and not ordering:
+            return queryset.order_by('?')
         return queryset
 
     def get_serializer_class(self):
@@ -647,6 +664,48 @@ class ApplicantViewSet(viewsets.ModelViewSet):
 
         return DRFResponse(self._build_interests_payload(applicant), status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['get', 'post'], url_path='me/skill-suggestions')
+    def me_skill_suggestions(self, request):
+        try:
+            applicant = request.user.applicant
+        except Applicant.DoesNotExist:
+            return DRFResponse({"detail": "Профиль соискателя не найден"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            if request.method == 'GET':
+                queryset = (
+                    ApplicantSkillSuggestion.objects
+                    .filter(applicant=applicant)
+                    .order_by('-created_at')
+                )
+                return DRFResponse(ApplicantSkillSuggestionSerializer(queryset, many=True).data, status=status.HTTP_200_OK)
+
+            payload = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+            if isinstance(payload, dict):
+                fallback_name = str(payload.get('skill_name') or '').strip()
+                if not str(payload.get('name') or '').strip() and fallback_name:
+                    payload['name'] = fallback_name
+                payload.pop('skill_name', None)
+
+            serializer = ApplicantSkillSuggestionCreateSerializer(
+                data=payload,
+                context={'applicant': applicant},
+            )
+            serializer.is_valid(raise_exception=True)
+
+            suggestion = ApplicantSkillSuggestion.objects.create(
+                applicant=applicant,
+                requested_by=request.user,
+                name=serializer.validated_data['name'],
+                status=ApplicantSkillSuggestion.STATUS_PENDING,
+            )
+            return DRFResponse(ApplicantSkillSuggestionSerializer(suggestion).data, status=status.HTTP_201_CREATED)
+        except DatabaseError:
+            return DRFResponse(
+                {"detail": "Требуется обновление базы данных. Выполните миграции сервера."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
 
 # -------------------- Employee --------------------
 
@@ -713,6 +772,49 @@ class AdminSkillViewSet(viewsets.ModelViewSet):
     queryset = Skill.objects.all().order_by('name')
     serializer_class = SkillSerializer
     permission_classes = [IsAuthenticated, IsAdminSite]
+
+
+class AdminApplicantSkillSuggestionViewSet(mixins.UpdateModelMixin, viewsets.ReadOnlyModelViewSet):
+    queryset = (
+        ApplicantSkillSuggestion.objects
+        .all()
+        .select_related('applicant', 'applicant__user', 'requested_by', 'reviewed_by')
+        .order_by('-created_at')
+    )
+    permission_classes = [IsAuthenticated, IsAdminSite]
+
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    filterset_fields = ['status', 'applicant']
+    search_fields = ['name', 'applicant__first_name', 'applicant__last_name', 'applicant__user__email', 'requested_by__email']
+    ordering_fields = ['created_at', 'reviewed_at', 'name']
+    ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        if self.action in ('update', 'partial_update'):
+            return AdminApplicantSkillSuggestionUpdateSerializer
+        return AdminApplicantSkillSuggestionSerializer
+
+    def perform_update(self, serializer):
+        suggestion = serializer.save()
+        if 'status' not in serializer.validated_data:
+            return
+
+        status_value = serializer.validated_data.get('status')
+        update_fields = ['reviewed_by', 'reviewed_at']
+
+        if status_value == ApplicantSkillSuggestion.STATUS_PENDING:
+            suggestion.reviewed_by = None
+            suggestion.reviewed_at = None
+        else:
+            suggestion.reviewed_by = self.request.user
+            suggestion.reviewed_at = timezone.now()
+
+            if status_value == ApplicantSkillSuggestion.STATUS_APPROVED:
+                existing_skill = Skill.objects.filter(name__iexact=suggestion.name).first()
+                if not existing_skill:
+                    Skill.objects.create(name=suggestion.name)
+
+        suggestion.save(update_fields=update_fields)
 
 
 # -------------------- Response (Отклики) --------------------
@@ -1615,7 +1717,7 @@ class RecommendedVideoFeedViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = VacancyVideoFeedSerializer
 
     def get_queryset(self):
-        qs = VacancyVideo.objects.filter(is_active=True).select_related('vacancy', 'vacancy__company').order_by('-id')
+        qs = VacancyVideo.objects.filter(is_active=True).select_related('vacancy', 'vacancy__company')
         params = self.request.query_params
 
         if city := params.get('city'):
@@ -1628,12 +1730,12 @@ class RecommendedVideoFeedViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             applicant = self.request.user.applicant
         except Applicant.DoesNotExist:
-            return qs
+            return qs.order_by('?')
 
         interest_categories = list(applicant.interests.values_list('category', flat=True))
         if interest_categories:
             qs = qs.filter(vacancy__category__in=interest_categories)
-        return qs
+        return qs.order_by('?')
 
 
 # -------------------- Password Reset --------------------

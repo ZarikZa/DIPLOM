@@ -1,0 +1,576 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorBackgroundPrimary">
+
+    <!-- AppBar с кнопкой назад -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorCardBackground"
+        android:elevation="4dp">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="?attr/colorCardBackground"
+            app:contentInsetStart="0dp"
+            app:titleTextColor="?attr/colorTextPrimary">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <!-- Кнопка назад -->
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_back"
+                    android:tint="?attr/colorTextPrimary"
+                    android:contentDescription="Назад" />
+
+                <!-- Заголовок -->
+                <TextView
+                    android:id="@+id/toolbarTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="Детали вакансии"
+                    android:textColor="?attr/colorTextPrimary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <!-- Кнопка избранного -->
+                <ImageButton
+                    android:id="@+id/btnFavorite"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_favorite_border"
+                    android:tint="?attr/colorAccent"
+                    android:contentDescription="Добавить в избранное" />
+
+            </RelativeLayout>
+
+        </androidx.appcompat.widget.Toolbar>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Основной контент -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/nestedScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:padding="16dp"
+        android:paddingBottom="80dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Карточка основной информации -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorCardBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <!-- Должность -->
+                    <TextView
+                        android:id="@+id/tvPosition"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Java Developer"
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- Компания и город -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="16dp">
+
+                        <TextView
+                            android:id="@+id/tvCompany"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Google"
+                            android:textColor="?attr/colorAccent"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="4dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="?attr/colorTextSecondary"
+                            android:alpha="0.5" />
+
+                        <TextView
+                            android:id="@+id/tvCity"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Москва"
+                            android:textColor="?attr/colorTextSecondary"
+                            android:textSize="14sp" />
+
+                    </LinearLayout>
+
+                    <!-- Теги (Зарплата, Опыт, Тип) -->
+                    <LinearLayout
+                        android:id="@+id/tagsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="16dp"
+                        android:gravity="center_vertical">
+
+                        <!-- Зарплата -->
+                        <TextView
+                            android:id="@+id/tagSalary"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="от 150 000 ₽"
+                            android:textColor="@android:color/white"
+                            android:textSize="12sp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="6dp"
+                            android:background="@drawable/bg_tag_accent"
+                            android:layout_marginEnd="8dp" />
+
+                        <!-- Опыт -->
+                        <TextView
+                            android:id="@+id/tagExperience"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="1-3 года"
+                            android:textColor="?attr/colorTextPrimary"
+                            android:textSize="12sp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="6dp"
+                            android:background="@drawable/bg_tag"
+                            android:layout_marginEnd="8dp" />
+
+                        <!-- Категория -->
+                        <TextView
+                            android:id="@+id/tagCategory"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="IT"
+                            android:textColor="?attr/colorTextPrimary"
+                            android:textSize="12sp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="6dp"
+                            android:background="@drawable/bg_tag" />
+
+                    </LinearLayout>
+
+                    <!-- Дополнительные теги -->
+                    <LinearLayout
+                        android:id="@+id/extraTagsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="16dp"
+                        android:gravity="center_vertical"
+                        android:visibility="gone">
+
+                        <!-- Тип занятости -->
+                        <TextView
+                            android:id="@+id/tagEmployment"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Полная занятость"
+                            android:textColor="?attr/colorTextPrimary"
+                            android:textSize="12sp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="6dp"
+                            android:background="@drawable/bg_tag"
+                            android:layout_marginEnd="8dp" />
+
+                        <!-- График -->
+                        <TextView
+                            android:id="@+id/tagSchedule"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Офис"
+                            android:textColor="?attr/colorTextPrimary"
+                            android:textSize="12sp"
+                            android:paddingHorizontal="12dp"
+                            android:paddingVertical="6dp"
+                            android:background="@drawable/bg_tag" />
+
+                    </LinearLayout>
+
+                    <!-- Статистика -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="8dp">
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:src="@drawable/ic_eye"
+                            android:tint="?attr/colorTextSecondary"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:id="@+id/tvViews"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="124 просмотра"
+                            android:textColor="?attr/colorTextSecondary"
+                            android:textSize="12sp" />
+
+                        <View
+                            android:layout_width="4dp"
+                            android:layout_height="4dp"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginEnd="12dp"
+                            android:background="?attr/colorTextSecondary"
+                            android:alpha="0.5" />
+
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:id="@+id/tvCreatedAt"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="20 янв 2024"
+                            android:textColor="?attr/colorTextSecondary"
+                            android:textSize="12sp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Карточка с описанием -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorCardBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Описание"
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvDescription"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Загрузка..."
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="4dp" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Карточка с требованиями -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardRequirements"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorCardBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Требования"
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvRequirements"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Загрузка..."
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="4dp" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Карточка с обязанностями -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardResponsibilities"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorCardBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Обязанности"
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvResponsibilities"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Загрузка..."
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="4dp" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Карточка с условиями -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardConditions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorCardBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Условия"
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvConditions"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Загрузка..."
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="4dp" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Карточка с навыками -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardSkills"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorCardBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Ключевые навыки"
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvSkills"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Загрузка..."
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="4dp" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Карточка с образованием -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardEducation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/colorCardBackground"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="2dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Образование"
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="12dp" />
+
+                    <TextView
+                        android:id="@+id/tvEducation"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Загрузка..."
+                        android:textColor="?attr/colorTextPrimary"
+                        android:textSize="14sp"
+                        android:lineSpacingExtra="4dp" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Кнопки внизу - ЗАКРЕПЛЕНЫ ВНИЗУ ЭКРАНА -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="?attr/colorCardBackground"
+        android:elevation="8dp"
+        android:padding="16dp"
+        app:layout_anchor="@id/nestedScrollView"
+        app:layout_anchorGravity="bottom|center"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
+
+        <!-- Кнопка отклика -->
+        <Button
+            android:id="@+id/btnApply"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="@string/vacancy_apply_button"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_apply_button"
+            android:textColor="@android:color/white"
+            android:layout_marginEnd="8dp" />
+
+        <ImageButton
+            android:id="@+id/btnReport"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_toStartOf="@id/btnFavorite"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_report"
+            android:tint="?attr/colorTextPrimary"
+            android:contentDescription="Пожаловаться" />
+
+
+        <!-- Кнопка избранного -->
+        <ImageButton
+            android:id="@+id/btnAddToFavorites"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_outline_button"
+            android:src="@drawable/ic_favorite_border"
+            android:tint="?attr/colorPrimary"
+            android:layout_marginStart="8dp"
+            android:scaleType="center" />
+
+    </LinearLayout>
+
+    <!-- Прогресс бар -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="visible" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

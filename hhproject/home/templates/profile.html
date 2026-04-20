@@ -38,6 +38,7 @@
           <a href="{% url 'edit_applicant_profile' %}" class="btn btn-edit">{% if request.LANGUAGE_CODE == 'en' %}Edit{% else %}Редактировать{% endif %}</a>
           <button type="button" class="btn btn-edit" onclick="openInterestsModal()">{% if request.LANGUAGE_CODE == 'en' %}Interests{% else %}Интересы{% endif %}</button>
           <button type="button" class="btn btn-edit" onclick="openSkillsModal()">{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</button>
+          <button type="button" class="btn btn-edit" onclick="openSkillSuggestionModal()">{% if request.LANGUAGE_CODE == 'en' %}Suggest skill{% else %}Предложить навык{% endif %}</button>
           <button type="button" class="btn btn-delete" onclick="openDeleteModal()">{% if request.LANGUAGE_CODE == 'en' %}Delete profile{% else %}Удалить профиль{% endif %}</button>
         </div>
       </div>
@@ -91,6 +92,32 @@
               </div>
             {% else %}
               {% if request.LANGUAGE_CODE == 'en' %}Not added{% else %}Не добавлены{% endif %}
+            {% endif %}
+          </div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">{% if request.LANGUAGE_CODE == 'en' %}Skill suggestions{% else %}Заявки на навыки{% endif %}</div>
+          <div class="detail-value">
+            {% if applicant_skill_suggestions %}
+              <div class="profile-skill-list">
+                {% for item in applicant_skill_suggestions %}
+                  <span class="profile-skill-chip">
+                    {{ item.name }}
+                    <span class="profile-skill-status
+                      {% if item.status == 'approved' %}approved{% elif item.status == 'rejected' %}rejected{% else %}pending{% endif %}">
+                      {% if item.status == 'approved' %}
+                        {% if request.LANGUAGE_CODE == 'en' %}Approved{% else %}Одобрено{% endif %}
+                      {% elif item.status == 'rejected' %}
+                        {% if request.LANGUAGE_CODE == 'en' %}Rejected{% else %}Отклонено{% endif %}
+                      {% else %}
+                        {% if request.LANGUAGE_CODE == 'en' %}Pending{% else %}На проверке{% endif %}
+                      {% endif %}
+                    </span>
+                  </span>
+                {% endfor %}
+              </div>
+            {% else %}
+              {% if request.LANGUAGE_CODE == 'en' %}No suggestions yet{% else %}Пока нет заявок{% endif %}
             {% endif %}
           </div>
         </div>
@@ -253,6 +280,70 @@
   </div>
 </div>
 
+<div id="skillSuggestionModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>{% if request.LANGUAGE_CODE == 'en' %}Suggest a new skill{% else %}Предложить новый навык{% endif %}</h3>
+      <span class="close" onclick="closeSkillSuggestionModal()">&times;</span>
+    </div>
+    <form method="post" action="{% url 'submit_applicant_skill_suggestion' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div class="modal-body">
+        <p style="margin-top:0;">
+          {% if request.LANGUAGE_CODE == 'en' %}
+          Enter a skill name. It will be sent to admin for review.
+          {% else %}
+          Укажите название навыка. Он отправится администратору на проверку.
+          {% endif %}
+        </p>
+        <label for="suggested_skill_name">{% if request.LANGUAGE_CODE == 'en' %}Skill name{% else %}Название навыка{% endif %}</label>
+        <input
+          id="suggested_skill_name"
+          name="suggested_skill_name"
+          type="text"
+          class="form-control"
+          maxlength="80"
+          required
+          placeholder="{% if request.LANGUAGE_CODE == 'en' %}For example: System Design{% else %}Например: System Design{% endif %}"
+        >
+        {% if applicant_skill_suggestions %}
+        <div class="skill-suggestion-history">
+          {% for item in applicant_skill_suggestions %}
+          <div class="skill-suggestion-row">
+            <div>
+              <strong>{{ item.name }}</strong>
+              {% if item.created_at %}
+                <div class="skill-suggestion-date">{{ item.created_at }}</div>
+              {% endif %}
+            </div>
+            <div class="profile-skill-status {% if item.status == 'approved' %}approved{% elif item.status == 'rejected' %}rejected{% else %}pending{% endif %}">
+              {% if item.status == 'approved' %}
+                {% if request.LANGUAGE_CODE == 'en' %}Approved{% else %}Одобрено{% endif %}
+              {% elif item.status == 'rejected' %}
+                {% if request.LANGUAGE_CODE == 'en' %}Rejected{% else %}Отклонено{% endif %}
+              {% else %}
+                {% if request.LANGUAGE_CODE == 'en' %}Pending{% else %}На проверке{% endif %}
+              {% endif %}
+            </div>
+          </div>
+          {% if item.admin_notes %}
+          <div class="skill-suggestion-note">
+            {% if request.LANGUAGE_CODE == 'en' %}Admin note:{% else %}Комментарий администратора:{% endif %} {{ item.admin_notes }}
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeSkillSuggestionModal()">{% if request.LANGUAGE_CODE == 'en' %}Cancel{% else %}Отмена{% endif %}</button>
+        <button type="submit" class="btn btn-edit">{% if request.LANGUAGE_CODE == 'en' %}Send for review{% else %}Отправить на проверку{% endif %}</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <style>
 .profile-skill-list {
   display: flex;
@@ -277,6 +368,35 @@
   color: var(--text-secondary);
   font-size: 0.74rem;
   font-weight: 600;
+}
+
+.profile-skill-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.profile-skill-status.pending {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.profile-skill-status.approved {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.profile-skill-status.rejected {
+  background: rgba(239, 68, 68, 0.14);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 .interest-grid {
@@ -320,6 +440,35 @@
 
 .skill-level-select {
   min-width: 120px;
+}
+
+.skill-suggestion-history {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.skill-suggestion-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-primary);
+}
+
+.skill-suggestion-date {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.skill-suggestion-note {
+  margin-top: -4px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  padding: 0 4px 6px;
 }
 
 .profile-actions .text-size-controls {
@@ -384,11 +533,14 @@ function openInterestsModal() { document.getElementById('interestsModal').style.
 function closeInterestsModal() { document.getElementById('interestsModal').style.display = 'none'; }
 function openSkillsModal() { document.getElementById('skillsModal').style.display = 'block'; }
 function closeSkillsModal() { document.getElementById('skillsModal').style.display = 'none'; }
+function openSkillSuggestionModal() { document.getElementById('skillSuggestionModal').style.display = 'block'; }
+function closeSkillSuggestionModal() { document.getElementById('skillSuggestionModal').style.display = 'none'; }
 
 window.onclick = function(event) {
   const deleteModal = document.getElementById('deleteModal');
   const interestsModal = document.getElementById('interestsModal');
   const skillsModal = document.getElementById('skillsModal');
+  const skillSuggestionModal = document.getElementById('skillSuggestionModal');
   if (event.target === deleteModal) {
     closeDeleteModal();
   }
@@ -397,6 +549,9 @@ window.onclick = function(event) {
   }
   if (event.target === skillsModal) {
     closeSkillsModal();
+  }
+  if (event.target === skillSuggestionModal) {
+    closeSkillSuggestionModal();
   }
 };
 

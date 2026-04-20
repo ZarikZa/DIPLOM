@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="140dp"
+    app:cardCornerRadius="12dp"
+    app:cardUseCompatPadding="true"
+    app:cardElevation="2dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/imgThumb"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/app_name" />
+
+        <!-- легкий градиент/затемнение снизу -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_gravity="bottom"
+            android:background="#66000000" />
+
+
+        <TextView
+            android:id="@+id/tvVacancy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:padding="8dp"
+            android:text="Вакансия"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+    </FrameLayout>
+
+</androidx.cardview.widget.CardView>

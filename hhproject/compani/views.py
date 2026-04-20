@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import csv
 import io
@@ -27,32 +27,32 @@ from home.api_client import api_base_url, api_delete, api_get, api_patch, api_po
 from .forms import CompanyRegistrationApiForm
 
 ERROR_FIELD_LABELS = {
-    'name': 'РќР°Р·РІР°РЅРёРµ РєРѕРјРїР°РЅРёРё',
-    'number': 'РРќРќ',
-    'industry': 'РЎС„РµСЂР° РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё',
-    'description': 'РћРїРёСЃР°РЅРёРµ',
+    'name': 'Название компании',
+    'number': 'ИНН',
+    'industry': 'Сфера деятельности',
+    'description': 'Описание',
     'email': 'Email',
-    'phone': 'РўРµР»РµС„РѕРЅ',
-    'password': 'РџР°СЂРѕР»СЊ',
-    'password1': 'РџР°СЂРѕР»СЊ',
-    'password2': 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РїР°СЂРѕР»СЏ',
-    'old_password': 'РЎС‚Р°СЂС‹Р№ РїР°СЂРѕР»СЊ',
-    'new_password': 'РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ',
-    'new_password_confirm': 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РЅРѕРІРѕРіРѕ РїР°СЂРѕР»СЏ',
-    'verification_document': 'Р”РѕРєСѓРјРµРЅС‚',
-    'username': 'Р›РѕРіРёРЅ',
-    'first_name': 'РРјСЏ',
-    'last_name': 'Р¤Р°РјРёР»РёСЏ',
-    'birth_date': 'Р”Р°С‚Р° СЂРѕР¶РґРµРЅРёСЏ',
-    'resume': 'Р РµР·СЋРјРµ',
-    'position': 'Р”РѕР»Р¶РЅРѕСЃС‚СЊ',
-    'city': 'Р“РѕСЂРѕРґ',
-    'category': 'РљР°С‚РµРіРѕСЂРёСЏ',
-    'experience': 'РћРїС‹С‚',
-    'salary_min': 'Р—Р°СЂРїР»Р°С‚Р° РѕС‚',
-    'salary_max': 'Р—Р°СЂРїР»Р°С‚Р° РґРѕ',
-    'requirements': 'РўСЂРµР±РѕРІР°РЅРёСЏ',
-    'work_conditions_details': 'Р”РµС‚Р°Р»Рё СѓСЃР»РѕРІРёР№',
+    'phone': 'Телефон',
+    'password': 'Пароль',
+    'password1': 'Пароль',
+    'password2': 'Подтверждение пароля',
+    'old_password': 'Старый пароль',
+    'new_password': 'Новый пароль',
+    'new_password_confirm': 'Подтверждение нового пароля',
+    'verification_document': 'Документ',
+    'username': 'Логин',
+    'first_name': 'Имя',
+    'last_name': 'Фамилия',
+    'birth_date': 'Дата рождения',
+    'resume': 'Резюме',
+    'position': 'Должность',
+    'city': 'Город',
+    'category': 'Категория',
+    'experience': 'Опыт',
+    'salary_min': 'Зарплата от',
+    'salary_max': 'Зарплата до',
+    'requirements': 'Требования',
+    'work_conditions_details': 'Детали условий',
 }
 
 
@@ -224,7 +224,7 @@ def company_staff_required(view_func):
     @api_login_required
     def _wrapped(request: HttpRequest, *args, **kwargs):
         if _user_type(request) not in ('company', 'staff'):
-            messages.error(request, 'Р”РѕСЃС‚СѓРї С‚РѕР»СЊРєРѕ РґР»СЏ РєРѕРјРїР°РЅРёРё Рё СЃРѕС‚СЂСѓРґРЅРёРєРѕРІ')
+            messages.error(request, 'Доступ только для компании и сотрудников')
             return redirect('home_comp')
         return view_func(request, *args, **kwargs)
 
@@ -236,7 +236,7 @@ def company_owner_required(view_func):
     @api_login_required
     def _wrapped(request: HttpRequest, *args, **kwargs):
         if _user_type(request) != 'company':
-            messages.error(request, 'Р”РѕСЃС‚СѓРї С‚РѕР»СЊРєРѕ РґР»СЏ РІР»Р°РґРµР»СЊС†Р° РєРѕРјРїР°РЅРёРё')
+            messages.error(request, 'Доступ только для владельца компании')
             return redirect('home_comp')
         return view_func(request, *args, **kwargs)
 
@@ -248,11 +248,11 @@ def content_manager_required(view_func):
     @company_staff_required
     def _wrapped(request: HttpRequest, *args, **kwargs):
         if _user_type(request) != 'staff':
-            messages.error(request, 'Р Р°Р·РґРµР» РґРѕСЃС‚СѓРїРµРЅ С‚РѕР»СЊРєРѕ СЃРѕС‚СЂСѓРґРЅРёРєР°Рј')
+            messages.error(request, 'Раздел доступен только сотрудникам')
             return redirect('home_comp')
 
         if _employee_role(request) != 'content_manager':
-            messages.error(request, 'Р Р°Р·РґРµР» РґРѕСЃС‚СѓРїРµРЅ С‚РѕР»СЊРєРѕ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂСѓ')
+            messages.error(request, 'Раздел доступен только контент-менеджеру')
             return redirect('home_comp')
 
         return view_func(request, *args, **kwargs)
@@ -271,7 +271,7 @@ def company_owner_or_hr_required(view_func):
         if user_type == 'staff' and _employee_role(request) == 'hr':
             return view_func(request, *args, **kwargs)
 
-        messages.error(request, 'Р Р°Р·РґРµР» РЅРµРґРѕСЃС‚СѓРїРµРЅ РґР»СЏ РІР°С€РµР№ СЂРѕР»Рё')
+        messages.error(request, 'Раздел недоступен для вашей роли')
         if user_type == 'staff' and _employee_role(request) == 'content_manager':
             return redirect('content_manager_videos')
         return redirect('home_comp')
@@ -284,10 +284,10 @@ def _load_company_me(request: HttpRequest) -> tuple[dict | None, str | None]:
         resp = api_get(request, 'company/me/')
         data = _safe_json(resp)
         if resp.status_code >= 400 or not isinstance(data, dict):
-            return None, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РґР°РЅРЅС‹Рµ РєРѕРјРїР°РЅРёРё')
+            return None, _first_error(data, 'Не удалось получить данные компании')
         return data, None
     except Exception:
-        return None, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РїРѕР»СѓС‡РµРЅРёРё РґР°РЅРЅС‹С… РєРѕРјРїР°РЅРёРё'
+        return None, 'Ошибка сети при получении данных компании'
 
 
 def _load_user_profile(request: HttpRequest) -> tuple[dict | None, str | None]:
@@ -295,10 +295,10 @@ def _load_user_profile(request: HttpRequest) -> tuple[dict | None, str | None]:
         resp = api_get(request, 'user/profile/')
         data = _safe_json(resp)
         if resp.status_code >= 400 or not isinstance(data, dict):
-            return None, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РїСЂРѕС„РёР»СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ')
+            return None, _first_error(data, 'Не удалось получить профиль пользователя')
         return data, None
     except Exception:
-        return None, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РїРѕР»СѓС‡РµРЅРёРё РїСЂРѕС„РёР»СЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ'
+        return None, 'Ошибка сети при получении профиля пользователя'
 
 
 
@@ -321,14 +321,14 @@ def _fetch_paginated(request: HttpRequest, path: str, params: dict | None = None
             response = api_get(request, current_path, params=current_params)
             payload = _safe_json(response) or {}
             if response.status_code >= 400:
-                return rows, _first_error(payload, 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РґР°РЅРЅС‹Рµ РёР· API')
+                return rows, _first_error(payload, 'Не удалось получить данные из API')
 
             rows.extend(_results(payload))
             current_path = _extract_next_link(payload)
             current_params = None
             page_count += 1
         except Exception:
-            return rows, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕР±СЂР°С‰РµРЅРёРё Рє API'
+            return rows, 'Ошибка сети при обращении к API'
 
     return rows, None
 
@@ -337,9 +337,9 @@ def _parse_bool(value, default: bool = True) -> bool:
     if value is None:
         return default
     normalized = str(value).strip().lower()
-    if normalized in ('1', 'true', 'yes', 'y', 'on', 'РґР°', 'Рґ'):
+    if normalized in ('1', 'true', 'yes', 'y', 'on', 'да', 'д'):
         return True
-    if normalized in ('0', 'false', 'no', 'n', 'off', 'РЅРµС‚', 'РЅ'):
+    if normalized in ('0', 'false', 'no', 'n', 'off', 'нет', 'н'):
         return False
     return default
 
@@ -462,17 +462,17 @@ def company_register(request: HttpRequest) -> HttpResponse:
                 _apply_api_errors_to_company_form(
                     form,
                     data,
-                    'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ РєРѕРјРїР°РЅРёСЋ. РџСЂРѕРІРµСЂСЊС‚Рµ РІРІРµРґРµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ.',
+                    'Не удалось зарегистрировать компанию. Проверьте введенные данные.',
                 )
                 return render(request, 'auth/register_comp.html', {'form': form})
 
             if is_resubmit:
-                messages.success(request, 'Р”Р°РЅРЅС‹Рµ РєРѕРјРїР°РЅРёРё РїРѕРІС‚РѕСЂРЅРѕ РѕС‚РїСЂР°РІР»РµРЅС‹ РЅР° РїСЂРѕРІРµСЂРєСѓ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј.')
+                messages.success(request, 'Данные компании повторно отправлены на проверку администратором.')
             else:
-                messages.success(request, 'Р”Р°РЅРЅС‹Рµ РєРѕРјРїР°РЅРёРё РѕС‚РїСЂР°РІР»РµРЅС‹ РЅР° РїСЂРѕРІРµСЂРєСѓ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј.')
+                messages.success(request, 'Данные компании отправлены на проверку администратором.')
             return redirect('account_pending')
         except Exception:
-            form.add_error(None, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЂРµРіРёСЃС‚СЂР°С†РёРё РєРѕРјРїР°РЅРёРё. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰Рµ СЂР°Р·.')
+            form.add_error(None, 'Ошибка сети при регистрации компании. Попробуйте еще раз.')
             return render(request, 'auth/register_comp.html', {'form': form})
 
     return render(request, 'auth/register_comp.html', {'form': CompanyRegistrationApiForm()})
@@ -541,7 +541,7 @@ def edit_company_profile(request: HttpRequest) -> HttpResponse:
             company_resp = api_patch(request, 'company/me/', json=company_payload)
             company_data = _safe_json(company_resp)
             if company_resp.status_code >= 400:
-                messages.error(request, _first_error(company_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РїСЂРѕС„РёР»СЊ РєРѕРјРїР°РЅРёРё'))
+                messages.error(request, _first_error(company_data, 'Не удалось обновить профиль компании'))
                 company = company_data if isinstance(company_data, dict) else company
             else:
                 company = company_data if isinstance(company_data, dict) else company
@@ -550,7 +550,7 @@ def edit_company_profile(request: HttpRequest) -> HttpResponse:
                 user_resp = api_patch(request, 'user/profile/', json=user_payload)
                 user_data = _safe_json(user_resp)
                 if user_resp.status_code >= 400:
-                    messages.warning(request, _first_error(user_data, 'Р”Р°РЅРЅС‹Рµ РєРѕРЅС‚Р°РєС‚Р° РЅРµ РѕР±РЅРѕРІР»РµРЅС‹'))
+                    messages.warning(request, _first_error(user_data, 'Данные контакта не обновлены'))
                 elif isinstance(user_data, dict):
                     user_profile = user_data
                     session_user = _api_user(request)
@@ -558,10 +558,10 @@ def edit_company_profile(request: HttpRequest) -> HttpResponse:
                     request.session['api_user'] = session_user
 
             if company_resp.status_code < 400:
-                messages.success(request, 'РџСЂРѕС„РёР»СЊ РєРѕРјРїР°РЅРёРё РѕР±РЅРѕРІР»РµРЅ')
+                messages.success(request, 'Профиль компании обновлен')
                 return redirect('company_profile')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё РїСЂРѕС„РёР»СЏ РєРѕРјРїР°РЅРёРё')
+            messages.error(request, 'Ошибка сети при обновлении профиля компании')
 
     if company_error:
         messages.error(request, company_error)
@@ -602,20 +602,20 @@ def change_password_request(request: HttpRequest) -> HttpResponse:
         }
 
         if not all(password_form.values()):
-            messages.error(request, 'Р—Р°РїРѕР»РЅРёС‚Рµ РІСЃРµ РїРѕР»СЏ РґР»СЏ СЃРјРµРЅС‹ РїР°СЂРѕР»СЏ.')
+            messages.error(request, 'Заполните все поля для смены пароля.')
         elif password_form['new_password'] != password_form['new_password_confirm']:
-            messages.error(request, 'РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ Рё РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РЅРµ СЃРѕРІРїР°РґР°СЋС‚.')
+            messages.error(request, 'Новый пароль и подтверждение не совпадают.')
         else:
             try:
                 password_resp = api_post(request, 'user/change-password/', json=password_form)
                 password_data = _safe_json(password_resp)
                 if password_resp.status_code >= 400:
-                    messages.error(request, _first_error(password_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРјРµРЅРёС‚СЊ РїР°СЂРѕР»СЊ.'))
+                    messages.error(request, _first_error(password_data, 'Не удалось сменить пароль.'))
                 else:
-                    messages.success(request, _first_error(password_data, 'РџР°СЂРѕР»СЊ СѓСЃРїРµС€РЅРѕ РёР·РјРµРЅРµРЅ.'))
+                    messages.success(request, _first_error(password_data, 'Пароль успешно изменен.'))
                     return redirect('company_profile')
             except Exception:
-                messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЃРјРµРЅРµ РїР°СЂРѕР»СЏ.')
+                messages.error(request, 'Ошибка сети при смене пароля.')
 
         password_form = {
             'old_password': '',
@@ -648,11 +648,11 @@ def hr_agents_list(request: HttpRequest) -> HttpResponse:
                 delete_resp = api_delete(request, f'company/employees/{employee_id}/')
                 if delete_resp.status_code >= 400:
                     delete_data = _safe_json(delete_resp)
-                    messages.error(request, _first_error(delete_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ HR-Р°РіРµРЅС‚Р°'))
+                    messages.error(request, _first_error(delete_data, 'Не удалось удалить HR-агента'))
                 else:
-                    messages.success(request, 'HR-Р°РіРµРЅС‚ СѓРґР°Р»РµРЅ')
+                    messages.success(request, 'HR-агент удален')
             except Exception:
-                messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СѓРґР°Р»РµРЅРёРё HR-Р°РіРµРЅС‚Р°')
+                messages.error(request, 'Ошибка сети при удалении HR-агента')
         return redirect('hr_agents_list')
 
     hr_agents = []
@@ -660,12 +660,12 @@ def hr_agents_list(request: HttpRequest) -> HttpResponse:
         resp = api_get(request, 'company/employees/', params={'page': 1})
         data = _safe_json(resp) or {}
         if resp.status_code >= 400:
-            messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃРїРёСЃРѕРє СЃРѕС‚СЂСѓРґРЅРёРєРѕРІ'))
+            messages.error(request, _first_error(data, 'Не удалось получить список сотрудников'))
         else:
             employees = _results(data)
             hr_agents = [employee for employee in employees if employee.get('role') == 'hr']
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ HR-Р°РіРµРЅС‚РѕРІ')
+        messages.error(request, 'Ошибка сети при загрузке HR-агентов')
 
     search = (request.GET.get('search') or '').strip().lower()
     if search:
@@ -706,11 +706,11 @@ def hr_agent_create(request: HttpRequest) -> HttpResponse:
         password2 = request.POST.get('password2') or ''
 
         if password1 != password2:
-            messages.error(request, 'РџР°СЂРѕР»Рё РЅРµ СЃРѕРІРїР°РґР°СЋС‚')
+            messages.error(request, 'Пароли не совпадают')
             return render(
                 request,
                 'compani/hrCRUD/hr_agent_form.html',
-                {'title': 'РЎРѕР·РґР°С‚СЊ HR-Р°РіРµРЅС‚Р°', 'form_data': form_data, 'is_edit': False, 'api_user': _api_user(request)},
+                {'title': 'Создать HR-агента', 'form_data': form_data, 'is_edit': False, 'api_user': _api_user(request)},
             )
 
         payload = {
@@ -725,17 +725,17 @@ def hr_agent_create(request: HttpRequest) -> HttpResponse:
             resp = api_post(request, 'company/employees/', json=payload)
             data = _safe_json(resp)
             if resp.status_code >= 400:
-                messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ HR-Р°РіРµРЅС‚Р°'))
+                messages.error(request, _first_error(data, 'Не удалось создать HR-агента'))
             else:
-                messages.success(request, 'HR-Р°РіРµРЅС‚ СЃРѕР·РґР°РЅ')
+                messages.success(request, 'HR-агент создан')
                 return redirect('hr_agents_list')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЃРѕР·РґР°РЅРёРё HR-Р°РіРµРЅС‚Р°')
+            messages.error(request, 'Ошибка сети при создании HR-агента')
 
     return render(
         request,
         'compani/hrCRUD/hr_agent_form.html',
-        {'title': 'РЎРѕР·РґР°С‚СЊ HR-Р°РіРµРЅС‚Р°', 'form_data': form_data, 'is_edit': False, 'api_user': _api_user(request)},
+        {'title': 'Создать HR-агента', 'form_data': form_data, 'is_edit': False, 'api_user': _api_user(request)},
     )
 
 
@@ -746,11 +746,11 @@ def hr_agent_edit(request: HttpRequest, employee_id: int) -> HttpResponse:
         employee_resp = api_get(request, f'company/employees/{employee_id}/')
         employee_data = _safe_json(employee_resp)
         if employee_resp.status_code >= 400 or not isinstance(employee_data, dict):
-            messages.error(request, _first_error(employee_data, 'HR-Р°РіРµРЅС‚ РЅРµ РЅР°Р№РґРµРЅ'))
+            messages.error(request, _first_error(employee_data, 'HR-агент не найден'))
             return redirect('hr_agents_list')
         employee = employee_data
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ HR-Р°РіРµРЅС‚Р°')
+        messages.error(request, 'Ошибка сети при загрузке HR-агента')
         return redirect('hr_agents_list')
 
     if request.method == 'POST':
@@ -765,17 +765,17 @@ def hr_agent_edit(request: HttpRequest, employee_id: int) -> HttpResponse:
             patch_resp = api_patch(request, f'company/employees/{employee_id}/', json=payload)
             patch_data = _safe_json(patch_resp)
             if patch_resp.status_code >= 400:
-                messages.error(request, _first_error(patch_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ HR-Р°РіРµРЅС‚Р°'))
+                messages.error(request, _first_error(patch_data, 'Не удалось обновить HR-агента'))
             else:
-                messages.success(request, 'HR-Р°РіРµРЅС‚ РѕР±РЅРѕРІР»РµРЅ')
+                messages.success(request, 'HR-агент обновлен')
                 return redirect('hr_agents_list')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё HR-Р°РіРµРЅС‚Р°')
+            messages.error(request, 'Ошибка сети при обновлении HR-агента')
 
     return render(
         request,
         'compani/hrCRUD/hr_agent_form.html',
-        {'title': 'Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ HR-Р°РіРµРЅС‚Р°', 'form_data': employee, 'is_edit': True, 'api_user': _api_user(request)},
+        {'title': 'Редактировать HR-агента', 'form_data': employee, 'is_edit': True, 'api_user': _api_user(request)},
     )
 
 
@@ -790,11 +790,11 @@ def content_managers_list(request: HttpRequest) -> HttpResponse:
                 delete_resp = api_delete(request, f'company/employees/{employee_id}/')
                 if delete_resp.status_code >= 400:
                     delete_data = _safe_json(delete_resp)
-                    messages.error(request, _first_error(delete_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°'))
+                    messages.error(request, _first_error(delete_data, 'Не удалось удалить контент-менеджера'))
                 else:
-                    messages.success(request, 'РљРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂ СѓРґР°Р»РµРЅ')
+                    messages.success(request, 'Контент-менеджер удален')
             except Exception:
-                messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СѓРґР°Р»РµРЅРёРё РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°')
+                messages.error(request, 'Ошибка сети при удалении контент-менеджера')
         return redirect('content_managers_list')
 
     content_managers = []
@@ -802,12 +802,12 @@ def content_managers_list(request: HttpRequest) -> HttpResponse:
         resp = api_get(request, 'company/employees/', params={'page': 1})
         data = _safe_json(resp) or {}
         if resp.status_code >= 400:
-            messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃРїРёСЃРѕРє СЃРѕС‚СЂСѓРґРЅРёРєРѕРІ'))
+            messages.error(request, _first_error(data, 'Не удалось получить список сотрудников'))
         else:
             employees = _results(data)
             content_managers = [employee for employee in employees if employee.get('role') == 'content_manager']
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂРѕРІ')
+        messages.error(request, 'Ошибка сети при загрузке контент-менеджеров')
 
     search = (request.GET.get('search') or '').strip().lower()
     if search:
@@ -848,11 +848,11 @@ def content_manager_create(request: HttpRequest) -> HttpResponse:
         password2 = request.POST.get('password2') or ''
 
         if password1 != password2:
-            messages.error(request, 'РџР°СЂРѕР»Рё РЅРµ СЃРѕРІРїР°РґР°СЋС‚')
+            messages.error(request, 'Пароли не совпадают')
             return render(
                 request,
                 'compani/hrCRUD/content_manager_form.html',
-                {'title': 'РЎРѕР·РґР°С‚СЊ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°', 'form_data': form_data, 'is_edit': False, 'api_user': _api_user(request)},
+                {'title': 'Создать контент-менеджера', 'form_data': form_data, 'is_edit': False, 'api_user': _api_user(request)},
             )
 
         payload = {
@@ -867,17 +867,17 @@ def content_manager_create(request: HttpRequest) -> HttpResponse:
             resp = api_post(request, 'company/employees/', json=payload)
             data = _safe_json(resp)
             if resp.status_code >= 400:
-                messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°'))
+                messages.error(request, _first_error(data, 'Не удалось создать контент-менеджера'))
             else:
-                messages.success(request, 'РљРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂ СЃРѕР·РґР°РЅ')
+                messages.success(request, 'Контент-менеджер создан')
                 return redirect('content_managers_list')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЃРѕР·РґР°РЅРёРё РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°')
+            messages.error(request, 'Ошибка сети при создании контент-менеджера')
 
     return render(
         request,
         'compani/hrCRUD/content_manager_form.html',
-        {'title': 'РЎРѕР·РґР°С‚СЊ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°', 'form_data': form_data, 'is_edit': False, 'api_user': _api_user(request)},
+        {'title': 'Создать контент-менеджера', 'form_data': form_data, 'is_edit': False, 'api_user': _api_user(request)},
     )
 
 
@@ -888,11 +888,11 @@ def content_manager_edit(request: HttpRequest, employee_id: int) -> HttpResponse
         employee_resp = api_get(request, f'company/employees/{employee_id}/')
         employee_data = _safe_json(employee_resp)
         if employee_resp.status_code >= 400 or not isinstance(employee_data, dict):
-            messages.error(request, _first_error(employee_data, 'РљРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂ РЅРµ РЅР°Р№РґРµРЅ'))
+            messages.error(request, _first_error(employee_data, 'Контент-менеджер не найден'))
             return redirect('content_managers_list')
         employee = employee_data
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°')
+        messages.error(request, 'Ошибка сети при загрузке контент-менеджера')
         return redirect('content_managers_list')
 
     if request.method == 'POST':
@@ -907,17 +907,17 @@ def content_manager_edit(request: HttpRequest, employee_id: int) -> HttpResponse
             patch_resp = api_patch(request, f'company/employees/{employee_id}/', json=payload)
             patch_data = _safe_json(patch_resp)
             if patch_resp.status_code >= 400:
-                messages.error(request, _first_error(patch_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°'))
+                messages.error(request, _first_error(patch_data, 'Не удалось обновить контент-менеджера'))
             else:
-                messages.success(request, 'РљРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂ РѕР±РЅРѕРІР»РµРЅ')
+                messages.success(request, 'Контент-менеджер обновлен')
                 return redirect('content_managers_list')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°')
+            messages.error(request, 'Ошибка сети при обновлении контент-менеджера')
 
     return render(
         request,
         'compani/hrCRUD/content_manager_form.html',
-        {'title': 'Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°', 'form_data': employee, 'is_edit': True, 'api_user': _api_user(request)},
+        {'title': 'Редактировать контент-менеджера', 'form_data': employee, 'is_edit': True, 'api_user': _api_user(request)},
     )
 
 
@@ -960,7 +960,7 @@ def _load_vacancy_meta(request: HttpRequest) -> tuple[list, list, list[str]]:
         pass
 
     if not categories:
-        categories = ['IT', 'РњР°СЂРєРµС‚РёРЅРі', 'РџСЂРѕРґР°Р¶Рё', 'HR']
+        categories = ['IT', 'Маркетинг', 'Продажи', 'HR']
 
     return work_conditions, statuses, categories
 
@@ -1005,7 +1005,7 @@ def create_vacancy(request: HttpRequest) -> HttpResponse:
 
         if form_action == 'request_category':
             if not new_category:
-                messages.error(request, 'Р’РІРµРґРёС‚Рµ РєР°С‚РµРіРѕСЂРёСЋ РїРµСЂРµРґ РѕС‚РїСЂР°РІРєРѕР№ РЅР° РїСЂРѕРІРµСЂРєСѓ.')
+                messages.error(request, 'Введите категорию перед отправкой на проверку.')
             else:
                 try:
                     resp = api_post(
@@ -1020,16 +1020,16 @@ def create_vacancy(request: HttpRequest) -> HttpResponse:
                             category_error = _first_error(data.get('name'), '')
                         messages.error(
                             request,
-                            f'РљР°С‚РµРіРѕСЂРёСЏ: {category_error}' if category_error else _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РєР°С‚РµРіРѕСЂРёСЋ РЅР° РїСЂРѕРІРµСЂРєСѓ.')
+                            f'Категория: {category_error}' if category_error else _first_error(data, 'Не удалось отправить категорию на проверку.')
                         )
                     else:
                         messages.success(
                             request,
-                            'РљР°С‚РµРіРѕСЂРёСЏ РѕС‚РїСЂР°РІР»РµРЅР° Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂСѓ РЅР° РїСЂРѕРІРµСЂРєСѓ.'
+                            'Категория отправлена администратору на проверку.'
                         )
                         new_category = ''
                 except Exception:
-                    messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕС‚РїСЂР°РІРєРµ РєР°С‚РµРіРѕСЂРёРё РЅР° РїСЂРѕРІРµСЂРєСѓ.')
+                    messages.error(request, 'Ошибка сети при отправке категории на проверку.')
 
             work_conditions, statuses, categories = _load_vacancy_meta(request)
             category_suggestions = _load_company_category_suggestions(request)
@@ -1045,12 +1045,12 @@ def create_vacancy(request: HttpRequest) -> HttpResponse:
                 resp = api_post(request, 'company/vacancies/', json=payload)
                 data = _safe_json(resp)
                 if resp.status_code >= 400:
-                    messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РІР°РєР°РЅСЃРёСЋ'))
+                    messages.error(request, _first_error(data, 'Не удалось создать вакансию'))
                 else:
-                    messages.success(request, 'Р’Р°РєР°РЅСЃРёСЏ СЃРѕР·РґР°РЅР°')
+                    messages.success(request, 'Вакансия создана')
                     return redirect('vacancy_list')
             except Exception:
-                messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЃРѕР·РґР°РЅРёРё РІР°РєР°РЅСЃРёРё')
+                messages.error(request, 'Ошибка сети при создании вакансии')
 
     return render(
         request,
@@ -1076,11 +1076,11 @@ def edit_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
         get_resp = api_get(request, f'company/vacancies/{vacancy_id}/')
         get_data = _safe_json(get_resp)
         if get_resp.status_code >= 400 or not isinstance(get_data, dict):
-            messages.error(request, _first_error(get_data, 'Р’Р°РєР°РЅСЃРёСЏ РЅРµ РЅР°Р№РґРµРЅР°'))
+            messages.error(request, _first_error(get_data, 'Вакансия не найдена'))
             return redirect('vacancy_list')
         vacancy = get_data
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ РІР°РєР°РЅСЃРёРё')
+        messages.error(request, 'Ошибка сети при загрузке вакансии')
         return redirect('vacancy_list')
 
     if request.method == 'POST':
@@ -1101,12 +1101,12 @@ def edit_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
             patch_resp = api_patch(request, f'company/vacancies/{vacancy_id}/', json=payload)
             patch_data = _safe_json(patch_resp)
             if patch_resp.status_code >= 400:
-                messages.error(request, _first_error(patch_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РІР°РєР°РЅСЃРёСЋ'))
+                messages.error(request, _first_error(patch_data, 'Не удалось обновить вакансию'))
             else:
-                messages.success(request, 'Р’Р°РєР°РЅСЃРёСЏ РѕР±РЅРѕРІР»РµРЅР°')
+                messages.success(request, 'Вакансия обновлена')
                 return redirect('vacancy_list')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё РІР°РєР°РЅСЃРёРё')
+            messages.error(request, 'Ошибка сети при обновлении вакансии')
 
         vacancy.update(payload)
 
@@ -1129,11 +1129,11 @@ def archive_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
         resp = api_post(request, f'company/vacancies/{vacancy_id}/archive/')
         data = _safe_json(resp)
         if resp.status_code >= 400:
-            messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ Р°СЂС…РёРІРёСЂРѕРІР°С‚СЊ РІР°РєР°РЅСЃРёСЋ'))
+            messages.error(request, _first_error(data, 'Не удалось архивировать вакансию'))
         else:
-            messages.success(request, 'Р’Р°РєР°РЅСЃРёСЏ РѕС‚РїСЂР°РІР»РµРЅР° РІ Р°СЂС…РёРІ')
+            messages.success(request, 'Вакансия отправлена в архив')
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р°СЂС…РёРІР°С†РёРё РІР°РєР°РЅСЃРёРё')
+        messages.error(request, 'Ошибка сети при архивации вакансии')
     return redirect('vacancy_list')
 
 
@@ -1143,11 +1143,11 @@ def unarchive_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
         resp = api_post(request, f'company/vacancies/{vacancy_id}/unarchive/')
         data = _safe_json(resp)
         if resp.status_code >= 400:
-            messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЂР°Р·Р°СЂС…РёРІРёСЂРѕРІР°С‚СЊ РІР°РєР°РЅСЃРёСЋ'))
+            messages.error(request, _first_error(data, 'Не удалось разархивировать вакансию'))
         else:
-            messages.success(request, 'Р’Р°РєР°РЅСЃРёСЏ РІРѕР·РІСЂР°С‰РµРЅР° РёР· Р°СЂС…РёРІР°')
+            messages.success(request, 'Вакансия возвращена из архива')
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЂР°Р·Р°СЂС…РёРІР°С†РёРё РІР°РєР°РЅСЃРёРё')
+        messages.error(request, 'Ошибка сети при разархивации вакансии')
     return redirect('vacancy_list')
 
 
@@ -1161,11 +1161,11 @@ def vacancy_list(request: HttpRequest) -> HttpResponse:
         all_resp = api_get(request, 'company/vacancies/', params={'page': 1, 'archived': 1})
         all_data = _safe_json(all_resp) or {}
         if all_resp.status_code >= 400:
-            messages.error(request, _first_error(all_data, 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РІР°РєР°РЅСЃРёРё'))
+            messages.error(request, _first_error(all_data, 'Не удалось загрузить вакансии'))
         else:
             all_vacancies = _results(all_data)
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ РІР°РєР°РЅСЃРёР№')
+        messages.error(request, 'Ошибка сети при загрузке вакансий')
 
     vacancies = list(all_vacancies)
     if current_status == 'active':
@@ -1469,7 +1469,7 @@ def responses_list(request: HttpRequest) -> HttpResponse:
 @company_staff_required
 def employee_profile(request: HttpRequest) -> HttpResponse:
     if _user_type(request) != 'staff':
-        messages.error(request, 'РџСЂРѕС„РёР»СЊ СЃРѕС‚СЂСѓРґРЅРёРєР° РґРѕСЃС‚СѓРїРµРЅ С‚РѕР»СЊРєРѕ РґР»СЏ staff')
+        messages.error(request, 'Профиль сотрудника доступен только для staff')
         return redirect('home_comp')
 
     profile, err = _load_user_profile(request)
@@ -1500,7 +1500,7 @@ def employee_profile(request: HttpRequest) -> HttpResponse:
 @company_staff_required
 def edit_employee_profile(request: HttpRequest) -> HttpResponse:
     if _user_type(request) != 'staff':
-        messages.error(request, 'Р РµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ РїСЂРѕС„РёР»СЏ СЃРѕС‚СЂСѓРґРЅРёРєР° РґРѕСЃС‚СѓРїРЅРѕ С‚РѕР»СЊРєРѕ РґР»СЏ staff')
+        messages.error(request, 'Редактирование профиля сотрудника доступно только для staff')
         return redirect('home_comp')
 
     profile, _ = _load_user_profile(request)
@@ -1520,9 +1520,9 @@ def edit_employee_profile(request: HttpRequest) -> HttpResponse:
             resp = api_patch(request, 'user/profile/', json=payload)
             data = _safe_json(resp)
             if resp.status_code >= 400:
-                messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РїСЂРѕС„РёР»СЊ СЃРѕС‚СЂСѓРґРЅРёРєР°'))
+                messages.error(request, _first_error(data, 'Не удалось обновить профиль сотрудника'))
             else:
-                messages.success(request, 'РџСЂРѕС„РёР»СЊ СЃРѕС‚СЂСѓРґРЅРёРєР° РѕР±РЅРѕРІР»РµРЅ')
+                messages.success(request, 'Профиль сотрудника обновлен')
                 profile = data if isinstance(data, dict) else profile
                 session_user = _api_user(request)
                 session_user['first_name'] = profile.get('first_name', session_user.get('first_name'))
@@ -1531,7 +1531,7 @@ def edit_employee_profile(request: HttpRequest) -> HttpResponse:
                 request.session['api_user'] = session_user
                 return redirect('employee_profile')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕР±РЅРѕРІР»РµРЅРёРё РїСЂРѕС„РёР»СЏ СЃРѕС‚СЂСѓРґРЅРёРєР°')
+            messages.error(request, 'Ошибка сети при обновлении профиля сотрудника')
 
     return render(
         request,
@@ -1544,7 +1544,7 @@ def edit_employee_profile(request: HttpRequest) -> HttpResponse:
 def delete_company_profile(request: HttpRequest) -> HttpResponse:
     if request.method == 'POST':
         clear_tokens(request)
-        messages.info(request, 'РЈРґР°Р»РµРЅРёРµ РєРѕРјРїР°РЅРёРё С‡РµСЂРµР· API РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ. Р’С‹ РІС‹С€Р»Рё РёР· СЃРёСЃС‚РµРјС‹.')
+        messages.info(request, 'Удаление компании через API не реализовано. Вы вышли из системы.')
         return redirect('home_page')
     return redirect('company_profile')
 
@@ -1585,7 +1585,7 @@ def import_hr_agents(request: HttpRequest) -> HttpResponse:
     if request.method == 'POST':
         upload = request.FILES.get('csv_file')
         if not upload:
-            messages.error(request, 'Р’С‹Р±РµСЂРёС‚Рµ CSV-С„Р°Р№Р» РґР»СЏ РёРјРїРѕСЂС‚Р°')
+            messages.error(request, 'Выберите CSV-файл для импорта')
             return redirect('import_hr_agents')
 
         try:
@@ -1604,7 +1604,7 @@ def import_hr_agents(request: HttpRequest) -> HttpResponse:
             fieldnames = [name.strip() for name in (reader.fieldnames or []) if name]
             required = {'first_name', 'last_name', 'email'}
             if not required.issubset(set(fieldnames)):
-                messages.error(request, 'CSV РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ РєРѕР»РѕРЅРєРё first_name,last_name,email')
+                messages.error(request, 'CSV должен содержать колонки first_name,last_name,email')
                 return redirect('import_hr_agents')
 
             created = 0
@@ -1619,7 +1619,7 @@ def import_hr_agents(request: HttpRequest) -> HttpResponse:
 
                 if not first_name or not last_name or not email:
                     skipped += 1
-                    errors.append(f'РЎС‚СЂРѕРєР° {line_no}: РїСѓСЃС‚С‹Рµ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Рµ РїРѕР»СЏ')
+                    errors.append(f'Строка {line_no}: пустые обязательные поля')
                     continue
 
                 role = str(row.get('role') or 'hr').strip().lower() or 'hr'
@@ -1640,7 +1640,7 @@ def import_hr_agents(request: HttpRequest) -> HttpResponse:
                     payload_json = _safe_json(response)
                     if response.status_code >= 400:
                         skipped += 1
-                        errors.append(f"РЎС‚СЂРѕРєР° {line_no}: {_first_error(payload_json, 'РѕС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ')}")
+                        errors.append(f"Строка {line_no}: {_first_error(payload_json, 'ошибка обновления')}")
                         continue
                     updated += 1
                     continue
@@ -1660,7 +1660,7 @@ def import_hr_agents(request: HttpRequest) -> HttpResponse:
                 payload_json = _safe_json(response)
                 if response.status_code >= 400:
                     skipped += 1
-                    errors.append(f"РЎС‚СЂРѕРєР° {line_no}: {_first_error(payload_json, 'РѕС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ')}")
+                    errors.append(f"Строка {line_no}: {_first_error(payload_json, 'ошибка создания')}")
                     continue
 
                 created += 1
@@ -1673,13 +1673,13 @@ def import_hr_agents(request: HttpRequest) -> HttpResponse:
             request.session['import_errors'] = errors[:200]
             messages.success(
                 request,
-                f'РРјРїРѕСЂС‚ Р·Р°РІРµСЂС€РµРЅ. РЎРѕР·РґР°РЅРѕ: {created}, РѕР±РЅРѕРІР»РµРЅРѕ: {updated}, РїСЂРѕРїСѓС‰РµРЅРѕ: {skipped}.',
+                f'Импорт завершен. Создано: {created}, обновлено: {updated}, пропущено: {skipped}.',
             )
             if errors:
-                messages.warning(request, f'Р•СЃС‚СЊ РѕС€РёР±РєРё РІ {len(errors)} СЃС‚СЂРѕРєР°С…. РџСЂРѕРІРµСЂСЊС‚Рµ СЃРїРёСЃРѕРє РЅРёР¶Рµ.')
+                messages.warning(request, f'Есть ошибки в {len(errors)} строках. Проверьте список ниже.')
             return redirect('import_hr_agents')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° РѕР±СЂР°Р±РѕС‚РєРё CSV-С„Р°Р№Р»Р°')
+            messages.error(request, 'Ошибка обработки CSV-файла')
             return redirect('import_hr_agents')
 
     return render(
@@ -1696,11 +1696,11 @@ def content_manager_stats(request: HttpRequest) -> HttpResponse:
         response = api_get(request, 'content-manager/profile/stats/')
         data = _safe_json(response)
         if response.status_code >= 400 or not isinstance(data, dict):
-            messages.error(request, _first_error(data, 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃС‚Р°С‚РёСЃС‚РёРєСѓ РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°'))
+            messages.error(request, _first_error(data, 'Не удалось получить статистику контент-менеджера'))
         else:
             payload = data
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РїРѕР»СѓС‡РµРЅРёРё СЃС‚Р°С‚РёСЃС‚РёРєРё РєРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂР°')
+        messages.error(request, 'Ошибка сети при получении статистики контент-менеджера')
 
     manager = payload.get('manager') if isinstance(payload, dict) else {}
     company = payload.get('company') if isinstance(payload, dict) else {}
@@ -1751,7 +1751,7 @@ def content_manager_videos(request: HttpRequest) -> HttpResponse:
                 video_file = request.FILES.get('video')
 
                 if not vacancy_id or not video_file:
-                    messages.error(request, 'Р’С‹Р±РµСЂРёС‚Рµ РІР°РєР°РЅСЃРёСЋ Рё РІРёРґРµРѕС„Р°Р№Р»')
+                    messages.error(request, 'Выберите вакансию и видеофайл')
                 else:
                     response = api_post(
                         request,
@@ -1761,38 +1761,38 @@ def content_manager_videos(request: HttpRequest) -> HttpResponse:
                     )
                     payload = _safe_json(response)
                     if response.status_code >= 400:
-                        messages.error(request, _first_error(payload, 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РІРёРґРµРѕ'))
+                        messages.error(request, _first_error(payload, 'Не удалось загрузить видео'))
                     else:
-                        messages.success(request, 'Р’РёРґРµРѕ Р·Р°РіСЂСѓР¶РµРЅРѕ')
+                        messages.success(request, 'Видео загружено')
 
             elif action == 'activate' and video_id:
                 response = api_post(request, f'content-manager/videos/{video_id}/activate/')
                 payload = _safe_json(response)
                 if response.status_code >= 400:
-                    messages.error(request, _first_error(payload, 'РќРµ СѓРґР°Р»РѕСЃСЊ Р°РєС‚РёРІРёСЂРѕРІР°С‚СЊ РІРёРґРµРѕ'))
+                    messages.error(request, _first_error(payload, 'Не удалось активировать видео'))
                 else:
-                    messages.success(request, 'Р’РёРґРµРѕ Р°РєС‚РёРІРёСЂРѕРІР°РЅРѕ')
+                    messages.success(request, 'Видео активировано')
 
             elif action == 'deactivate' and video_id:
                 response = api_post(request, f'content-manager/videos/{video_id}/deactivate/')
                 payload = _safe_json(response)
                 if response.status_code >= 400:
-                    messages.error(request, _first_error(payload, 'РќРµ СѓРґР°Р»РѕСЃСЊ РґРµР°РєС‚РёРІРёСЂРѕРІР°С‚СЊ РІРёРґРµРѕ'))
+                    messages.error(request, _first_error(payload, 'Не удалось деактивировать видео'))
                 else:
-                    messages.success(request, 'Р’РёРґРµРѕ РґРµР°РєС‚РёРІРёСЂРѕРІР°РЅРѕ')
+                    messages.success(request, 'Видео деактивировано')
 
             elif action == 'delete' and video_id:
                 response = api_delete(request, f'content-manager/videos/{video_id}/')
                 payload = _safe_json(response)
                 if response.status_code >= 400:
-                    messages.error(request, _first_error(payload, 'РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ РІРёРґРµРѕ'))
+                    messages.error(request, _first_error(payload, 'Не удалось удалить видео'))
                 else:
-                    messages.success(request, 'Р’РёРґРµРѕ СѓРґР°Р»РµРЅРѕ')
+                    messages.success(request, 'Видео удалено')
 
             else:
-                messages.error(request, 'РќРµРєРѕСЂСЂРµРєС‚РЅРѕРµ РґРµР№СЃС‚РІРёРµ')
+                messages.error(request, 'Некорректное действие')
         except Exception:
-            messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЂР°Р±РѕС‚Рµ СЃ РІРёРґРµРѕ')
+            messages.error(request, 'Ошибка сети при работе с видео')
 
         return redirect('content_manager_videos')
 
@@ -1916,24 +1916,24 @@ def company_chat_detail(request: HttpRequest, chat_id: int) -> HttpResponse:
         chat_response = api_get(request, f'chats/{chat_id}/')
         chat_payload = _safe_json(chat_response)
         if chat_response.status_code >= 400 or not isinstance(chat_payload, dict):
-            messages.error(request, _first_error(chat_payload, 'Р§Р°С‚ РЅРµ РЅР°Р№РґРµРЅ'))
+            messages.error(request, _first_error(chat_payload, 'Чат не найден'))
             return redirect('company_chats')
         chat = chat_payload
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ С‡Р°С‚Р°')
+        messages.error(request, 'Ошибка сети при загрузке чата')
         return redirect('company_chats')
 
     try:
         messages_response = api_get(request, f'chats/{chat_id}/messages/')
         messages_payload = _safe_json(messages_response) or {}
         if messages_response.status_code >= 400:
-            messages.error(request, _first_error(messages_payload, 'РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃРѕРѕР±С‰РµРЅРёСЏ'))
+            messages.error(request, _first_error(messages_payload, 'Не удалось получить сообщения'))
         else:
             chat_messages = _results(messages_payload)
             if not chat_messages and isinstance(messages_payload, list):
                 chat_messages = messages_payload
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё Р·Р°РіСЂСѓР·РєРµ СЃРѕРѕР±С‰РµРЅРёР№')
+        messages.error(request, 'Ошибка сети при загрузке сообщений')
 
     return render(
         request,
@@ -1953,16 +1953,16 @@ def company_chat_send_message(request: HttpRequest, chat_id: int) -> HttpRespons
 
     text = (request.POST.get('text') or '').strip()
     if not text:
-        messages.error(request, 'Р’РІРµРґРёС‚Рµ С‚РµРєСЃС‚ СЃРѕРѕР±С‰РµРЅРёСЏ')
+        messages.error(request, 'Введите текст сообщения')
         return redirect('company_chat_detail', chat_id=chat_id)
 
     try:
         response = api_post(request, f'chats/{chat_id}/send_message/', json={'text': text})
         payload = _safe_json(response)
         if response.status_code >= 400:
-            messages.error(request, _first_error(payload, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ'))
+            messages.error(request, _first_error(payload, 'Не удалось отправить сообщение'))
     except Exception:
-        messages.error(request, 'РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё РѕС‚РїСЂР°РІРєРµ СЃРѕРѕР±С‰РµРЅРёСЏ')
+        messages.error(request, 'Ошибка сети при отправке сообщения')
 
     return redirect('company_chat_detail', chat_id=chat_id)
 
@@ -1984,11 +1984,11 @@ def _build_company_stats_payload(request: HttpRequest) -> dict:
     month_counter = Counter()
 
     for item in responses:
-        status_name = str(item.get('status_name') or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°').strip() or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°'
+        status_name = str(item.get('status_name') or 'Без статуса').strip() or 'Без статуса'
         status_counter[status_name] += 1
 
         vacancy_id = item.get('vacancy_id')
-        vacancy_name = item.get('vacancy_position') or f'Р’Р°РєР°РЅСЃРёСЏ #{vacancy_id}'
+        vacancy_name = item.get('vacancy_position') or f'Вакансия #{vacancy_id}'
         vacancy_counter[(vacancy_id, vacancy_name)] += 1
 
         response_date = str(item.get('response_date') or '')
@@ -2069,47 +2069,47 @@ def export_company_stats_csv(request: HttpRequest) -> HttpResponse:
 
     writer = csv.writer(response, delimiter=';')
     writer.writerow(['WorkMPT Analytics Report'])
-    writer.writerow(['Р”Р°С‚Р° С„РѕСЂРјРёСЂРѕРІР°РЅРёСЏ', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
-    writer.writerow(['РљРѕРјРїР°РЅРёСЏ', company.get('name') or 'WorkMPT'])
+    writer.writerow(['Дата формирования', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+    writer.writerow(['Компания', company.get('name') or 'WorkMPT'])
     writer.writerow([])
 
-    writer.writerow(['РЎРІРѕРґРєР°'])
-    writer.writerow(['РњРµС‚СЂРёРєР°', 'Р—РЅР°С‡РµРЅРёРµ'])
-    writer.writerow(['Р’СЃРµРіРѕ РІР°РєР°РЅСЃРёР№', summary.get('vacancies_total', 0)])
-    writer.writerow(['РђРєС‚РёРІРЅС‹Рµ РІР°РєР°РЅСЃРёРё', summary.get('vacancies_active', 0)])
-    writer.writerow(['РђСЂС…РёРІРЅС‹Рµ РІР°РєР°РЅСЃРёРё', summary.get('vacancies_archived', 0)])
-    writer.writerow(['РћС‚РєР»РёРєРё', summary.get('responses_total', 0)])
-    writer.writerow(['РЎРѕС‚СЂСѓРґРЅРёРєРё', summary.get('employees_total', 0)])
-    writer.writerow(['HR-Р°РіРµРЅС‚С‹', summary.get('hr_agents_total', 0)])
-    writer.writerow(['РљРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂС‹', summary.get('content_managers_total', 0)])
-    writer.writerow(['Р§Р°С‚С‹', summary.get('chats_total', 0)])
+    writer.writerow(['Сводка'])
+    writer.writerow(['Метрика', 'Значение'])
+    writer.writerow(['Всего вакансий', summary.get('vacancies_total', 0)])
+    writer.writerow(['Активные вакансии', summary.get('vacancies_active', 0)])
+    writer.writerow(['Архивные вакансии', summary.get('vacancies_archived', 0)])
+    writer.writerow(['Отклики', summary.get('responses_total', 0)])
+    writer.writerow(['Сотрудники', summary.get('employees_total', 0)])
+    writer.writerow(['HR-агенты', summary.get('hr_agents_total', 0)])
+    writer.writerow(['Контент-менеджеры', summary.get('content_managers_total', 0)])
+    writer.writerow(['Чаты', summary.get('chats_total', 0)])
     writer.writerow([])
 
-    writer.writerow(['РћС‚РєР»РёРєРё РїРѕ СЃС‚Р°С‚СѓСЃР°Рј'])
-    writer.writerow(['РЎС‚Р°С‚СѓСЃ', 'РљРѕР»РёС‡РµСЃС‚РІРѕ'])
+    writer.writerow(['Отклики по статусам'])
+    writer.writerow(['Статус', 'Количество'])
     if status_items:
         for item in status_items:
-            writer.writerow([item.get('name') or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°', item.get('count') or 0])
+            writer.writerow([item.get('name') or 'Без статуса', item.get('count') or 0])
     else:
-        writer.writerow(['РќРµС‚ РґР°РЅРЅС‹С…', 0])
+        writer.writerow(['Нет данных', 0])
     writer.writerow([])
 
-    writer.writerow(['РђРєС‚РёРІРЅРѕСЃС‚СЊ РѕС‚РєР»РёРєРѕРІ РїРѕ РјРµСЃСЏС†Р°Рј'])
-    writer.writerow(['РњРµСЃСЏС†', 'РљРѕР»РёС‡РµСЃС‚РІРѕ'])
+    writer.writerow(['Активность откликов по месяцам'])
+    writer.writerow(['Месяц', 'Количество'])
     if activity_points:
         for item in activity_points:
             writer.writerow([item.get('label') or '', item.get('count') or 0])
     else:
-        writer.writerow(['РќРµС‚ РґР°РЅРЅС‹С…', 0])
+        writer.writerow(['Нет данных', 0])
     writer.writerow([])
 
-    writer.writerow(['РўРѕРї РІР°РєР°РЅСЃРёР№ РїРѕ РѕС‚РєР»РёРєР°Рј'])
-    writer.writerow(['Р’Р°РєР°РЅСЃРёСЏ', 'РћС‚РєР»РёРєРё'])
+    writer.writerow(['Топ вакансий по откликам'])
+    writer.writerow(['Вакансия', 'Отклики'])
     if top_vacancies:
         for item in top_vacancies:
-            writer.writerow([item.get('name') or 'Р’Р°РєР°РЅСЃРёСЏ', item.get('responses_count') or 0])
+            writer.writerow([item.get('name') or 'Вакансия', item.get('responses_count') or 0])
     else:
-        writer.writerow(['РќРµС‚ РґР°РЅРЅС‹С…', 0])
+        writer.writerow(['Нет данных', 0])
 
     return response
 
@@ -2176,7 +2176,7 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
         if not rows:
             pdf.setFillColor(colors.HexColor('#64748b'))
             pdf.setFont(font_regular, 9)
-            pdf.drawString(x + 14, y + h - 58, 'РќРµС‚ РґР°РЅРЅС‹С…')
+            pdf.drawString(x + 14, y + h - 58, 'Нет данных')
 
     pdf.setTitle(f'{brand_name} Company Analytics Report')
     pdf.setFillColor(colors.HexColor('#f5f8fc'))
@@ -2201,19 +2201,19 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
     pdf.drawString(header_x + 56, header_y + 55, brand_name)
     pdf.setFont(font_regular, 10)
     pdf.setFillColor(colors.HexColor('#cbd5e1'))
-    pdf.drawString(header_x + 56, header_y + 38, f'РђРЅР°Р»РёС‚РёС‡РµСЃРєРёР№ РѕС‚С‡РµС‚ РєРѕРјРїР°РЅРёРё: {company_name}')
-    pdf.drawString(header_x + 56, header_y + 24, f'Р”Р°С‚Р° С„РѕСЂРјРёСЂРѕРІР°РЅРёСЏ: {generated_at}')
+    pdf.drawString(header_x + 56, header_y + 38, f'Аналитический отчет компании: {company_name}')
+    pdf.drawString(header_x + 56, header_y + 24, f'Дата формирования: {generated_at}')
 
     # Summary cards
     metrics = [
-        ('Р’Р°РєР°РЅСЃРёРё', summary.get('vacancies_total', 0)),
-        ('РђРєС‚РёРІРЅС‹Рµ', summary.get('vacancies_active', 0)),
-        ('РђСЂС…РёРІРЅС‹Рµ', summary.get('vacancies_archived', 0)),
-        ('РћС‚РєР»РёРєРё', summary.get('responses_total', 0)),
-        ('РЎРѕС‚СЂСѓРґРЅРёРєРё', summary.get('employees_total', 0)),
-        ('HR-Р°РіРµРЅС‚С‹', summary.get('hr_agents_total', 0)),
-        ('РљРѕРЅС‚РµРЅС‚-РјРµРЅРµРґР¶РµСЂС‹', summary.get('content_managers_total', 0)),
-        ('Р§Р°С‚С‹', summary.get('chats_total', 0)),
+        ('Вакансии', summary.get('vacancies_total', 0)),
+        ('Активные', summary.get('vacancies_active', 0)),
+        ('Архивные', summary.get('vacancies_archived', 0)),
+        ('Отклики', summary.get('responses_total', 0)),
+        ('Сотрудники', summary.get('employees_total', 0)),
+        ('HR-агенты', summary.get('hr_agents_total', 0)),
+        ('Контент-менеджеры', summary.get('content_managers_total', 0)),
+        ('Чаты', summary.get('chats_total', 0)),
     ]
 
     card_w = (header_w - 30) / 4
@@ -2243,8 +2243,8 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
 
     pdf.setFillColor(colors.HexColor('#0f172a'))
     pdf.setFont(font_bold, 11)
-    pdf.drawString(left_chart_x + 12, chart_y + chart_h - 18, 'Р”РёРЅР°РјРёРєР° РѕС‚РєР»РёРєРѕРІ')
-    pdf.drawString(right_chart_x + 12, chart_y + chart_h - 18, 'РЎС‚СЂСѓРєС‚СѓСЂР° СЃС‚Р°С‚СѓСЃРѕРІ')
+    pdf.drawString(left_chart_x + 12, chart_y + chart_h - 18, 'Динамика откликов')
+    pdf.drawString(right_chart_x + 12, chart_y + chart_h - 18, 'Структура статусов')
 
     activity_labels = [str(item.get('label') or '') for item in activity_points] or [datetime.now().strftime('%m.%Y')]
     activity_values = [int(item.get('count') or 0) for item in activity_points] or [0]
@@ -2277,12 +2277,12 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
 
     pie_items = status_items[:6]
     if len(status_items) > 6:
-        pie_items.append({'name': 'РћСЃС‚Р°Р»СЊРЅС‹Рµ', 'count': sum(int(x.get('count') or 0) for x in status_items[6:])})
+        pie_items.append({'name': 'Остальные', 'count': sum(int(x.get('count') or 0) for x in status_items[6:])})
 
-    pie_labels = [str(item.get('name') or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°') for item in pie_items]
+    pie_labels = [str(item.get('name') or 'Без статуса') for item in pie_items]
     pie_values = [int(item.get('count') or 0) for item in pie_items]
     if not pie_values or sum(pie_values) <= 0:
-        pie_labels = ['РќРµС‚ РґР°РЅРЅС‹С…']
+        pie_labels = ['Нет данных']
         pie_values = [1]
 
     pie_drawing = Drawing(right_chart_w - 16, chart_h - 34)
@@ -2317,21 +2317,21 @@ def export_company_stats_pdf(request: HttpRequest) -> HttpResponse:
     table_w = (header_w - table_gap) / 2
 
     vacancy_rows = [
-        (str(item.get('name') or 'Р’Р°РєР°РЅСЃРёСЏ'), int(item.get('responses_count') or 0))
+        (str(item.get('name') or 'Вакансия'), int(item.get('responses_count') or 0))
         for item in top_vacancies
     ]
     status_rows = [
-        (str(item.get('name') or 'Р‘РµР· СЃС‚Р°С‚СѓСЃР°'), int(item.get('count') or 0))
+        (str(item.get('name') or 'Без статуса'), int(item.get('count') or 0))
         for item in status_items
     ]
 
-    _draw_table(margin, table_y, table_w, table_h, 'РўРѕРї РІР°РєР°РЅСЃРёР№ РїРѕ РѕС‚РєР»РёРєР°Рј', vacancy_rows)
-    _draw_table(margin + table_w + table_gap, table_y, table_w, table_h, 'РћС‚РєР»РёРєРё РїРѕ СЃС‚Р°С‚СѓСЃР°Рј', status_rows)
+    _draw_table(margin, table_y, table_w, table_h, 'Топ вакансий по откликам', vacancy_rows)
+    _draw_table(margin + table_w + table_gap, table_y, table_w, table_h, 'Отклики по статусам', status_rows)
 
     # Footer
     pdf.setFillColor(colors.HexColor('#94a3b8'))
     pdf.setFont(font_regular, 8)
-    pdf.drawString(margin, 18, 'WorkMPT В· Company Analytics Report')
+    pdf.drawString(margin, 18, 'WorkMPT · Company Analytics Report')
 
     pdf.save()
     buffer.seek(0)

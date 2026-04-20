@@ -9,10 +9,12 @@ from rest_framework.test import APITestCase
 from .models import (
     Applicant,
     ApplicantInterest,
+    ApplicantSkillSuggestion,
     Company,
     Employee,
     Favorites,
     Response,
+    Skill,
     StatusResponse,
     StatusVacancies,
     User,
@@ -387,6 +389,77 @@ class VacancyCategorySuggestionApiTests(ApiTestCase):
         )
         self.assertEqual(vacancy_response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(vacancy_response.data["category"], "Финансы")
+
+
+class ApplicantSkillSuggestionAdminApiTests(ApiTestCase):
+    def setUp(self):
+        self.applicant_user, self.applicant = self.create_applicant_user_and_profile(
+            email="skill_applicant@example.com",
+            username="skill_applicant",
+        )
+        self.admin_user = self.create_user(
+            email="skill_admin@example.com",
+            username="skill_admin",
+            user_type="adminsite",
+        )
+
+    def test_admin_can_approve_skill_suggestion_and_create_skill(self):
+        self.client.force_authenticate(self.applicant_user)
+        create_response = self.client.post(
+            "/api/applicants/me/skill-suggestions/",
+            data={"name": "Data Engineering"},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        suggestion_id = create_response.data["id"]
+
+        self.client.force_authenticate(self.admin_user)
+        approve_response = self.client.patch(
+            f"/api/admin/skill-suggestions/{suggestion_id}/",
+            data={"status": ApplicantSkillSuggestion.STATUS_APPROVED, "admin_notes": "Одобрено"},
+            format="json",
+        )
+        self.assertEqual(approve_response.status_code, status.HTTP_200_OK)
+
+        suggestion = ApplicantSkillSuggestion.objects.get(id=suggestion_id)
+        self.assertEqual(suggestion.status, ApplicantSkillSuggestion.STATUS_APPROVED)
+        self.assertEqual(suggestion.reviewed_by_id, self.admin_user.id)
+        self.assertIsNotNone(suggestion.reviewed_at)
+        self.assertTrue(Skill.objects.filter(name__iexact="Data Engineering").exists())
+
+    def test_admin_can_reject_skill_suggestion(self):
+        self.client.force_authenticate(self.applicant_user)
+        create_response = self.client.post(
+            "/api/applicants/me/skill-suggestions/",
+            data={"name": "Quantum Hiring"},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        suggestion_id = create_response.data["id"]
+
+        self.client.force_authenticate(self.admin_user)
+        reject_response = self.client.patch(
+            f"/api/admin/skill-suggestions/{suggestion_id}/",
+            data={"status": ApplicantSkillSuggestion.STATUS_REJECTED, "admin_notes": "Не подходит"},
+            format="json",
+        )
+        self.assertEqual(reject_response.status_code, status.HTTP_200_OK)
+
+        suggestion = ApplicantSkillSuggestion.objects.get(id=suggestion_id)
+        self.assertEqual(suggestion.status, ApplicantSkillSuggestion.STATUS_REJECTED)
+        self.assertEqual(suggestion.reviewed_by_id, self.admin_user.id)
+        self.assertIsNotNone(suggestion.reviewed_at)
+        self.assertFalse(Skill.objects.filter(name__iexact="Quantum Hiring").exists())
+
+    def test_applicant_can_submit_skill_suggestion_with_skill_name_alias(self):
+        self.client.force_authenticate(self.applicant_user)
+        create_response = self.client.post(
+            "/api/applicants/me/skill-suggestions/",
+            data={"skill_name": "Data Engineering"},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.data["name"], "Data Engineering")
 
 
 class FavoritesToggleApiTests(ApiTestCase):

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <com.google.android.exoplayer2.ui.PlayerView
+        android:id="@+id/playerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:keepScreenOn="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:use_controller="false" />
+
+    <ImageView
+        android:id="@+id/btnBack"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_margin="16dp"
+        android:contentDescription="@string/back_button_desc"
+        android:padding="8dp"
+        android:src="@drawable/ic_back"
+        android:tint="@android:color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/blockVacancy"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="84dp"
+        android:layout_marginBottom="24dp"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/tvVacancyTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:text="@string/cm_video_vacancy_label"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvVacancyHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/cm_video_vacancy_open_hint"
+            android:textColor="#B3FFFFFF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/blockRight"
+        android:layout_width="64dp"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="24dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:id="@+id/btnLike"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:contentDescription="@string/video_like_desc"
+            android:padding="10dp"
+            android:src="@drawable/ic_favorite_border"
+            android:tint="@android:color/white" />
+
+        <TextView
+            android:id="@+id/tvLikes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="0"
+            android:textColor="@android:color/white"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="14dp" />
+
+        <ImageView
+            android:id="@+id/btnOpenVacancy"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:contentDescription="@string/video_open_vacancy_desc"
+            android:padding="10dp"
+            android:src="@android:drawable/ic_menu_view"
+            android:tint="@android:color/white" />
+
+        <TextView
+            android:id="@+id/tvOpenVacancy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/cm_video_vacancy_label"
+            android:textColor="#B3FFFFFF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
