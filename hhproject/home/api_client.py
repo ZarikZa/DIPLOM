@@ -8,7 +8,7 @@ DEFAULT_TIMEOUT = 15
 
 
 def api_base_url() -> str:
-    base = os.getenv('API_BASE_URL', 'http://192.168.0.16:8001/api/')
+    base = os.getenv('API_BASE_URL', 'http://172.20.10.2:8001/api/')
     if not base.endswith('/'):
         base += '/'
     return base

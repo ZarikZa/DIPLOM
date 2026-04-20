@@ -1740,6 +1740,27 @@ def content_manager_videos(request: HttpRequest) -> HttpResponse:
     if videos_err and not videos:
         messages.error(request, videos_err)
 
+    vacancy_video_counts: dict[str, int] = {}
+    for video_item in videos:
+        if not isinstance(video_item, dict):
+            continue
+        vacancy_id = video_item.get('vacancy')
+        if vacancy_id in (None, ''):
+            continue
+        vacancy_key = str(vacancy_id)
+        vacancy_video_counts[vacancy_key] = vacancy_video_counts.get(vacancy_key, 0) + 1
+
+    upload_vacancies: list[dict] = []
+    for vacancy_item in vacancies:
+        if not isinstance(vacancy_item, dict):
+            continue
+        vacancy_key = str(vacancy_item.get('id') or '')
+        video_count = vacancy_video_counts.get(vacancy_key, 0)
+        vacancy_copy = dict(vacancy_item)
+        vacancy_copy['video_count'] = video_count
+        vacancy_copy['video_limit_reached'] = video_count >= 3
+        upload_vacancies.append(vacancy_copy)
+
     if request.method == 'POST':
         action = (request.POST.get('action') or '').strip().lower()
         video_id = request.POST.get('video_id')
@@ -1749,9 +1770,19 @@ def content_manager_videos(request: HttpRequest) -> HttpResponse:
                 vacancy_id = (request.POST.get('vacancy') or '').strip()
                 description = (request.POST.get('description') or '').strip()
                 video_file = request.FILES.get('video')
+                selected_vacancy_count = vacancy_video_counts.get(vacancy_id, 0)
 
                 if not vacancy_id or not video_file:
                     messages.error(request, 'Выберите вакансию и видеофайл')
+                elif selected_vacancy_count >= 3:
+                    messages.error(
+                        request,
+                        _ui_text(
+                            request,
+                            'Для этой вакансии уже загружено 3 видео. Удалите одно видео перед новой загрузкой.',
+                            'This vacancy already has 3 videos. Delete one before uploading a new video.',
+                        ),
+                    )
                 else:
                     response = api_post(
                         request,
@@ -1815,6 +1846,7 @@ def content_manager_videos(request: HttpRequest) -> HttpResponse:
         {
             'company': company or {},
             'vacancies': vacancies,
+            'upload_vacancies': upload_vacancies,
             'videos': videos,
             'vacancy_filter': vacancy_filter,
             'search': request.GET.get('q', ''),

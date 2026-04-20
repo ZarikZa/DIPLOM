@@ -1604,16 +1604,13 @@ class VacancyVideoAdminSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # uploaded_by/company приходят из viewset.perform_create(serializer.save(...))
         # поэтому тут просто создаём модель без дублей kwargs.
-        instance = VacancyVideo.objects.create(**validated_data)
+        video_file = validated_data.get('video')
+        errors = validate_video(video_file, getattr(video_file, 'size', None))
 
-        errors = validate_video(
-            instance.video.path,
-            instance.video.size
+        instance = VacancyVideo.objects.create(
+            **validated_data,
+            is_active=(not errors),
         )
-
-        instance.is_active = (not errors)
-        instance.save(update_fields=['is_active'])
-
         return instance
 
 class ContentManagerCreateSerializer(serializers.ModelSerializer):
@@ -1702,7 +1699,7 @@ class ContentManagerVideoSerializer(serializers.ModelSerializer):
         # если хочешь модерацию — оставь False и убери автоактивацию
         # но я оставляю твою логику: валидное видео -> active True
         try:
-            errors = validate_video(instance.video.path, instance.video.size)
+            errors = validate_video(video_file, getattr(video_file, 'size', None))
         except Exception:
             errors = ["validate_error"]
 

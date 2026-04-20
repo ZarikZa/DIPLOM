@@ -1,4 +1,3 @@
-import os
 import re
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -548,8 +547,7 @@ class Backup(models.Model):
     
     def delete(self, *args, **kwargs):
         if self.backup_file:
-            if os.path.isfile(self.backup_file.path):
-                os.remove(self.backup_file.path)
+            self.backup_file.delete(save=False)
         super().delete(*args, **kwargs)
     
     def get_file_size_display(self):

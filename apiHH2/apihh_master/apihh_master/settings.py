@@ -31,6 +31,10 @@ INSTALLED_APPS = [
     'django_filters',
 ]
 
+USE_S3_MEDIA = config('USE_S3_MEDIA', default=False, cast=bool)
+if USE_S3_MEDIA:
+    INSTALLED_APPS.append('storages')
+
 SIMPLE_JWT = {
    'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),
 
@@ -142,10 +146,71 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+MEDIA_ROOT = BASE_DIR / 'vacancy_videos'
 
-# Путь к медиафайлам
-MEDIA_URL = '/vacancy_videos/'  # путь, который будет в ссылках на видео
-MEDIA_ROOT = BASE_DIR / 'vacancy_videos'  # фактическая папка на сервере
+if USE_S3_MEDIA:
+    CLOUDRU_S3_TENANT_ID = config('CLOUDRU_S3_TENANT_ID', default='').strip()
+    CLOUDRU_S3_KEY_ID = config('CLOUDRU_S3_KEY_ID', default='').strip()
+    CLOUDRU_S3_KEY_SECRET = config('CLOUDRU_S3_KEY_SECRET', default='').strip()
+    CLOUDRU_S3_BUCKET_NAME = config('CLOUDRU_S3_BUCKET_NAME', default='').strip()
+    CLOUDRU_S3_ENDPOINT_URL = config('CLOUDRU_S3_ENDPOINT_URL', default='https://s3.cloud.ru').strip()
+    CLOUDRU_S3_REGION_NAME = config('CLOUDRU_S3_REGION_NAME', default='ru-central-1').strip()
+    CLOUDRU_S3_SIGNATURE_VERSION = config('CLOUDRU_S3_SIGNATURE_VERSION', default='s3v4').strip()
+    CLOUDRU_S3_ADDRESSING_STYLE = config('CLOUDRU_S3_ADDRESSING_STYLE', default='path').strip()
+    CLOUDRU_S3_QUERYSTRING_AUTH = config('CLOUDRU_S3_QUERYSTRING_AUTH', default=False, cast=bool)
+    CLOUDRU_S3_MEDIA_PREFIX = config('CLOUDRU_S3_MEDIA_PREFIX', default='media').strip('/')
+    CLOUDRU_S3_CUSTOM_DOMAIN = config('CLOUDRU_S3_CUSTOM_DOMAIN', default='').strip()
+
+    missing_s3_settings = [
+        name for name, value in {
+            'CLOUDRU_S3_TENANT_ID': CLOUDRU_S3_TENANT_ID,
+            'CLOUDRU_S3_KEY_ID': CLOUDRU_S3_KEY_ID,
+            'CLOUDRU_S3_KEY_SECRET': CLOUDRU_S3_KEY_SECRET,
+            'CLOUDRU_S3_BUCKET_NAME': CLOUDRU_S3_BUCKET_NAME,
+        }.items() if not value
+    ]
+    if missing_s3_settings:
+        raise ValueError(
+            'USE_S3_MEDIA=True, but required settings are empty: '
+            + ', '.join(missing_s3_settings)
+        )
+
+    AWS_ACCESS_KEY_ID = f'{CLOUDRU_S3_TENANT_ID}:{CLOUDRU_S3_KEY_ID}'
+    AWS_SECRET_ACCESS_KEY = CLOUDRU_S3_KEY_SECRET
+    AWS_STORAGE_BUCKET_NAME = CLOUDRU_S3_BUCKET_NAME
+    AWS_S3_ENDPOINT_URL = CLOUDRU_S3_ENDPOINT_URL
+    AWS_S3_REGION_NAME = CLOUDRU_S3_REGION_NAME
+    AWS_S3_SIGNATURE_VERSION = CLOUDRU_S3_SIGNATURE_VERSION
+    AWS_S3_ADDRESSING_STYLE = CLOUDRU_S3_ADDRESSING_STYLE
+    AWS_QUERYSTRING_AUTH = CLOUDRU_S3_QUERYSTRING_AUTH
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_LOCATION = CLOUDRU_S3_MEDIA_PREFIX
+    # Игнорируем системные HTTP(S)_PROXY для S3-клиента, иначе при выключенном
+    # локальном прокси (127.0.0.1:10809) загрузка падает с ProxyConnectionError.
+    AWS_S3_PROXIES = {}
+
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+
+    if CLOUDRU_S3_CUSTOM_DOMAIN:
+        if AWS_LOCATION:
+            MEDIA_URL = f"https://{CLOUDRU_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/"
+        else:
+            MEDIA_URL = f"https://{CLOUDRU_S3_CUSTOM_DOMAIN}/"
+    else:
+        media_prefix = f"{AWS_STORAGE_BUCKET_NAME}/"
+        if AWS_LOCATION:
+            media_prefix = f"{media_prefix}{AWS_LOCATION}/"
+        MEDIA_URL = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{media_prefix}"
+else:
+    MEDIA_URL = '/vacancy_videos/'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.mail.ru')

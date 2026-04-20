@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from functools import wraps
+import hashlib
 import json
 import re
 from urllib.parse import quote, urljoin
@@ -9,6 +10,7 @@ from urllib.parse import quote, urljoin
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login as auth_login, logout as auth_logout
+from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import translation
@@ -84,12 +86,53 @@ PASSWORD_RESET_CODE_SESSION_KEY = 'password_reset_code'
 PASSWORD_RESET_ATTEMPTS_SESSION_KEY = 'password_reset_attempts_left'
 LANGUAGE_SESSION_KEY = 'django_language'
 SUPPORTED_UI_LANGUAGES = {'ru', 'en'}
+LOGIN_MAX_FAILED_ATTEMPTS = 3
+LOGIN_BLOCK_SECONDS = 5 * 60
 
 
 def _clear_password_reset_session(request: HttpRequest) -> None:
     request.session.pop(PASSWORD_RESET_EMAIL_SESSION_KEY, None)
     request.session.pop(PASSWORD_RESET_CODE_SESSION_KEY, None)
     request.session.pop(PASSWORD_RESET_ATTEMPTS_SESSION_KEY, None)
+
+
+def _client_ip(request: HttpRequest) -> str:
+    forwarded_for = str(request.META.get('HTTP_X_FORWARDED_FOR') or '').strip()
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+    return str(request.META.get('REMOTE_ADDR') or 'unknown')
+
+
+def _login_rate_limit_keys(request: HttpRequest, email: str) -> tuple[str, str]:
+    identity = f"{str(email or '').strip().lower()}|{_client_ip(request)}"
+    digest = hashlib.sha256(identity.encode('utf-8')).hexdigest()
+    return (
+        f'login_attempts:{digest}',
+        f'login_lock:{digest}',
+    )
+
+
+def _is_login_blocked(request: HttpRequest, email: str) -> bool:
+    _, lock_key = _login_rate_limit_keys(request, email)
+    return bool(cache.get(lock_key))
+
+
+def _register_failed_login(request: HttpRequest, email: str) -> tuple[bool, int]:
+    attempts_key, lock_key = _login_rate_limit_keys(request, email)
+    current_attempts = int(cache.get(attempts_key) or 0) + 1
+    if current_attempts >= LOGIN_MAX_FAILED_ATTEMPTS:
+        cache.delete(attempts_key)
+        cache.set(lock_key, 1, timeout=LOGIN_BLOCK_SECONDS)
+        return True, 0
+
+    cache.set(attempts_key, current_attempts, timeout=LOGIN_BLOCK_SECONDS)
+    return False, LOGIN_MAX_FAILED_ATTEMPTS - current_attempts
+
+
+def _reset_login_rate_limit(request: HttpRequest, email: str) -> None:
+    attempts_key, lock_key = _login_rate_limit_keys(request, email)
+    cache.delete(attempts_key)
+    cache.delete(lock_key)
 
 
 def _is_valid_cyrillic_name(value: str) -> bool:
@@ -451,15 +494,28 @@ def custom_login(request: HttpRequest) -> HttpResponse:
 
         if not email or not password:
             messages.error(request, 'Введите email и пароль')
-            return render(request, 'auth/login.html', {'next': next_url})
+            return render(request, 'auth/login.html', {'next': next_url, 'email': email})
+
+        if _is_login_blocked(request, email):
+            messages.error(request, 'Слишком много неудачных попыток. Попробуйте снова через 5 минут.')
+            return render(request, 'auth/login.html', {'next': next_url, 'email': email})
 
         try:
             resp = api_post(request, 'auth/login/', json={'email': email, 'password': password})
             data = _safe_json(resp)
             if resp.status_code >= 400 or not isinstance(data, dict) or 'access' not in data:
-                messages.error(request, _first_error(data, 'Неверный email или пароль'))
-                return render(request, 'auth/login.html', {'next': next_url})
+                if resp.status_code >= 500:
+                    messages.error(request, 'Сервис входа временно недоступен. Попробуйте позже.')
+                    return render(request, 'auth/login.html', {'next': next_url, 'email': email})
 
+                is_locked, attempts_left = _register_failed_login(request, email)
+                if is_locked:
+                    messages.error(request, 'Слишком много неудачных попыток. Попробуйте снова через 5 минут.')
+                else:
+                    messages.error(request, f'Неверный email или пароль. Осталось попыток: {attempts_left}.')
+                return render(request, 'auth/login.html', {'next': next_url, 'email': email})
+
+            _reset_login_rate_limit(request, email)
             set_tokens(request, data.get('access'), data.get('refresh'))
             session_user = {
                 'user_id': data.get('user_id'),
@@ -520,9 +576,10 @@ def custom_login(request: HttpRequest) -> HttpResponse:
                 return redirect('home_comp')
             return redirect('home_page')
         except Exception:
-            messages.error(request, 'Не удалось подключиться к API. Проверь API_BASE_URL и доступность сервера.')
+            messages.error(request, 'Не удалось подключиться к API. Проверьте API_BASE_URL и доступность сервера.')
+            return render(request, 'auth/login.html', {'next': next_url, 'email': email})
 
-    return render(request, 'auth/login.html', {'next': next_url})
+    return render(request, 'auth/login.html', {'next': next_url, 'email': request.GET.get('email', '')})
 
 
 def custom_logout(request: HttpRequest) -> HttpResponse:
