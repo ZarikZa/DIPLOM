@@ -1,7 +1,9 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Вакансии - CareerHub{% endblock %}
+{% block flash_messages %}{% endblock %}
+
+{% block title %}Вакансии - WorkMPT{% endblock %}
 
 {% block content %}
 <section class="vacancies-section">
@@ -137,17 +139,16 @@
                                 <div class="vacancy-meta">
                                     <div class="vacancy-info">
                                         <i class="fas fa-briefcase"></i>
-                                        {{ vacancy.work_conditions_name|default:'Не указано' }}
+                                        Тип занятости: {{ vacancy.work_conditions_name|default:'Не указан' }}
                                     </div>
                                     <div class="vacancy-info">
                                         <i class="fas fa-clock"></i>
-                                        Полный день
+                                        Опыт: {{ vacancy.experience|default:'Не указан' }}
                                     </div>
-                                    {% if vacancy.work_format == 'remote' %}
-                                    <div class="vacancy-remote">
-                                        <i class="fas fa-home"></i> Удаленно
+                                    <div class="vacancy-info">
+                                        <i class="fas fa-location-dot"></i>
+                                        Город: {{ vacancy.city|default:'Не указан' }}
                                     </div>
-                                    {% endif %}
                                 </div>
                                 
                                 <p class="vacancy-description">{{ vacancy.category|default:'' }}{% if vacancy.experience %} · {{ vacancy.experience }}{% endif %}</p>

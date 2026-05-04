@@ -1,16 +1,23 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Профиль - CareerHub{% endblock %}
+{% block title %}Профиль - WorkMPT{% endblock %}
 
 {% block content %}
 <div class="profile-section">
   <div class="profile-container">
     <div class="profile-card">
       <div class="profile-header">
-        <div class="profile-avatar">
+        <div
+          class="profile-avatar"
+          style="padding:4px;border:2px solid rgba(255,255,255,.95);box-shadow:0 0 0 4px rgba(245,158,11,.45), 0 8px 20px rgba(0,0,0,.25);background:linear-gradient(135deg,#ffffff,#dbeafe);"
+        >
           {% if applicant.avatar %}
-            <img src="{{ applicant.avatar }}" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+            <img
+              src="{{ applicant.avatar }}"
+              alt="avatar"
+              style="width:100%;height:100%;display:block;object-fit:cover;border-radius:50%;border:2px solid rgba(37,99,235,.22);"
+            >
           {% else %}
             {{ applicant.first_name|default:''|first }}{{ applicant.last_name|default:''|first }}
           {% endif %}
@@ -39,7 +46,7 @@
           <button type="button" class="btn btn-edit" onclick="openInterestsModal()">{% if request.LANGUAGE_CODE == 'en' %}Interests{% else %}Интересы{% endif %}</button>
           <button type="button" class="btn btn-edit" onclick="openSkillsModal()">{% if request.LANGUAGE_CODE == 'en' %}Skills{% else %}Навыки{% endif %}</button>
           <button type="button" class="btn btn-edit" onclick="openSkillSuggestionModal()">{% if request.LANGUAGE_CODE == 'en' %}Suggest skill{% else %}Предложить навык{% endif %}</button>
-          <button type="button" class="btn btn-delete" onclick="openDeleteModal()">{% if request.LANGUAGE_CODE == 'en' %}Delete profile{% else %}Удалить профиль{% endif %}</button>
+          <button type="button" class="btn btn-delete" onclick="openDeleteModal()">{% if request.LANGUAGE_CODE == 'en' %}Delete account{% else %}Удалить аккаунт{% endif %}</button>
         </div>
       </div>
 
@@ -182,17 +189,17 @@
 <div id="deleteModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <h3>{% if request.LANGUAGE_CODE == 'en' %}Delete confirmation{% else %}Подтверждение удаления{% endif %}</h3>
+      <h3>{% if request.LANGUAGE_CODE == 'en' %}Delete account{% else %}Удаление аккаунта{% endif %}</h3>
       <span class="close" onclick="closeDeleteModal()">&times;</span>
     </div>
     <div class="modal-body">
-      <p>{% if request.LANGUAGE_CODE == 'en' %}Account deletion may be unavailable via this API. This button will sign you out now.{% else %}Удаление аккаунта через API может быть недоступно. Сейчас кнопка выполнит выход из системы.{% endif %}</p>
+      <p>{% if request.LANGUAGE_CODE == 'en' %}Your account, responses, chats and favorites will be permanently deleted. This action cannot be undone.{% else %}Ваш аккаунт, отклики, чаты и избранное будут удалены без возможности восстановления. Это действие нельзя отменить.{% endif %}</p>
     </div>
     <div class="modal-actions">
       <button type="button" class="btn btn-cancel" onclick="closeDeleteModal()">{% if request.LANGUAGE_CODE == 'en' %}Cancel{% else %}Отмена{% endif %}</button>
       <form method="post" action="{% url 'delete_applicant_profile' %}" style="display: inline;">
         {% csrf_token %}
-        <button type="submit" class="btn btn-delete-confirm">{% if request.LANGUAGE_CODE == 'en' %}Continue{% else %}Продолжить{% endif %}</button>
+        <button type="submit" class="btn btn-delete-confirm">{% if request.LANGUAGE_CODE == 'en' %}Delete forever{% else %}Удалить навсегда{% endif %}</button>
       </form>
     </div>
   </div>

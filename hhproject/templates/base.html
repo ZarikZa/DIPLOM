@@ -149,6 +149,20 @@
             padding-right: 2.5rem;
         }
 
+        .app-global-messages {
+            width: min(1120px, calc(100% - 2rem));
+            margin: 0 auto;
+            padding: 1rem 0 0;
+        }
+
+        .app-global-messages .alert + .alert {
+            margin-top: 0.75rem;
+        }
+
+        .admin-panel-page .app-global-messages {
+            width: min(1240px, calc(100% - 2rem));
+        }
+
         .app-notification.alert-success,
         .messages .alert-success,
         .alert-container .alert-success,
@@ -568,7 +582,12 @@
             {% include '_inc/_header.html' %}
         {% endblock header %}
 
-        <main>{% block content %}{% endblock %}</main>
+        <main>
+            {% block flash_messages %}
+                {% include '_inc/_flash_messages.html' with container_class='app-global-messages' %}
+            {% endblock %}
+            {% block content %}{% endblock %}
+        </main>
 
         {% block footer %}
             {% include '_inc/_footer.html' %}

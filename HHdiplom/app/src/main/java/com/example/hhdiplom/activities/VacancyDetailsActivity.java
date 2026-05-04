@@ -207,7 +207,6 @@ public class VacancyDetailsActivity extends AppCompatActivity {
                     return;
                 }
 
-                // если уже жаловался — на бэке unique_together (vacancy, complainant)
                 String err = "";
                 try {
                     if (response.errorBody() != null) err = response.errorBody().string();

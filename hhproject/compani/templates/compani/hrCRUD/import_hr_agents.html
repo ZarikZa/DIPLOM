@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block flash_messages %}{% endblock %}
+
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
@@ -27,7 +29,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn-primary" type="submit">Импортировать</button>
                 <a class="btn btn-secondary" href="{% url 'hr_agents_list' %}">Назад</a>
-                <a class="btn btn-secondary" href="{% url 'export_hr_agents_csv' %}">скачать шаблон (CSV)</a>
+                <a class="btn btn-secondary" href="{% url 'export_hr_agents_csv' %}">Скачать шаблон (CSV)</a>
             </div>
         </form>
     </div>

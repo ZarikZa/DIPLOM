@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block flash_messages %}{% endblock %}
+
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
@@ -43,7 +45,7 @@
             {% endif %}
 
             <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-primary" type="submit">{% if is_edit %}сохранить{% else %}создать{% endif %}</button>
+                <button class="btn btn-primary" type="submit">{% if is_edit %}Сохранить{% else %}Создать{% endif %}</button>
                 <a class="btn btn-secondary" href="{% url 'hr_agents_list' %}">Отмена</a>
             </div>
         </form>

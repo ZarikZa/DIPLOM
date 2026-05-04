@@ -63,17 +63,6 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsAdapter.ChatViewHold
         return chatList != null ? chatList.size() : 0;
     }
 
-    public void updateChats(List<Chat> newChats) {
-        if (chatList == null) {
-            chatList = new java.util.ArrayList<>();
-        }
-        chatList.clear();
-        if (newChats != null) {
-            chatList.addAll(newChats);
-        }
-        notifyDataSetChanged();
-    }
-
     static class ChatViewHolder extends RecyclerView.ViewHolder {
         CardView cardView;
         TextView companyNameTextView;

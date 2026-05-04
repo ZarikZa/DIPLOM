@@ -66,10 +66,7 @@ public class VideoAdapter extends RecyclerView.Adapter<VideoAdapter.VideoViewHol
         }
     };
 
-    public VideoAdapter(Context context,
-                        List<FeedVideoItem> videos,
-                        ExoPlayer player,
-                        OnVideoInteractionListener listener) {
+    public VideoAdapter(Context context, List<FeedVideoItem> videos, ExoPlayer player,OnVideoInteractionListener listener) {
         this.context = context;
         this.videos = videos;
         this.player = player;

@@ -11,7 +11,6 @@ public class UploadWireLogger implements Interceptor {
         Request r = chain.request();
         String url = r.url().toString();
 
-        // логируем только upload эндпоинт
         if (!url.contains("/api/content-manager/videos/") && !url.contains("/api/vacancy-videos/")) {
             return chain.proceed(r);
         }

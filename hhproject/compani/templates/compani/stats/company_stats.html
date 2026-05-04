@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
 
+{% block flash_messages %}{% endblock %}
+
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
 
-{% block title_name %}статистика компании{% endblock %}
+{% block title_name %}Статистика компании{% endblock %}
 
 {% block content %}
 <style>
@@ -70,13 +72,13 @@
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Активные вакансии</div><div style="font-size:28px;font-weight:800;">{{ summary.vacancies_active|default:0 }}</div></div>
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Отклики</div><div style="font-size:28px;font-weight:800;">{{ summary.responses_total|default:0 }}</div></div>
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">HR-агенты</div><div style="font-size:28px;font-weight:800;">{{ summary.hr_agents_total|default:0 }}</div></div>
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Контент-менеджер</div><div style="font-size:28px;font-weight:800;">{{ summary.content_managers_total|default:0 }}</div></div>
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Контент-менеджеры</div><div style="font-size:28px;font-weight:800;">{{ summary.content_managers_total|default:0 }}</div></div>
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;"><div style="color:#64748b;">Чаты</div><div style="font-size:28px;font-weight:800;">{{ summary.chats_total|default:0 }}</div></div>
     </div>
 
     <div class="company-stats-chart-grid">
         <div class="company-stats-chart-card">
-            <h2 style="margin:0 0 10px;font-size:20px;">Активность откликов (по месяцам)</h2>
+            <h2 style="margin:0 0 10px;font-size:20px;">Активность откликов по месяцам</h2>
             <div class="company-stats-chart-wrap">
                 <canvas id="activityChart"></canvas>
             </div>
@@ -117,53 +119,9 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <div style="color:#64748b;">Пока нет откликов</div>
+                <div style="color:#64748b;">Пока нет данных</div>
             {% endif %}
         </div>
     </div>
 </section>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-const activityLabels = [{% for p in activity_points %}'{{ p.label }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
-const activityValues = [{% for p in activity_points %}{{ p.count|default:0 }}{% if not forloop.last %}, {% endif %}{% endfor %}];
-
-const statusLabels = [{% for s in status_items %}'{{ s.name|escapejs }}'{% if not forloop.last %}, {% endif %}{% endfor %}];
-const statusValues = [{% for s in status_items %}{{ s.count|default:0 }}{% if not forloop.last %}, {% endif %}{% endfor %}];
-
-const activityCtx = document.getElementById('activityChart');
-if (activityCtx) {
-    new Chart(activityCtx, {
-        type: 'line',
-        data: {
-            labels: activityLabels,
-            datasets: [{
-                label: 'Отклики',
-                data: activityValues,
-                borderColor: '#1d4ed8',
-                backgroundColor: 'rgba(29, 78, 216, 0.14)',
-                fill: true,
-                tension: 0.3,
-                borderWidth: 2
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-}
-
-const statusCtx = document.getElementById('statusChart');
-if (statusCtx) {
-    new Chart(statusCtx, {
-        type: 'doughnut',
-        data: {
-            labels: statusLabels,
-            datasets: [{
-                data: statusValues,
-                backgroundColor: ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6']
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-}
-</script>
 {% endblock %}

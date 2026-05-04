@@ -1,7 +1,7 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
-{% block title_name %}Профиль администратора - CareerHub{% endblock %}
+{% block title_name %}Профиль администратора - WorkMPT{% endblock %}
 
 {% block style %}
 <style>
@@ -682,10 +682,12 @@
                                 <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'ru' %} active{% endif %}" data-language-option="ru" onclick="setLanguage('ru')" aria-pressed="{% if request.LANGUAGE_CODE == 'ru' %}true{% else %}false{% endif %}">RU</button>
                                 <button type="button" class="language-btn{% if request.LANGUAGE_CODE == 'en' %} active{% endif %}" data-language-option="en" onclick="setLanguage('en')" aria-pressed="{% if request.LANGUAGE_CODE == 'en' %}true{% else %}false{% endif %}">EN</button>
                             </div>
-                            <a href="{% url 'admin_profile_edit' %}" class="btn btn-edit">
-                                <i class="fas fa-edit"></i>
-                                {% if request.LANGUAGE_CODE == 'en' %}Edit profile{% else %}редактировать профиль{% endif %}
-                            </a>
+                            {% if not user.is_superuser %}
+                                <a href="{% url 'admin_profile_edit' %}" class="btn btn-edit">
+                                    <i class="fas fa-edit"></i>
+                                    {% if request.LANGUAGE_CODE == 'en' %}Edit profile{% else %}Редактировать профиль{% endif %}
+                                </a>
+                            {% endif %}
                         </div>
                     </div>
                     

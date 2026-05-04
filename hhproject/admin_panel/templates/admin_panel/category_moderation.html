@@ -1,5 +1,7 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
+
+{% block flash_messages %}{% endblock %}
 
 {% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Vacancy Categories Moderation{% else %}Модерация категорий вакансий{% endif %}{% endblock %}
 

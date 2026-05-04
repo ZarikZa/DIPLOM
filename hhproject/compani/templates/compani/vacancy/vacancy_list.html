@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block flash_messages %}{% endblock %}
+
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
@@ -19,20 +21,20 @@
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
         <div>
             <h1 style="margin:0;">Вакансии</h1>
-            <div style="color:#64748b;">Всего: {{ counts.total }} · Активных: {{ counts.active }} · Архив: {{ counts.archived }}</div>
+            <div style="color:#64748b;">Всего: {{ counts.total }} · Активных: {{ counts.active }} · В архиве: {{ counts.archived }}</div>
         </div>
-        <a class="btn btn-primary" href="{% url 'create_vacancy' %}">создать вакансию</a>
+        <a class="btn btn-primary" href="{% url 'create_vacancy' %}">Создать вакансию</a>
     </div>
 
     <form method="get" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-        <input type="text" class="form-control" style="max-width:360px;" name="search" placeholder="Поиск по позиции/году" value="{{ search }}">
+        <input type="text" class="form-control" style="max-width:360px;" name="search" placeholder="Поиск по должности или городу" value="{{ search }}">
         <select class="form-control" style="max-width:180px;" name="status">
             <option value="all" {% if current_status == 'all' %}selected{% endif %}>Все</option>
             <option value="active" {% if current_status == 'active' %}selected{% endif %}>Активные</option>
-            <option value="archived" {% if current_status == 'archived' %}selected{% endif %}>Архив</option>
+            <option value="archived" {% if current_status == 'archived' %}selected{% endif %}>В архиве</option>
         </select>
         <button class="btn btn-secondary" type="submit">Применить</button>
-        <a class="btn btn-secondary" href="{% url 'vacancy_list' %}">с</a>
+        <a class="btn btn-secondary" href="{% url 'vacancy_list' %}">Сбросить</a>
     </form>
 
     <div style="margin-top:14px;display:grid;gap:10px;">
@@ -43,10 +45,10 @@
                     <div>
                         <div style="font-size:20px;font-weight:700;">{{ vacancy.position }}</div>
                         <div style="color:#334155;">{{ vacancy.city }} · {{ vacancy.salary_min }}-{{ vacancy.salary_max }} ₽</div>
-                        <div style="color:#64748b;">{{ vacancy.status_name|default:'статус не задан' }}{% if vacancy.is_archived %} · Архив{% endif %}</div>
+                        <div style="color:#64748b;">{{ vacancy.status_name|default:'Статус не задан' }}{% if vacancy.is_archived %} · Архив{% endif %}</div>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
-                        <a class="btn btn-secondary" href="{% url 'edit_vacancy' vacancy.id %}">редактировать</a>
+                        <a class="btn btn-secondary" href="{% url 'edit_vacancy' vacancy.id %}">Редактировать</a>
                         {% if vacancy.is_archived %}
                         <a class="btn btn-secondary" href="{% url 'unarchive_vacancy' vacancy.id %}">Разархивировать</a>
                         {% else %}

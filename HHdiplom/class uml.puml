@@ -1,0 +1,2088 @@
+@startuml
+class com.example.hhdiplom.models.ComplaintCreateRequest {
+- int vacancy
+- String complaintType
+- String description
++ int getVacancy()
++ String getComplaintType()
++ String getDescription()
+}
+
+
+class com.example.hhdiplom.adapters.MessagesAdapter {
+- List<Message> messageList
+- SimpleDateFormat timeFormat
++ MessageViewHolder onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(MessageViewHolder,int)
++ int getItemCount()
++ void addMessage(Message)
++ void updateMessages(List<Message>)
+- int resolveAttrColor(Context,int)
+}
+
+
+class com.example.hhdiplom.adapters.MessagesAdapter$MessageViewHolder {
+~ ConstraintLayout messageContainer
+~ TextView messageTextView
+~ TextView timeTextView
+~ TextView senderNameTextView
+~ void bind(Message)
+- String formatTime(String)
+}
+
+
+class com.example.hhdiplom.models.ApplicantInterestsUpdateRequest {
+- List<String> categories
+}
+
+class com.example.hhdiplom.utils.ThemePrefs {
+- {static} String PREFS
+- {static} String KEY_THEME
++ {static} void applySavedTheme(Context)
++ {static} int getSavedTheme(Context)
++ {static} void toggleTheme(Context)
+}
+
+
+class com.example.hhdiplom.models.PasswordResetRequest {
+- String email
+}
+
+class com.example.hhdiplom.models.SkillsResponse {
+- List<SkillItem> results
++ List<SkillItem> getResults()
+}
+
+
+class com.example.hhdiplom.fragments.ChatsFragment {
+- RecyclerView chatsRecyclerView
+- ProgressBar progressBar
+- View emptyState
+- SwipeRefreshLayout swipeRefreshLayout
+- TextView emptyStateTitle
+- TextView emptyStateSubtitle
+- ChatsAdapter chatsAdapter
+- ApiService apiService
+- List<Chat> chatList
++ View onCreateView(LayoutInflater,ViewGroup,Bundle)
+- void initViews(View)
+- void setupRecyclerView()
+- void initApiService()
+- void setupSwipeRefresh()
+- void loadChats()
+- void showEmptyState(String,String)
+- void showError(String)
++ void onResume()
+}
+
+
+class com.example.hhdiplom.models.ApplicantSkillItem {
++ int skillId
++ int level
++ String skillName
+}
+
+class com.example.hhdiplom.models.SendMessageRequest {
+- String text
++ String getText()
++ void setText(String)
+}
+
+
+class com.example.hhdiplom.models.TokenResponse {
+- String accessToken
+- String refreshToken
+- int userId
+- String username
+- String email
+- String userType
++ String getAccessToken()
++ void setAccessToken(String)
++ String getRefreshToken()
++ void setRefreshToken(String)
++ int getUserId()
++ void setUserId(int)
++ String getUsername()
++ void setUsername(String)
++ String getEmail()
++ void setEmail(String)
++ String getUserType()
++ void setUserType(String)
+}
+
+
+class com.example.hhdiplom.fragments.FeedVideoFragment {
+- {static} String TAG
+- ViewPager2 viewPager2
+- ExoPlayer player
+- List<FeedVideoItem> videos
+- VideoAdapter videoAdapter
++ View onCreateView(LayoutInflater,ViewGroup,Bundle)
++ void onViewCreated(View,Bundle)
+- void fetchVideos()
+- void fetchFallback(ApiService)
+- void applyNewList(List<FeedVideoItem>)
+- Integer extractVacancyId(FeedVideoItem)
++ void onDestroyView()
++ void onResume()
++ void onStop()
+}
+
+
+class com.example.hhdiplom.models.Message {
+- int id
+- String text
+- String senderEmail
+- String senderName
+- boolean isMyMessage
+- boolean isRead
+- String createdAt
++ int getId()
++ void setId(int)
++ String getText()
++ void setText(String)
++ String getSenderEmail()
++ void setSenderEmail(String)
++ String getSenderName()
++ void setSenderName(String)
++ boolean isMyMessage()
++ void setMyMessage(boolean)
++ boolean isRead()
++ void setRead(boolean)
++ String getCreatedAt()
++ void setCreatedAt(String)
+}
+
+
+class com.example.hhdiplom.adapters.CmVacancyAdapter {
+- List<Vacancy> items
+- OnVacancyActionListener listener
++ void setItems(List<Vacancy>)
++ VH onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(VH,int)
++ int getItemCount()
+}
+
+
+interface com.example.hhdiplom.adapters.CmVacancyAdapter$OnVacancyActionListener {
+~ void onUploadVideoClicked(Vacancy)
+}
+
+class com.example.hhdiplom.adapters.CmVacancyAdapter$VH {
+~ TextView tvTitle
+~ TextView tvMeta
+~ Button btnUpload
+}
+
+class com.example.hhdiplom.activities.ChatMessagesActivity {
+- {static} String EXTRA_CHAT_ID
+- {static} String EXTRA_VACANCY_ID
+- {static} String EXTRA_COMPANY_NAME
+- {static} String EXTRA_VACANCY_TITLE
+- {static} long POLL_INTERVAL_MS
+- RecyclerView messagesRecyclerView
+- EditText messageEditText
+- ImageButton sendButton
+- ImageButton backButton
+- ProgressBar progressBar
+- TextView toolbarTitle
+- TextView toolbarSubtitle
+- View headerContainer
+- View headerArrow
+- Handler handler
+- Runnable pollingRunnable
+- MessagesAdapter messagesAdapter
+- ApiService apiService
+- List<Message> messageList
+- int chatId
+- int vacancyId
+- String companyName
+- String vacancyTitle
+# void onCreate(Bundle)
+- boolean readIntentExtras()
+- void initViews()
+- void setupToolbar()
+- void setupRecyclerView()
+- void initApiService()
+- void setupMessageInput()
+- void loadMessages()
+- void sendMessage()
+- void startPolling()
+- void stopPolling()
+- void checkNewMessages()
+- void updateMessages(List<Message>,boolean)
+- void scrollToBottom()
+- void openVacancy()
+- String safeText(String,int)
+# void onResume()
+# void onPause()
+# void onDestroy()
++ {static} void start(Activity,int,int,String,String)
++ {static} void start(Activity,int)
+}
+
+
+class com.example.hhdiplom.models.RegisterRequest {
+- String email
+- String username
+- String phone
+- String password
+- String password2
+- String firstName
+- String lastName
+- String birthDate
+- String resume
++ String getEmail()
++ void setEmail(String)
++ String getUsername()
++ void setUsername(String)
++ String getPhone()
++ void setPhone(String)
++ String getPassword()
++ void setPassword(String)
++ String getPassword2()
++ void setPassword2(String)
++ String getFirstName()
++ void setFirstName(String)
++ String getLastName()
++ void setLastName(String)
++ String getBirthDate()
++ void setBirthDate(String)
++ String getResume()
++ void setResume(String)
+}
+
+
+class com.example.hhdiplom.activities.ResponseDetailsActivity {
++ {static} String EXTRA_RESPONSE_ID
++ {static} String EXTRA_VACANCY_ID
++ {static} String EXTRA_VACANCY_POSITION
++ {static} String EXTRA_COMPANY_NAME
++ {static} String EXTRA_STATUS_NAME
++ {static} String EXTRA_RESPONSE_DATE
++ {static} String EXTRA_APPLICANT_NAME
+- {static} String FILTER_INVITATION
+- TextView tvResponseId
+- TextView tvPosition
+- TextView tvCompany
+- TextView tvStatus
+- TextView tvDate
+- TextView tvApplicant
+- ProgressBar progressBar
+- Button btnOpenVacancy
+- Button btnAcceptInvite
+- ApiService apiService
+- int responseId
+- int vacancyId
++ {static} Intent createIntent(Context,ResponseItem)
+# void onCreate(Bundle)
+- void initViews()
+- void bindInitialExtras()
+- void setupActions()
+- void loadResponseDetails()
+- void applyResponse(String,String,String,String,String,int)
+- String formatDate(String)
+- String classifyStatus(String)
+- StatusStyle getStatusStyle(String)
+- String orFallback(String,String)
+}
+
+
+class com.example.hhdiplom.activities.ResponseDetailsActivity$StatusStyle {
+~ int backgroundRes
+~ int textColorRes
+}
+
+class com.example.hhdiplom.models.RefreshTokenRequest {
+- String refreshToken
++ String getRefreshToken()
++ void setRefreshToken(String)
+}
+
+
+class com.example.hhdiplom.activities.EditProfileActivity {
+- TextInputLayout tilFirstName
+- TextInputLayout tilLastName
+- TextInputLayout tilEmail
+- TextInputLayout tilPhone
+- TextInputLayout tilBirthDate
+- TextInputLayout tilResume
+- TextInputLayout tilCompanyName
+- TextInputLayout tilCompanyNumber
+- TextInputLayout tilCompanyIndustry
+- TextInputLayout tilCompanyDescription
+- TextInputEditText etFirstName
+- TextInputEditText etLastName
+- TextInputEditText etEmail
+- TextInputEditText etPhone
+- TextInputEditText etBirthDate
+- TextInputEditText etResume
+- TextInputEditText etCompanyName
+- TextInputEditText etCompanyNumber
+- TextInputEditText etCompanyIndustry
+- TextInputEditText etCompanyDescription
+- ImageView ivProfilePhoto
+- TextView tvRoleInfo
+- TextView tvPhotoHint
+- TextView tvApplicantSectionTitle
+- TextView tvCompanySectionTitle
+- View cardCompanySection
+- Button btnChangePhoto
+- Button btnSave
+- ProgressBar progressBar
+- ApiService apiService
+- UserProfile currentProfile
+- boolean isContentManager
+- Uri selectedAvatarUri
+- boolean avatarChanged
+- ActivityResultLauncher<String> pickPhotoLauncher
+- Call<UserProfile> loadProfileCall
+- Call<UserProfile> updateProfileCall
+- Call<UserProfile> uploadAvatarCall
+# void onCreate(Bundle)
+- void findViews()
+- void setupDatePicker()
+- void loadCurrentProfile()
+- void applyRoleVisibility()
+- void fillProfileFields(UserProfile)
+- void saveProfile()
+- void uploadAvatarIfNeeded()
+- MultipartBody.Part buildAvatarPart(Uri)
+- void copyUriToFile(Uri,File)
+- void onSaveSuccess()
+- boolean validateForm()
+- void clearErrors()
+- boolean isContentManagerProfile(UserProfile)
+- void setLoading(boolean)
+- void loadAvatarPreview(Uri)
+- void loadAvatarPreview(String)
+- String resolveAbsoluteUrl(String)
+- String formatBirthDateForUi(String)
+- String parseBirthDateForApi(String)
+- String safeText(TextInputEditText)
+- String nonNull(String)
+- String buildErrorMessage(int,boolean)
+# void onDestroy()
+}
+
+
+class com.example.hhdiplom.api.NetEventLogger {
+- {static} String T
++ void callStart(Call)
++ void connectStart(Call,InetSocketAddress,Proxy)
++ void requestHeadersStart(Call)
++ void requestBodyStart(Call)
++ void requestBodyEnd(Call,long)
++ void responseHeadersStart(Call)
++ void responseHeadersEnd(Call,okhttp3.Response)
++ void callFailed(Call,IOException)
++ void callEnd(Call)
+}
+
+
+class com.example.hhdiplom.VacancyAdapter {
+- List<Vacancy> vacancyList
+- OnVacancyClickListener listener
++ void updateList(List<Vacancy>)
++ VacancyViewHolder onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(VacancyViewHolder,int)
++ int getItemCount()
+}
+
+
+interface com.example.hhdiplom.VacancyAdapter$OnVacancyClickListener {
+~ void onVacancyClick(Vacancy)
+~ void onApplyClick(Vacancy)
+~ void onVideoClick(Vacancy)
+}
+
+class com.example.hhdiplom.VacancyAdapter$VacancyViewHolder {
+- TextView positionTextView
+- TextView companyTextView
+- TextView salaryTextView
+- TextView cityTextView
+- TextView experienceTextView
+- TextView statusBadge
+- Button applyButton
+- Button videoButton
+~ void bind(Vacancy,OnVacancyClickListener)
+- void bindForContentManager(Vacancy,OnVacancyClickListener)
+- void bindForApplicant(Vacancy,OnVacancyClickListener)
+- void bindStatus(Vacancy)
+- boolean isClosed(String)
+- String safeValue(String,String)
+- String formatSalary(Vacancy)
+- Integer parseSalary(String)
+- String formatMoney(int)
+- String str(int,Object)
+}
+
+
+class com.example.hhdiplom.models.ComplaintListResponse {
+- int count
+- String next
+- String previous
+- List<Complaint> results
++ int getCount()
++ String getNext()
++ String getPrevious()
++ List<Complaint> getResults()
+}
+
+
+class com.example.hhdiplom.fragments.VacanciesFragment {
+- {static} int SEARCH_DELAY_MS
+- {static} String SORT_NEWEST
+- {static} String SORT_SALARY_DESC
+- {static} String SORT_SALARY_ASC
+- {static} String SORT_NAME_ASC
+- {static} String STATE_ALL
+- {static} String STATE_ACTIVE
+- {static} String STATE_APPLIED
+- ApiService apiService
+- RecyclerView vacanciesRecyclerView
+- EditText searchEditText
+- ImageView filterButton
+- Spinner spinnerVacancySort
+- ChipGroup chipGroupVacancyState
+- TextView tvVacancyCount
+- ProgressBar progressBar
+- LinearLayout emptyState
+- VacancyAdapter vacancyAdapter
+- List<Vacancy> vacancyList
+- List<Vacancy> filteredList
+- FilterParams currentFilters
+- List<String> cities
+- List<String> categories
+- List<String> experiences
+- List<String> workConditions
+- boolean filtersLoaded
+- String selectedSortKey
+- String selectedStateKey
+- Handler handler
+- Runnable searchRunnable
++ View onCreateView(LayoutInflater,ViewGroup,Bundle)
++ void onViewCreated(View,Bundle)
+- void initViews(View)
+- void setupRecyclerView()
+- void setupSearch()
+- void setupSort()
+- void setupStateFilter()
+- void showFiltersDialog()
+- String getSpinnerValueOrNull(Spinner)
+- Integer parseIntegerOrNull(String)
+- void applyFilters()
+- void updateFilterButtonState()
+- void loadFilterData(Runnable)
+- void loadVacancies()
+- void applyClientFiltersAndSort()
+- boolean matchesSearch(Vacancy,String)
+- boolean contains(String,String)
+- boolean matchesState(Vacancy)
+- boolean isVacancyActive(String)
+- void sortVacancies(List<Vacancy>)
+- int getVacancySalary(Vacancy)
+- int parseMoney(String)
+- long parseDate(String)
+- String safeString(String)
+- void updateCount()
+- void updateEmptyState()
+- void handleErrorResponse(int)
+- void showVacancyDetails(Vacancy)
+- void openVacancyDetails(int)
+- void applyForVacancy(Vacancy)
+- void hideKeyboard()
++ void onDestroyView()
++ void refreshVacancies()
+}
+
+
+class com.example.hhdiplom.models.LoginRequest {
+- String email
+- String password
++ String getUsername()
++ void setUsername(String)
++ String getPassword()
++ void setPassword(String)
+}
+
+
+class com.example.hhdiplom.activities.PasswordResetRequestActivity {
+- TextInputLayout emailLayout
+- TextInputEditText etEmail
+- Button btnSendCode
+- ApiService apiService
+# void onCreate(Bundle)
+- void setLoading(boolean)
++ void onBackPressed()
+}
+
+
+class com.example.hhdiplom.models.SkillItem {
++ int id
++ String name
+}
+
+class com.example.hhdiplom.activities.VacancyDetailsActivity {
+- TextView tvPosition
+- TextView tvViews
+- TextView tvConditions
+- TextView tagSalary
+- LinearLayout extraTagsContainer
+- View cardRequirements
+- ProgressBar progressBar
+- ImageButton btnBack
+- Button btnApply
+- ImageButton btnReport
+- boolean hasComplained
+- ApiService apiService
+- int vacancyId
+- boolean isFavorite
+- boolean hasApplied
+# void onCreate(Bundle)
+- void initViews()
+- void setupListeners()
+- void showComplaintDialog()
+- void checkComplaintStatus()
+- void sendComplaint(String,String)
+- void updateReportButton()
+- void loadVacancyDetails()
+- void displayVacancyDetails(VacancyDetails)
+- void setupOptionalSection(View,TextView,String)
+- void updateApplyButton()
+- void toggleFavorite()
+- void updateFavoriteIcon()
+- void applyForVacancy()
+- void handleError(int)
++ void onBackPressed()
+}
+
+
+class com.example.hhdiplom.models.CheckResponse {
+- boolean hasResponded
+- int responseId
+- String status
++ boolean isHasResponded()
++ int getResponseId()
++ String getStatus()
+}
+
+
+class com.example.hhdiplom.models.VacancyVideo {
+- int id
+- String videoUrl
+- String description
+- Integer vacancyId
+- String vacancyPosition
+- int likesCount
+- int viewsCount
+- boolean isLiked
++ int getId()
++ String getVideoUrl()
++ String getDescription()
++ Integer getVacancyId()
++ String getVacancyPosition()
++ int getLikes()
++ int getViews()
++ boolean isLiked()
++ void setLikes(int)
++ void setViews(int)
++ void setLiked(boolean)
+}
+
+
+class com.example.hhdiplom.adapters.SkillsSelectAdapter {
+- List<SkillRow> rows
++ List<SkillRow> getRows()
++ VH onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(VH,int)
++ int getItemCount()
+}
+
+
+class com.example.hhdiplom.adapters.SkillsSelectAdapter$SkillRow {
++ SkillItem skill
++ boolean selected
++ int level
+}
+
+class com.example.hhdiplom.adapters.SkillsSelectAdapter$VH {
+~ TextView tvSkillName
+~ Switch swSelected
+~ LinearLayout levelContainer
+~ SeekBar seekLevel
+}
+
+class com.example.hhdiplom.adapters.CmVideosGridAdapter {
+- List<CmVideoItem> items
++ VH onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(VH,int)
+- void showMenu(View,CmVideoItem,int)
+- void openPlayer(Context,CmVideoItem)
+- void openVacancy(Context,CmVideoItem)
+- void confirmDelete(Context,CmVideoItem,int)
+- void doDelete(Context,int,int)
+- String normalizeVideoUrl(String)
++ int getItemCount()
+}
+
+
+class com.example.hhdiplom.adapters.CmVideosGridAdapter$VH {
+~ ImageView imgThumb
+~ TextView tvVacancy
+}
+
+class com.example.hhdiplom.models.ApplicantSkill {
++ int skill
++ String skillName
++ int level
+}
+
+class com.example.hhdiplom.models.Skill {
+- int id
+- String name
++ int getId()
++ String getName()
++ void setId(int)
++ void setName(String)
+}
+
+
+class com.example.hhdiplom.fragments.ResponsesFragment {
+- {static} int SEARCH_DELAY_MS
+- {static} String FILTER_ALL
+- {static} String FILTER_SENT
+- {static} String FILTER_PROGRESS
+- {static} String FILTER_INVITATION
+- {static} String FILTER_REJECTED
+- {static} String SORT_NEWEST
+- {static} String SORT_OLDEST
+- {static} String SORT_STATUS
+- RecyclerView responsesRecyclerView
+- ProgressBar progressBar
+- LinearLayout emptyState
+- EditText responseSearchEditText
+- Spinner spinnerResponsesSort
+- ChipGroup chipGroupResponseStatus
+- TextView tvResponsesCount
+- ResponsesAdapter adapter
+- ApiService apiService
+- List<ResponseItem> allResponses
+- String selectedFilter
+- String selectedSort
+- Handler searchHandler
+- Runnable searchRunnable
++ View onCreateView(LayoutInflater,ViewGroup,Bundle)
+- void initViews(View)
+- void setupSearch()
+- void setupSort()
+- void setupStatusFilter()
+- void loadResponses()
+- void applyClientFiltersAndSort()
+- boolean matchesSearch(ResponseItem,String)
+- boolean contains(String,String)
+- boolean matchesStatusFilter(ResponseItem)
+- String classifyStatus(ResponseItem)
+- void sortResponses(List<ResponseItem>)
+- long parseDate(String)
+- String safeValue(String)
+- void updateCount(int)
+- void updateEmptyState()
+- void handleError(int)
+- void showResponseDetails(ResponseItem)
++ void refreshResponses()
++ void onDestroyView()
+}
+
+
+class com.example.hhdiplom.models.LikeResponse {
+- boolean liked
++ boolean isLiked()
++ void setLiked(boolean)
+}
+
+
+class com.example.hhdiplom.activities.CmVideoPlayerActivity {
+- PlayerView playerView
+- ExoPlayer player
+- String videoUrl
+- int vacancyId
+- String vacancyTitle
+- int likesCount
+- boolean isLiked
+- TextView tvVacancyTitle
+- TextView tvLikes
+- ImageView btnLike
+- ImageView btnOpenVacancy
+- LinearLayout blockVacancy
+# void onCreate(Bundle)
+# void onStop()
+# void onDestroy()
+}
+
+
+class com.example.hhdiplom.MainActivity {
+- BottomNavigationView bottomNavigationView
+- FrameLayout fragmentContainer
+# void onCreate(Bundle)
+- void setupNavigation()
+- void loadFragment(Fragment)
+}
+
+
+class com.example.hhdiplom.models.ToggleFavoriteResponse {
+- boolean isFavorite
++ boolean isFavorite()
+}
+
+
+class com.example.hhdiplom.activities.ChangePasswordActivity {
+- TextInputLayout tilOldPassword
+- TextInputLayout tilNewPassword
+- TextInputLayout tilConfirmPassword
+- TextInputEditText etOldPassword
+- TextInputEditText etNewPassword
+- TextInputEditText etConfirmPassword
+- Button btnSavePassword
+- ProgressBar progressBar
+- ApiService apiService
+- Call<Void> changePasswordCall
+# void onCreate(Bundle)
+- void submit()
+- void clearErrors()
+- void setLoading(boolean)
+- String text(TextInputEditText)
+# void onDestroy()
+}
+
+
+class com.example.hhdiplom.models.ChangePasswordRequest {
+- String oldPassword
+- String newPassword
+- String newPasswordConfirm
++ String getOldPassword()
++ void setOldPassword(String)
++ String getNewPassword()
++ void setNewPassword(String)
++ String getNewPasswordConfirm()
++ void setNewPasswordConfirm(String)
+}
+
+
+class com.example.hhdiplom.models.Complaint {
+- int id
+- int vacancyId
+- int complainantId
+- String complaintType
+- String description
+- String status
+- String createdAt
+- String resolvedAt
+- String adminNotes
++ int getId()
++ void setId(int)
++ int getVacancyId()
++ void setVacancyId(int)
++ int getComplainantId()
++ void setComplainantId(int)
++ String getComplaintType()
++ void setComplaintType(String)
++ String getDescription()
++ void setDescription(String)
++ String getStatus()
++ void setStatus(String)
++ String getCreatedAt()
++ void setCreatedAt(String)
++ String getResolvedAt()
++ void setResolvedAt(String)
++ String getAdminNotes()
++ void setAdminNotes(String)
+}
+
+
+class com.example.hhdiplom.CmMainActivity {
+- BottomNavigationView bottomNavigationView
+- FrameLayout fragmentContainer
+# void onCreate(Bundle)
+- void setupNavigation()
+- void loadFragment(Fragment)
+}
+
+
+interface com.example.hhdiplom.api.ApiService {
+~ Call<TokenResponse> register(RegisterRequest)
+~ Call<TokenResponse> login(LoginRequest)
+~ Call<TokenResponse> refreshToken(RefreshTokenRequest)
+~ Call<UserProfile> getUserProfile()
+~ Call<Void> changePassword(ChangePasswordRequest)
+~ Call<CmProfileStatsResponse> getCmProfileStats()
+~ Call<ChatResponse> getChats()
+~ Call<List<Message>> getChatMessages(int)
+~ Call<Message> sendMessage(int,SendMessageRequest)
+~ Call<UserProfile> updateProfile(UserProfile)
+~ Call<UserProfile> uploadProfileAvatar(MultipartBody.Part)
+~ Call<VacancyResponse> getContentManagerVacancies(int)
+~ Call<SkillsResponse> getSkills()
+~ Call<List<ApplicantSkillItem>> saveMySkills(SkillsUpsertRequest)
+~ Call<ApplicantInterestsResponse> getMyInterests()
+~ Call<ApplicantInterestsResponse> saveMyInterests(ApplicantInterestsUpdateRequest)
+~ Call<List<ApplicantSkillSuggestionResponse>> getMySkillSuggestions()
+~ Call<ApplicantSkillSuggestionResponse> createSkillSuggestion(ApplicantSkillSuggestionCreateRequest)
+~ Call<VacancyResponse> getVacancies(String,String,String,String,String,Integer,Integer,Boolean,Boolean,int)
+~ Call<VacancyDetails> getVacancyDetails(int)
+~ Call<List<String>> getWorkConditions()
+~ Call<ResponsesResponse> getResponses()
+~ Call<Void> createResponse(ResponseRequest)
+~ Call<ResponseItem> getResponseDetails(int)
+~ Call<CheckResponse> checkResponse(int)
+~ Call<com.example.hhdiplom.models.FeedVideoResponse> getRecommendedVideoFeed()
+~ Call<com.example.hhdiplom.models.FeedVideoResponse> getVideoFeed()
+~ Call<LikeResponse> likeVideo(int)
+~ Call<Void> viewVideo(int)
+~ Call<ToggleFavoriteResponse> toggleFavorite(ToggleFavoriteRequest)
+~ Call<List<ApplicantSkill>> getMySkills()
+~ Call<CmVideoResponse> getContentManagerVideos(int)
+~ Call<Complaint> createComplaint(ComplaintCreateRequest)
+~ Call<ComplaintListResponse> getMyComplaints(int)
+~ Call<VacancyVideo> uploadVideoAsCM(MultipartBody.Part,RequestBody,RequestBody)
+~ Call<Void> deleteCmVideo(int)
+~ Call<Void> passwordResetRequest(PasswordResetRequest)
+~ Call<Void> passwordResetConfirm(PasswordResetConfirm)
+}
+
+class com.example.hhdiplom.api.ProgressRequestBody {
+- {static} String TAG
+- RequestBody delegate
+- Listener listener
++ MediaType contentType()
++ long contentLength()
++ void writeTo(BufferedSink)
+}
+
+
+interface com.example.hhdiplom.api.ProgressRequestBody$Listener {
+~ void onProgress(long,long)
+}
+
+class com.example.hhdiplom.activities.SkillsActivity {
+- RecyclerView rvSkills
+- Button btnSaveSkills
+- Button btnSuggestSkill
+- ApiService apiService
+- SkillsSelectAdapter adapter
+- List<SkillsSelectAdapter.SkillRow> rows
+- Map<Integer,Integer> myLevels
+- Map<String,String> mySuggestionStatuses
+# void onCreate(Bundle)
+- void loadMySkillsThenAllSkills()
+- void loadAllSkills()
+- void saveSkills()
+- void openSuggestSkillDialog()
+- void loadMySkillSuggestions()
+- void sendSkillSuggestion(String)
+- String normalizeSkillName(String)
+- boolean isExistingSkill(String)
+- String extractServerErrorMessage(Response<?>)
+- String extractFirstErrorItem(Object)
+}
+
+
+class com.example.hhdiplom.activities.CmAnalyticsActivity {
+- TextView tvManagerName
+- TextView tvManagerMeta
+- TextView tvCompanyName
+- TextView tvCompanyMeta
+- LinearLayout statsContainer
+- LinearLayout chartContainer
+- LinearLayout statusContainer
+- LinearLayout topVacanciesContainer
+- ProgressBar progressBar
+- ApiService apiService
+- Call<CmProfileStatsResponse> statsCall
+# void onCreate(Bundle)
+- void loadAnalytics()
+- void bindAnalytics(CmProfileStatsResponse)
+- void renderChart(CmProfileStatsResponse.ChartInfo,CmProfileStatsResponse.StatsInfo)
+- void renderResponsesByStatus(List<CmProfileStatsResponse.ResponseStatusItem>)
+- void renderTopVacancies(List<CmProfileStatsResponse.TopVacancyItem>)
+- void addStatRow(LinearLayout,String,int)
+- void addStatusRow(LinearLayout,String,int)
+- void addEmptyText(LinearLayout,String)
+- String nonEmpty(String,String)
+- int resolveAttrColor(Context,int)
+# void onDestroy()
+}
+
+
+class com.example.hhdiplom.models.VacancyResponse {
+- int count
+- String next
+- String previous
+- List<Vacancy> results
++ int getCount()
++ void setCount(int)
++ String getNext()
++ void setNext(String)
++ String getPrevious()
++ void setPrevious(String)
++ List<Vacancy> getResults()
++ void setResults(List<Vacancy>)
+}
+
+
+class com.example.hhdiplom.models.ApplicantSkillSuggestionResponse {
+- int id
+- String name
+- String status
++ int getId()
++ String getName()
++ String getStatus()
+}
+
+
+class com.example.hhdiplom.models.ResponsesResponse {
+- int count
+- String next
+- String previous
+- List<ResponseItem> results
++ int getCount()
++ String getNext()
++ String getPrevious()
++ List<ResponseItem> getResults()
+}
+
+
+class com.example.hhdiplom.activities.LoginActivity {
+- TextInputEditText etUsername
+- TextInputEditText etPassword
+- TextInputLayout emailLayout
+- TextInputLayout passwordLayout
+- Button btnLogin
+- Button btnRegister
+- TextView tvForgotPassword
+- ApiService apiService
+# void onCreate(Bundle)
+- void initViews()
+- void setupListeners()
+- void setLoginLoading(boolean)
+- void autoLoginRoute()
+- void goToRoleBasedMain(UserProfile)
+- void fallbackCheckCmEndpoint()
+- void loginUser(String,String)
+- void loadAndSaveUserProfile(String)
+- void goToRoleBasedMain(UserProfile,ApiService)
+- void handleLoginError(int)
++ void onBackPressed()
+}
+
+
+class com.example.hhdiplom.fragments.cm.CmVideosFragment {
+- RecyclerView recycler
+- ProgressBar progress
+- TextView empty
+- CmVideosGridAdapter adapter
+- List<CmVideoItem> items
++ View onCreateView(LayoutInflater,ViewGroup,Bundle)
+- void load(int)
+}
+
+
+class com.example.hhdiplom.adapters.VideoAdapter {
+- Context context
+- List<FeedVideoItem> videos
+- ExoPlayer player
+- OnVideoInteractionListener listener
+- int currentPlayingPosition
+- int currentPlayingVideoId
+- Set<Integer> viewedPositions
+- Set<Integer> respondedVacancyIds
+- float lastNonZeroVolume
+- VideoViewHolder activeHolder
+- Player.Listener playerListener
++ VideoViewHolder onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(VideoViewHolder,int)
+- void bindLikeAction(VideoViewHolder,FeedVideoItem)
+- void bindVacancyAction(VideoViewHolder)
+- void bindApplyAction(VideoViewHolder,FeedVideoItem)
+- void bindPlayerControls(VideoViewHolder)
+- void attachAndPlayVideo(FeedVideoItem,VideoViewHolder)
+- void updateLikeUi(VideoViewHolder,boolean,int)
+- void togglePlayPause()
+- void toggleMute()
+- void syncVolumeUi(VideoViewHolder)
+- void updateMuteIcon(ImageButton,float)
+- void updatePlayPauseIcon()
+- boolean isHolderActive(VideoViewHolder)
+- void setApplyButtonState(Button,boolean,boolean)
+- void markVideoVacancyAsApplied(int)
+- void notifyItemsByVacancy(int)
+- Integer extractVacancyId(FeedVideoItem)
+- String normalizeVideoUrl(String)
++ int getItemCount()
++ void playVideoAtPosition(int)
++ void onViewAttachedToWindow(VideoViewHolder)
++ void onViewRecycled(VideoViewHolder)
++ void onDetachedFromRecyclerView(RecyclerView)
+}
+
+
+interface com.example.hhdiplom.adapters.VideoAdapter$OnVideoInteractionListener {
+~ void onLikeClicked(FeedVideoItem,int)
+~ void onVideoViewed(FeedVideoItem)
+~ void onVacancyClicked(FeedVideoItem)
+}
+
+class com.example.hhdiplom.adapters.VideoAdapter$VideoViewHolder {
+~ PlayerView playerView
+~ TextView tvDescription
+~ TextView tvLikes
+~ ImageView btnLike
+~ ImageView btnVacancy
+~ ImageButton btnMute
+~ ImageButton btnPlayPause
+~ Button btnApply
+}
+
+class com.example.hhdiplom.VacancyApp {
++ void onCreate()
+}
+
+class com.example.hhdiplom.models.VacancyDetails {
+- int id
+- String position
+- String companyName
+- String city
+- String description
+- String salary
+- String experience
+- String category
+- String employmentType
+- String workSchedule
+- String requirements
+- String responsibilities
+- String conditions
+- String skills
+- String education
+- int viewsCount
+- String createdAt
+- boolean isFavorite
+- boolean hasApplied
++ int getId()
++ String getPosition()
++ String getCompanyName()
++ String getCity()
++ String getDescription()
++ String getSalary()
++ String getExperience()
++ String getCategory()
++ String getEmploymentType()
++ String getWorkSchedule()
++ String getRequirements()
++ String getResponsibilities()
++ String getConditions()
++ String getSkills()
++ String getEducation()
++ int getViewsCount()
++ String getCreatedAt()
++ boolean isFavorite()
++ boolean isHasApplied()
++ void setId(int)
++ void setPosition(String)
++ void setCompanyName(String)
++ void setCity(String)
++ void setDescription(String)
++ void setSalary(String)
++ void setExperience(String)
++ void setCategory(String)
++ void setEmploymentType(String)
++ void setWorkSchedule(String)
++ void setRequirements(String)
++ void setResponsibilities(String)
++ void setConditions(String)
++ void setSkills(String)
++ void setEducation(String)
++ void setViewsCount(int)
++ void setCreatedAt(String)
++ void setFavorite(boolean)
++ void setHasApplied(boolean)
+}
+
+
+class com.example.hhdiplom.activities.ContentManagerActivity {
+- RecyclerView recycler
+- ProgressBar progress
+- TextView tvEmpty
+- CmVacancyAdapter adapter
+# void onCreate(Bundle)
+- void loadVacancies()
++ void onUploadVideoClicked(Vacancy)
+}
+
+
+class com.example.hhdiplom.fragments.cm.CmUploadSelectVacancyFragment {
+- {static} int MAX_VIDEOS_PER_VACANCY
+- RecyclerView recycler
+- ProgressBar progress
+- TextView empty
+- EditText searchEditText
+- CmUploadVacancyAdapter adapter
+- List<Vacancy> items
+- Map<Integer,Integer> vacancyVideoCounts
+- List<Vacancy> allVacancies
+- List<Vacancy> eligibleVacancies
+- ActivityResultLauncher<Intent> uploadVideoLauncher
++ View onCreateView(LayoutInflater,ViewGroup,Bundle)
+- void setupSearch()
+- void load()
+- void loadCmVideosPage(int)
+- void loadCmVacanciesPage(int)
+- void applyFilters()
++ void onPickVacancy(Vacancy)
+}
+
+
+class com.example.hhdiplom.adapters.ResponsesAdapter {
+- List<ResponseItem> responseList
+- OnResponseClickListener listener
++ ViewHolder onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(ViewHolder,int)
++ int getItemCount()
++ void updateList(List<ResponseItem>)
+- String safeValue(String,String)
+- String formatDate(Context,String)
+- StatusStyle getStatusStyle(String)
+}
+
+
+interface com.example.hhdiplom.adapters.ResponsesAdapter$OnResponseClickListener {
+~ void onResponseClick(ResponseItem)
+}
+
+class com.example.hhdiplom.adapters.ResponsesAdapter$ViewHolder {
+~ TextView tvPosition
+~ TextView tvCompany
+~ TextView tvStatus
+~ TextView tvDate
+}
+
+class com.example.hhdiplom.adapters.ResponsesAdapter$StatusStyle {
+~ int backgroundRes
+~ int textColorRes
+}
+
+class com.example.hhdiplom.api.RequestMetaLogger {
++ Response intercept(Chain)
+}
+
+class com.example.hhdiplom.api.UploadWireLogger {
++ Response intercept(Chain)
+}
+
+class com.example.hhdiplom.models.CmVideoResponse {
+- int count
+- String next
+- String previous
+- List<CmVideoItem> results
++ int getCount()
++ String getNext()
++ String getPrevious()
++ List<CmVideoItem> getResults()
+}
+
+
+class com.example.hhdiplom.models.CmProfileStatsResponse {
+- ManagerInfo manager
+- CompanyInfo company
+- StatsInfo stats
+- List<ResponseStatusItem> responsesByStatus
+- List<TopVacancyItem> topVacancies
+- ChartInfo chart
++ ManagerInfo getManager()
++ CompanyInfo getCompany()
++ StatsInfo getStats()
++ List<ResponseStatusItem> getResponsesByStatus()
++ List<TopVacancyItem> getTopVacancies()
++ ChartInfo getChart()
+}
+
+
+class com.example.hhdiplom.models.CmProfileStatsResponse$ManagerInfo {
+- int id
+- String fullName
+- String role
+- String email
+- String phone
++ int getId()
++ String getFullName()
++ String getRole()
++ String getEmail()
++ String getPhone()
+}
+
+
+class com.example.hhdiplom.models.CmProfileStatsResponse$CompanyInfo {
+- int id
+- String name
+- String number
+- String industry
+- String description
++ int getId()
++ String getName()
++ String getNumber()
++ String getIndustry()
++ String getDescription()
+}
+
+
+class com.example.hhdiplom.models.CmProfileStatsResponse$StatsInfo {
+- int videosCount
+- int vacanciesCount
+- int responsesCount
+- int videoViewsCount
+- int videoLikesCount
+- int vacancyViewsCount
++ int getVideosCount()
++ int getVacanciesCount()
++ int getResponsesCount()
++ int getVideoViewsCount()
++ int getVideoLikesCount()
++ int getVacancyViewsCount()
+}
+
+
+class com.example.hhdiplom.models.CmProfileStatsResponse$ResponseStatusItem {
+- String status
+- int count
++ String getStatus()
++ int getCount()
+}
+
+
+class com.example.hhdiplom.models.CmProfileStatsResponse$TopVacancyItem {
+- int vacancyId
+- String position
+- int responsesCount
++ int getVacancyId()
++ String getPosition()
++ int getResponsesCount()
+}
+
+
+class com.example.hhdiplom.models.CmProfileStatsResponse$ChartInfo {
+- List<String> labels
+- List<Integer> values
++ List<String> getLabels()
++ List<Integer> getValues()
+}
+
+
+class com.example.hhdiplom.api.TokenManager {
+- {static} String TAG
++ {static} void checkTokenOnAppStart(Context,TokenRefreshCallback)
+- {static} void postRefreshed(TokenRefreshCallback)
+- {static} void postFailed(TokenRefreshCallback,String)
+}
+
+
+interface com.example.hhdiplom.api.TokenManager$TokenRefreshCallback {
+~ void onTokenRefreshed()
+~ void onTokenRefreshFailed(String)
+}
+
+class com.example.hhdiplom.models.CmVideoItem {
+- int id
+- String videoUrl
+- String description
+- int vacancyId
+- String vacancyPosition
+- int likesCount
+- int viewsCount
+- boolean isActive
++ int getId()
++ String getVideoUrl()
++ String getDescription()
++ int getVacancyId()
++ String getVacancyPosition()
++ int getLikesCount()
++ int getViewsCount()
++ boolean isActive()
+}
+
+
+class com.example.hhdiplom.activities.FavoritesActivity {
+- ApiService apiService
+- ProgressBar progressBar
+- RecyclerView recyclerView
+- TextView tvEmpty
+- VacancyAdapter adapter
+- List<Vacancy> items
+# void onCreate(Bundle)
+- void loadFavorites(int)
+}
+
+
+class com.example.hhdiplom.activities.PasswordResetConfirmActivity {
+- TextView tvEmail
+- TextInputLayout codeLayout
+- TextInputLayout passLayout
+- TextInputEditText etCode
+- TextInputEditText etNewPassword
+- Button btnConfirm
+- ApiService apiService
+- String email
+# void onCreate(Bundle)
+- void setLoading(boolean)
++ void onBackPressed()
+}
+
+
+class com.example.hhdiplom.models.ResponseItem {
+- int id
+- String applicantName
+- String vacancyPosition
+- String companyName
+- String statusName
+- String responseDate
+- int applicantId
+- int vacancyId
+- int statusId
++ int getId()
++ String getApplicantName()
++ String getVacancyPosition()
++ String getCompanyName()
++ String getStatusName()
++ String getResponseDate()
++ int getApplicantId()
++ int getVacancyId()
++ int getStatusId()
+}
+
+
+class com.example.hhdiplom.models.SkillsUpsertRequest {
++ List<SkillLevel> skills
+}
+
+class com.example.hhdiplom.models.SkillsUpsertRequest$SkillLevel {
++ int skillId
++ int level
+}
+
+class com.example.hhdiplom.activities.UploadVideoActivity {
+- {static} String TAG
+- PendingAction pendingAction
+- Uri pickedUri
+- int vacancyId
+- String vacancyTitle
+- String vacancyCity
+- TextView tvChosenVacancy
+- Spinner spinnerVacancies
+- LinearLayout spinnerBlock
+- EditText etDesc
+- ProgressBar progress
+- PlayerView previewPlayerView
+- ExoPlayer previewPlayer
+- TextView tvPreviewHint
+- ImageButton btnClearVideo
+- List<Vacancy> companyVacancies
+- ArrayAdapter<String> vacancyTitlesAdapter
+- UUID currentWorkId
+- boolean uploadInProgress
+- ActivityResultLauncher<Intent> captureLauncher
+- ActivityResultLauncher<String> pickLauncher
+- ActivityResultLauncher<String[]> permissionLauncher
+# void onCreate(Bundle)
+- void setupSpinner()
+- void loadCompanyVacancies()
+- void fetchCmVacancies(int)
+- void requestPermissionsIfNeeded()
+- void pickVideo()
+- void captureVideo()
+- void showPreview(Uri)
+- void clearPickedVideo()
+- void setPreviewVisible(boolean)
+- void enqueueUpload()
+- void observeUpload(UUID)
+- void finishUploadUI()
+- void setUploadButtonsEnabled(boolean)
+- void toast(String)
+# void onStop()
+# void onDestroy()
+}
+
+
+enum com.example.hhdiplom.activities.PendingAction {
++  NONE
++  PICK
++  CAPTURE
+}
+
+class com.example.hhdiplom.models.PasswordResetConfirm {
+- String email
+- String code
+- String new_password
+}
+
+class com.example.hhdiplom.models.ApplicantSkillSuggestionCreateRequest {
+- String name
+}
+
+class com.example.hhdiplom.models.ApplicantInterestsResponse {
+- List<String> categories
+- List<String> availableCategories
++ List<String> getCategories()
++ List<String> getAvailableCategories()
+}
+
+
+class com.example.hhdiplom.activities.RegisterActivity {
+- TextInputEditText etUsername
+- TextInputLayout usernameLayout
+- Button btnRegister
+- ApiService apiService
+- Calendar calendar
+- SimpleDateFormat dateFormat
+# void onCreate(Bundle)
+- void initViews()
+- void setupListeners()
+- void setupDatePicker()
+- void setupRealTimeValidation()
+- boolean validateForm()
+- void registerUser()
+- void handleRegistrationError(Response<TokenResponse>)
+- void showSuccessMessage(String)
++ void onBackPressed()
+}
+
+
+class com.example.hhdiplom.api.UploadGate {
+- {static} AtomicInteger active
++ {static} void begin()
++ {static} void end()
++ {static} boolean isUploading()
+}
+
+
+class com.example.hhdiplom.fragments.SimpleTextWatcher {
+- OnTextChangedListener listener
++ void beforeTextChanged(CharSequence,int,int,int)
++ void onTextChanged(CharSequence,int,int,int)
++ void afterTextChanged(Editable)
+}
+
+
+interface com.example.hhdiplom.fragments.SimpleTextWatcher$OnTextChangedListener {
+~ void onTextChanged(String)
+}
+
+class com.example.hhdiplom.utils.RoleUtils {
++ {static} AppRole getCurrentRole()
++ {static} String getDebugRoleString()
+- {static} String safeLower(String)
+}
+
+enum com.example.hhdiplom.utils.AppRole {
++  APPLICANT
++  CONTENT_MANAGER
++  OTHER
+}
+
+class com.example.hhdiplom.models.ResponseRequest {
+- int vacancyId
++ int getVacancyId()
++ void setVacancyId(int)
+}
+
+
+class com.example.hhdiplom.models.Response {
+- int id
+- int applicantId
+- int vacancyId
+- String responseDate
+- int statusId
++ int getId()
++ void setId(int)
++ int getApplicantId()
++ void setApplicantId(int)
++ int getVacancyId()
++ void setVacancyId(int)
++ String getResponseDate()
++ void setResponseDate(String)
++ int getStatusId()
++ void setStatusId(int)
+}
+
+
+class com.example.hhdiplom.models.UserProfile {
+- int id
+- String email
+- String username
+- String phone
+- String userType
+- String userTypeDisplay
+- String firstName
+- String lastName
+- String birthDate
+- String resume
+- String avatar
+- Integer applicantId
+- String employeeRole
+- Integer companyId
+- String companyName
+- String companyNumber
+- String companyIndustry
+- String companyDescription
++ int getId()
++ String getEmail()
++ String getUsername()
++ String getPhone()
++ String getUserType()
++ String getUserTypeDisplay()
++ String getFirstName()
++ String getLastName()
++ String getBirthDate()
++ String getResume()
++ String getAvatar()
++ Integer getApplicantId()
++ String getEmployeeRole()
++ Integer getCompanyId()
++ String getCompanyName()
++ String getCompanyNumber()
++ String getCompanyIndustry()
++ String getCompanyDescription()
++ void setId(int)
++ void setEmail(String)
++ void setUsername(String)
++ void setPhone(String)
++ void setUserType(String)
++ void setUserTypeDisplay(String)
++ void setFirstName(String)
++ void setLastName(String)
++ void setBirthDate(String)
++ void setResume(String)
++ void setAvatar(String)
++ void setApplicantId(Integer)
++ void setEmployeeRole(String)
++ void setCompanyId(Integer)
++ void setCompanyName(String)
++ void setCompanyNumber(String)
++ void setCompanyIndustry(String)
++ void setCompanyDescription(String)
+}
+
+
+class com.example.hhdiplom.adapters.SkillsAdapter {
+- List<Skill> items
+- Map<Integer,Integer> levels
++ void setItems(List<Skill>)
++ VH onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(VH,int)
++ int getItemCount()
+}
+
+
+class com.example.hhdiplom.adapters.SkillsAdapter$VH {
+~ TextView tvName
+~ TextView tvLevel
+~ SeekBar seek
+}
+
+class com.example.hhdiplom.models.ToggleFavoriteRequest {
+- int vacancy
++ int getVacancy()
+}
+
+
+class com.example.hhdiplom.models.Vacancy {
+- int id
+- String position
+- String companyName
+- String salaryMin
+- String salaryMax
+- String city
+- String category
+- String experience
+- String statusName
+- int views
+- String createdDate
+- boolean isFavorite
+- boolean hasApplied
+- boolean hasVideo
+- Integer videoId
++ boolean hasVideo()
++ Integer getVideoId()
++ int getId()
++ String getPosition()
++ String getCompanyName()
++ String getSalaryMin()
++ String getSalaryMax()
++ String getCity()
++ String getCategory()
++ String getExperience()
++ String getStatusName()
++ int getViews()
++ String getCreatedDate()
++ boolean isFavorite()
++ boolean isHasApplied()
++ void setId(int)
++ void setPosition(String)
++ void setCompanyName(String)
++ void setSalaryMin(String)
++ void setSalaryMax(String)
++ void setCity(String)
++ void setCategory(String)
++ void setExperience(String)
++ void setStatusName(String)
++ void setViews(int)
++ void setCreatedDate(String)
++ void setFavorite(boolean)
++ void setHasApplied(boolean)
+}
+
+
+class com.example.hhdiplom.api.ApiClient {
++ {static} String BASE_URL
+- {static} String PREF_NAME
+- {static} String KEY_ACCESS_TOKEN
+- {static} String KEY_REFRESH_TOKEN
+- {static} String KEY_USER_ID
+- {static} String KEY_USER_TYPE
+- {static} String KEY_USERNAME
+- {static} String KEY_EMAIL
+- {static} String KEY_FIRST_NAME
+- {static} String KEY_LAST_NAME
+- {static} String KEY_PHONE
+- {static} String KEY_EMPLOYEE_ROLE
+- {static} String KEY_EMPLOYEE_ROLE_OVERRIDE
+- {static} String KEY_COMPANY_ID
+- {static} String KEY_APPLICANT_ID
+- {static} Retrofit retrofit
+- {static} com.example.hhdiplom.api.ApiService apiService
+- {static} SharedPreferences sharedPreferences
+- {static} ReentrantLock refreshLock
+- {static} boolean isRefreshing
++ {static} void init(Context)
++ {static} com.example.hhdiplom.api.ApiService getApiService()
++ {static} String getEmployeeRoleOverride()
++ {static} void saveUserInfo(UserProfile)
++ {static} String getUsername()
++ {static} String getUserEmail()
++ {static} String getEmployeeRole()
++ {static} void saveEmployeeRoleOverride(String)
++ {static} Integer getCompanyId()
++ {static} Integer getApplicantId()
++ {static} int getUserId()
++ {static} void saveTokens(String,String,int,String)
++ {static} void clearTokens()
++ {static} String getAccessToken()
++ {static} String getRefreshToken()
++ {static} String getUserType()
++ {static} boolean isLoggedIn()
++ {static} boolean refreshToken()
+- {static} Retrofit createRetrofit()
++ {static} boolean checkAndRefreshToken()
+}
+
+
+class com.example.hhdiplom.api.ApiClient$AuthInterceptor {
++ okhttp3.Response intercept(Chain)
+}
+
+class com.example.hhdiplom.api.ApiClient$ErrorInterceptor {
++ okhttp3.Response intercept(Chain)
+}
+
+class com.example.hhdiplom.api.ApiClient$ForceUtf8JsonInterceptor {
++ okhttp3.Response intercept(Chain)
+}
+
+class com.example.hhdiplom.api.ApiClient$BlockCmVideosDuringUploadInterceptor {
++ okhttp3.Response intercept(Chain)
+}
+
+class com.example.hhdiplom.models.FilterParams {
+- String search
+- String city
+- String category
+- String experience
+- String workConditions
+- Integer salaryMin
+- Integer salaryMax
+- boolean onlyFavorites
++ String getSearch()
++ void setSearch(String)
++ String getCity()
++ void setCity(String)
++ String getCategory()
++ void setCategory(String)
++ String getExperience()
++ void setExperience(String)
++ String getWorkConditions()
++ void setWorkConditions(String)
++ Integer getSalaryMin()
++ void setSalaryMin(Integer)
++ Integer getSalaryMax()
++ void setSalaryMax(Integer)
++ boolean isOnlyFavorites()
++ void setOnlyFavorites(boolean)
++ Boolean getOnlyFavoritesQuery()
++ void clear()
+}
+
+
+class com.example.hhdiplom.adapters.ChatsAdapter {
+- List<Chat> chatList
+- OnChatClickListener listener
++ ChatViewHolder onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(ChatViewHolder,int)
++ int getItemCount()
+}
+
+
+interface com.example.hhdiplom.adapters.ChatsAdapter$OnChatClickListener {
+~ void onChatClick(Chat)
+}
+
+class com.example.hhdiplom.adapters.ChatsAdapter$ChatViewHolder {
+~ CardView cardView
+~ TextView companyNameTextView
+~ TextView vacancyPositionTextView
+~ TextView lastMessageTextView
+~ TextView timeTextView
+~ TextView unreadBadgeTextView
+~ void bind(Chat)
+- String nonEmpty(String,int)
+- String formatTime(String)
+}
+
+
+class com.example.hhdiplom.adapters.CmUploadVacancyAdapter {
+- List<Vacancy> items
+- OnVacancyPickListener listener
++ VH onCreateViewHolder(ViewGroup,int)
++ void onBindViewHolder(VH,int)
++ int getItemCount()
+}
+
+
+interface com.example.hhdiplom.adapters.CmUploadVacancyAdapter$OnVacancyPickListener {
+~ void onPickVacancy(Vacancy)
+}
+
+class com.example.hhdiplom.adapters.CmUploadVacancyAdapter$VH {
+~ TextView title
+~ TextView meta
+~ MaterialButton btnPick
+}
+
+class com.example.hhdiplom.managers.ResponseManager {
++ {static} void checkIfResponded(Context,int,ResponseCallback)
++ {static} void showResponseDialog(Context,String,String,int,ResponseCallback)
++ {static} void sendResponse(Context,int,ResponseCallback)
++ {static} void updateResponseStatus(Context,int,ResponseCallback)
+}
+
+interface com.example.hhdiplom.managers.ResponseManager$ResponseCallback {
+~ void onSuccess(int)
+~ void onFailure(String)
+}
+
+class com.example.hhdiplom.fragments.ProfileFragment {
+- {static} int REQUEST_EDIT_PROFILE
+- {static} int REQUEST_CHANGE_PASSWORD
+- TextView tvUserName
+- TextView tvUserType
+- TextView tvEmail
+- TextView tvPhone
+- TextView tvBirthDate
+- TextView tvResume
+- TextView tvDebugRole
+- TextView tvCompanyInfo
+- ImageView ivAvatar
+- LinearLayout statsContainer
+- LinearLayout chartContainer
+- ProgressBar progressBar
+- Button btnLogout
+- Button btnEditProfile
+- Button btnSkills
+- Button btnInterests
+- Button btnFavorites
+- Button btnToggleTheme
+- Button btnLanguage
+- Button btnChangePassword
+- Button btnOpenCmAnalytics
+- View cardLatestResponses
+- RecyclerView rvProfileResponses
+- ResponsesAdapter responsesAdapter
+- List<ResponseItem> responseItems
+- List<ResponseItem> latestItems
+- List<String> selectedInterests
+- List<String> availableInterests
+- ApiService apiService
+- boolean isContentManager
+- CmProfileStatsResponse cmStats
+- int favoriteVacanciesCount
+- Call<UserProfile> profileCall
+- Call<ResponsesResponse> responsesCall
+- Call<CmProfileStatsResponse> cmStatsCall
+- Call<VacancyResponse> favoritesCountCall
+- Call<ApplicantInterestsResponse> interestsCall
+- Call<ApplicantInterestsResponse> updateInterestsCall
++ View onCreateView(LayoutInflater,ViewGroup,Bundle)
+- void initViews(View)
+- void updateThemeButtonText()
+- void updateLanguageButtonText()
+- void showLanguageDialog()
+- void requestInterests(boolean,boolean)
+- void applyInterestsResponse(ApplicantInterestsResponse)
+- void updateInterestsButtonText()
+- void showInterestsDialog()
+- void saveInterests(List<String>)
+- void setupResponsesRecycler()
+- void loadUserProfile()
+- void loadCmStats()
+- void loadUserResponses()
+- void loadApplicantFavoritesCount()
+- void updateLatestResponses()
+- void displayUserProfile(UserProfile)
+- void setupApplicantStats()
+- void setupCmStats()
+- void addStatItem(String,String)
+- void renderChart(List<String>,List<Integer>)
+- String buildCompanyInfoText(String,String,String,String)
+- void loadAvatar(String)
+- String resolveAbsoluteUrl(String)
+- String formatDate(String)
+- String getUserTypeText(String)
+- void handleProfileError(int)
+- void showSavedProfileData()
+- void logout()
+- String textOrDefault(String)
++ void onActivityResult(int,int,Intent)
++ void onDestroyView()
+}
+
+
+class com.example.hhdiplom.utils.ProfanityValidator {
+- {static} Pattern TOKEN_RE
+- {static} List<String> BLOCKED_STEMS
++ {static} String DEFAULT_ERROR_MESSAGE
++ {static} boolean containsProfanity(String)
+- {static} String normalizeToken(String)
+- {static} char mapLeet(char)
+- {static} String collapseLongRepeats(String)
+}
+
+
+class com.example.hhdiplom.models.Chat {
+- int id
+- int vacancyId
+- String companyName
+- String vacancyTitle
+- LastMessage lastMessage
+- int unreadCount
++ int getId()
++ int getVacancyId()
++ String getCompanyName()
++ String getVacancyTitle()
++ LastMessage getLastMessage()
++ int getUnreadCount()
+}
+
+
+class com.example.hhdiplom.models.Chat$LastMessage {
+- String text
+- String createdAt
+- String senderType
++ String getText()
++ String getCreatedAt()
++ String getSenderType()
+}
+
+
+class com.example.hhdiplom.models.FeedVideoResponse {
+- int count
+- String next
+- String previous
+- List<FeedVideoItem> results
++ int getCount()
++ String getNext()
++ String getPrevious()
++ List<FeedVideoItem> getResults()
+}
+
+
+class com.example.hhdiplom.workers.VideoUploadWorker {
++ {static} String KEY_URI
++ {static} String KEY_VACANCY_ID
++ {static} String KEY_DESC
++ {static} String KEY_PROGRESS
++ {static} String KEY_ERROR
+- {static} String TAG
+- {static} String CHANNEL_ID
+- {static} int NOTIF_ID
+- int lastForegroundP
+- long lastForegroundTs
++ Result doWork()
+- Result failure(String)
+- void updateProgressThrottled(int)
+- ForegroundInfo createForegroundInfo(int)
+- void ensureChannel(Context)
+}
+
+
+class com.example.hhdiplom.api.RequestDebugInterceptor {
+- {static} String TAG
++ Response intercept(Chain)
+}
+
+
+class com.example.hhdiplom.utils.UriFileUtils {
++ {static} File copyUriToCache(Context,Uri)
+- {static} String queryName(ContentResolver,Uri)
+}
+
+class com.example.hhdiplom.utils.LanguagePrefs {
++ {static} String LANG_RU
++ {static} String LANG_EN
+- {static} String PREFS
+- {static} String KEY_LANGUAGE
++ {static} void applySavedLanguage(Context)
++ {static} String getSavedLanguage(Context)
++ {static} void setLanguage(Context,String)
+}
+
+
+class com.example.hhdiplom.models.FeedVideoItem {
+- int id
+- String videoUrl
+- String description
+- Vacancy vacancy
+- int likesCount
+- int viewsCount
+- boolean isLiked
+- String createdAt
++ void setLiked(boolean)
++ void setLikesCount(int)
++ int getId()
++ String getVideoUrl()
++ String getDescription()
++ Vacancy getVacancy()
++ int getLikesCount()
++ int getViewsCount()
++ boolean isLiked()
++ String getCreatedAt()
+}
+
+
+class com.example.hhdiplom.models.ChatResponse {
+- int count
+- String next
+- String previous
+- List<Chat> results
++ int getCount()
++ void setCount(int)
++ String getNext()
++ void setNext(String)
++ String getPrevious()
++ void setPrevious(String)
++ List<Chat> getResults()
++ void setResults(List<Chat>)
+}
+
+
+
+
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.MessagesAdapter
+com.example.hhdiplom.adapters.MessagesAdapter +.. com.example.hhdiplom.adapters.MessagesAdapter$MessageViewHolder
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.MessagesAdapter$MessageViewHolder
+androidx.fragment.app.Fragment <|-- com.example.hhdiplom.fragments.ChatsFragment
+androidx.fragment.app.Fragment <|-- com.example.hhdiplom.fragments.FeedVideoFragment
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.CmVacancyAdapter
+com.example.hhdiplom.adapters.CmVacancyAdapter +.. com.example.hhdiplom.adapters.CmVacancyAdapter$OnVacancyActionListener
+com.example.hhdiplom.adapters.CmVacancyAdapter +.. com.example.hhdiplom.adapters.CmVacancyAdapter$VH
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.CmVacancyAdapter$VH
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.ChatMessagesActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.ResponseDetailsActivity
+com.example.hhdiplom.activities.ResponseDetailsActivity +.. com.example.hhdiplom.activities.ResponseDetailsActivity$StatusStyle
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.EditProfileActivity
+okhttp3.EventListener <|-- com.example.hhdiplom.api.NetEventLogger
+com.example.hhdiplom.Adapter <|-- com.example.hhdiplom.VacancyAdapter
+com.example.hhdiplom.VacancyAdapter +.. com.example.hhdiplom.VacancyAdapter$OnVacancyClickListener
+com.example.hhdiplom.VacancyAdapter +.. com.example.hhdiplom.VacancyAdapter$VacancyViewHolder
+com.example.hhdiplom.ViewHolder <|-- com.example.hhdiplom.VacancyAdapter$VacancyViewHolder
+androidx.fragment.app.Fragment <|-- com.example.hhdiplom.fragments.VacanciesFragment
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.PasswordResetRequestActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.VacancyDetailsActivity
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.SkillsSelectAdapter
+com.example.hhdiplom.adapters.SkillsSelectAdapter +.. com.example.hhdiplom.adapters.SkillsSelectAdapter$SkillRow
+com.example.hhdiplom.adapters.SkillsSelectAdapter +.. com.example.hhdiplom.adapters.SkillsSelectAdapter$VH
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.SkillsSelectAdapter$VH
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.CmVideosGridAdapter
+com.example.hhdiplom.adapters.CmVideosGridAdapter +.. com.example.hhdiplom.adapters.CmVideosGridAdapter$VH
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.CmVideosGridAdapter$VH
+androidx.fragment.app.Fragment <|-- com.example.hhdiplom.fragments.ResponsesFragment
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.CmVideoPlayerActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.MainActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.ChangePasswordActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.CmMainActivity
+okhttp3.RequestBody <|-- com.example.hhdiplom.api.ProgressRequestBody
+com.example.hhdiplom.api.ProgressRequestBody +.. com.example.hhdiplom.api.ProgressRequestBody$Listener
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.SkillsActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.CmAnalyticsActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.LoginActivity
+androidx.fragment.app.Fragment <|-- com.example.hhdiplom.fragments.cm.CmVideosFragment
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.VideoAdapter
+com.example.hhdiplom.adapters.VideoAdapter +.. com.example.hhdiplom.adapters.VideoAdapter$OnVideoInteractionListener
+com.example.hhdiplom.adapters.VideoAdapter +.. com.example.hhdiplom.adapters.VideoAdapter$VideoViewHolder
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.VideoAdapter$VideoViewHolder
+android.app.Application <|-- com.example.hhdiplom.VacancyApp
+com.example.hhdiplom.activities.OnVacancyActionListener <|.. com.example.hhdiplom.activities.ContentManagerActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.ContentManagerActivity
+com.example.hhdiplom.fragments.cm.OnVacancyPickListener <|.. com.example.hhdiplom.fragments.cm.CmUploadSelectVacancyFragment
+androidx.fragment.app.Fragment <|-- com.example.hhdiplom.fragments.cm.CmUploadSelectVacancyFragment
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.ResponsesAdapter
+com.example.hhdiplom.adapters.ResponsesAdapter +.. com.example.hhdiplom.adapters.ResponsesAdapter$OnResponseClickListener
+com.example.hhdiplom.adapters.ResponsesAdapter +.. com.example.hhdiplom.adapters.ResponsesAdapter$ViewHolder
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.ResponsesAdapter$ViewHolder
+com.example.hhdiplom.adapters.ResponsesAdapter +.. com.example.hhdiplom.adapters.ResponsesAdapter$StatusStyle
+okhttp3.Interceptor <|.. com.example.hhdiplom.api.RequestMetaLogger
+okhttp3.Interceptor <|.. com.example.hhdiplom.api.UploadWireLogger
+com.example.hhdiplom.models.CmProfileStatsResponse +.. com.example.hhdiplom.models.CmProfileStatsResponse$ManagerInfo
+com.example.hhdiplom.models.CmProfileStatsResponse +.. com.example.hhdiplom.models.CmProfileStatsResponse$CompanyInfo
+com.example.hhdiplom.models.CmProfileStatsResponse +.. com.example.hhdiplom.models.CmProfileStatsResponse$StatsInfo
+com.example.hhdiplom.models.CmProfileStatsResponse +.. com.example.hhdiplom.models.CmProfileStatsResponse$ResponseStatusItem
+com.example.hhdiplom.models.CmProfileStatsResponse +.. com.example.hhdiplom.models.CmProfileStatsResponse$TopVacancyItem
+com.example.hhdiplom.models.CmProfileStatsResponse +.. com.example.hhdiplom.models.CmProfileStatsResponse$ChartInfo
+com.example.hhdiplom.api.TokenManager +.. com.example.hhdiplom.api.TokenManager$TokenRefreshCallback
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.FavoritesActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.PasswordResetConfirmActivity
+com.example.hhdiplom.models.SkillsUpsertRequest +.. com.example.hhdiplom.models.SkillsUpsertRequest$SkillLevel
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.UploadVideoActivity
+androidx.appcompat.app.AppCompatActivity <|-- com.example.hhdiplom.activities.RegisterActivity
+android.text.TextWatcher <|.. com.example.hhdiplom.fragments.SimpleTextWatcher
+com.example.hhdiplom.fragments.SimpleTextWatcher +.. com.example.hhdiplom.fragments.SimpleTextWatcher$OnTextChangedListener
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.SkillsAdapter
+com.example.hhdiplom.adapters.SkillsAdapter +.. com.example.hhdiplom.adapters.SkillsAdapter$VH
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.SkillsAdapter$VH
+com.example.hhdiplom.api.ApiClient +.. com.example.hhdiplom.api.ApiClient$AuthInterceptor
+com.example.hhdiplom.api.Interceptor <|.. com.example.hhdiplom.api.ApiClient$AuthInterceptor
+com.example.hhdiplom.api.ApiClient +.. com.example.hhdiplom.api.ApiClient$ErrorInterceptor
+com.example.hhdiplom.api.Interceptor <|.. com.example.hhdiplom.api.ApiClient$ErrorInterceptor
+com.example.hhdiplom.api.ApiClient +.. com.example.hhdiplom.api.ApiClient$ForceUtf8JsonInterceptor
+com.example.hhdiplom.api.Interceptor <|.. com.example.hhdiplom.api.ApiClient$ForceUtf8JsonInterceptor
+com.example.hhdiplom.api.ApiClient +.. com.example.hhdiplom.api.ApiClient$BlockCmVideosDuringUploadInterceptor
+com.example.hhdiplom.api.Interceptor <|.. com.example.hhdiplom.api.ApiClient$BlockCmVideosDuringUploadInterceptor
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.ChatsAdapter
+com.example.hhdiplom.adapters.ChatsAdapter +.. com.example.hhdiplom.adapters.ChatsAdapter$OnChatClickListener
+com.example.hhdiplom.adapters.ChatsAdapter +.. com.example.hhdiplom.adapters.ChatsAdapter$ChatViewHolder
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.ChatsAdapter$ChatViewHolder
+com.example.hhdiplom.adapters.Adapter <|-- com.example.hhdiplom.adapters.CmUploadVacancyAdapter
+com.example.hhdiplom.adapters.CmUploadVacancyAdapter +.. com.example.hhdiplom.adapters.CmUploadVacancyAdapter$OnVacancyPickListener
+com.example.hhdiplom.adapters.CmUploadVacancyAdapter +.. com.example.hhdiplom.adapters.CmUploadVacancyAdapter$VH
+com.example.hhdiplom.adapters.ViewHolder <|-- com.example.hhdiplom.adapters.CmUploadVacancyAdapter$VH
+com.example.hhdiplom.managers.ResponseManager +.. com.example.hhdiplom.managers.ResponseManager$ResponseCallback
+androidx.fragment.app.Fragment <|-- com.example.hhdiplom.fragments.ProfileFragment
+com.example.hhdiplom.models.Chat +.. com.example.hhdiplom.models.Chat$LastMessage
+androidx.work.Worker <|-- com.example.hhdiplom.workers.VideoUploadWorker
+okhttp3.Interceptor <|.. com.example.hhdiplom.api.RequestDebugInterceptor
+@enduml

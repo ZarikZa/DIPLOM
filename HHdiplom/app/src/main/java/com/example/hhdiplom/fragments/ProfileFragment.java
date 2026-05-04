@@ -41,6 +41,7 @@ import com.example.hhdiplom.models.ResponseItem;
 import com.example.hhdiplom.models.ResponsesResponse;
 import com.example.hhdiplom.models.UserProfile;
 import com.example.hhdiplom.models.VacancyResponse;
+import com.example.hhdiplom.notifications.AppNotificationCoordinator;
 import com.example.hhdiplom.utils.LanguagePrefs;
 import com.example.hhdiplom.utils.ThemePrefs;
 
@@ -80,6 +81,7 @@ public class ProfileFragment extends Fragment {
     private Button btnToggleTheme;
     private Button btnLanguage;
     private Button btnChangePassword;
+    private Button btnDeleteAccount;
     private Button btnOpenCmAnalytics;
     private View cardLatestResponses;
 
@@ -101,6 +103,7 @@ public class ProfileFragment extends Fragment {
     private Call<VacancyResponse> favoritesCountCall;
     private Call<ApplicantInterestsResponse> interestsCall;
     private Call<ApplicantInterestsResponse> updateInterestsCall;
+    private Call<Void> deleteAccountCall;
 
     @Nullable
     @Override
@@ -141,6 +144,7 @@ public class ProfileFragment extends Fragment {
         btnToggleTheme = view.findViewById(R.id.btnToggleTheme);
         btnLanguage = view.findViewById(R.id.btnLanguage);
         btnChangePassword = view.findViewById(R.id.btnChangePassword);
+        btnDeleteAccount = view.findViewById(R.id.btnDeleteAccount);
         btnOpenCmAnalytics = view.findViewById(R.id.btnOpenCmAnalytics);
         cardLatestResponses = view.findViewById(R.id.cardLatestResponses);
 
@@ -155,6 +159,7 @@ public class ProfileFragment extends Fragment {
             Intent intent = new Intent(getContext(), ChangePasswordActivity.class);
             startActivityForResult(intent, REQUEST_CHANGE_PASSWORD);
         });
+        btnDeleteAccount.setOnClickListener(v -> confirmDeleteAccount());
         btnOpenCmAnalytics.setOnClickListener(v -> startActivity(new Intent(getContext(), CmAnalyticsActivity.class)));
         btnSkills.setOnClickListener(v -> startActivity(new Intent(getContext(), SkillsActivity.class)));
         btnInterests.setOnClickListener(v -> requestInterests(true, true));
@@ -593,6 +598,7 @@ public class ProfileFragment extends Fragment {
             btnInterests.setVisibility(View.GONE);
             btnFavorites.setVisibility(View.GONE);
             btnChangePassword.setVisibility(View.VISIBLE);
+            btnDeleteAccount.setVisibility(View.GONE);
             btnOpenCmAnalytics.setVisibility(View.VISIBLE);
             if (cardLatestResponses != null) {
                 cardLatestResponses.setVisibility(View.GONE);
@@ -617,6 +623,7 @@ public class ProfileFragment extends Fragment {
             btnInterests.setVisibility(isApplicant ? View.VISIBLE : View.GONE);
             btnFavorites.setVisibility(isApplicant ? View.VISIBLE : View.GONE);
             btnChangePassword.setVisibility(View.GONE);
+            btnDeleteAccount.setVisibility(isApplicant ? View.VISIBLE : View.GONE);
             btnOpenCmAnalytics.setVisibility(View.GONE);
             if (cardLatestResponses != null) {
                 cardLatestResponses.setVisibility(View.VISIBLE);
@@ -897,6 +904,7 @@ public class ProfileFragment extends Fragment {
         btnSkills.setVisibility(isApplicant ? View.VISIBLE : View.GONE);
         btnInterests.setVisibility(isApplicant ? View.VISIBLE : View.GONE);
         btnFavorites.setVisibility(isApplicant ? View.VISIBLE : View.GONE);
+        btnDeleteAccount.setVisibility(isApplicant ? View.VISIBLE : View.GONE);
 
         if (isApplicant) {
             requestInterests(false, false);
@@ -921,17 +929,104 @@ public class ProfileFragment extends Fragment {
         new AlertDialog.Builder(getContext())
                 .setTitle(R.string.logout_title)
                 .setMessage(R.string.logout_message)
-                .setPositiveButton(R.string.yes, (dialog, which) -> {
-                    ApiClient.clearTokens();
-                    Intent intent = new Intent(getContext(), LoginActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    if (getActivity() != null) {
-                        getActivity().finish();
-                    }
-                })
+                .setPositiveButton(R.string.yes, (dialog, which) -> finishSessionAndOpenLogin())
                 .setNegativeButton(R.string.cancel, null)
                 .show();
+    }
+
+    private void confirmDeleteAccount() {
+        if (!isAdded() || getContext() == null) {
+            return;
+        }
+
+        new AlertDialog.Builder(getContext())
+                .setTitle(R.string.profile_delete_account_title)
+                .setMessage(R.string.profile_delete_account_message)
+                .setPositiveButton(R.string.profile_delete_account_confirm, (dialog, which) -> deleteAccount())
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void deleteAccount() {
+        if (!isAdded() || getContext() == null) {
+            return;
+        }
+        if (deleteAccountCall != null && !deleteAccountCall.isCanceled()) {
+            return;
+        }
+
+        setDeleteAccountLoading(true);
+        deleteAccountCall = apiService.deleteAccount();
+        deleteAccountCall.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (!isAdded() || getContext() == null) {
+                    return;
+                }
+
+                setDeleteAccountLoading(false);
+                if (response.isSuccessful()) {
+                    Toast.makeText(getContext(), getString(R.string.profile_delete_account_success), Toast.LENGTH_SHORT).show();
+                    finishSessionAndOpenLogin();
+                    return;
+                }
+
+                if (response.code() == 401) {
+                    Toast.makeText(getContext(), getString(R.string.session_expired_login_again), Toast.LENGTH_SHORT).show();
+                    finishSessionAndOpenLogin();
+                    return;
+                }
+
+                if (response.code() == 403) {
+                    Toast.makeText(getContext(), getString(R.string.profile_delete_account_forbidden), Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                Toast.makeText(
+                        getContext(),
+                        getString(R.string.profile_delete_account_error, response.code()),
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                if (!isAdded() || getContext() == null) {
+                    return;
+                }
+                setDeleteAccountLoading(false);
+                Toast.makeText(
+                        getContext(),
+                        getString(R.string.error_network_with_message, t.getMessage()),
+                        Toast.LENGTH_SHORT
+                ).show();
+            }
+        });
+    }
+
+    private void setDeleteAccountLoading(boolean isLoading) {
+        if (btnDeleteAccount == null) {
+            return;
+        }
+        btnDeleteAccount.setEnabled(!isLoading);
+        btnDeleteAccount.setText(isLoading
+                ? getString(R.string.profile_delete_account_loading)
+                : getString(R.string.profile_delete_account));
+    }
+
+    private void finishSessionAndOpenLogin() {
+        if (!isAdded() || getContext() == null) {
+            return;
+        }
+
+        AppNotificationCoordinator.onUserLoggedOut(getContext());
+        ApiClient.clearTokens();
+        Intent intent = new Intent(getContext(), LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        if (getActivity() != null) {
+            getActivity().finish();
+        }
     }
 
     private String textOrDefault(String value) {
@@ -969,6 +1064,9 @@ public class ProfileFragment extends Fragment {
         }
         if (updateInterestsCall != null && !updateInterestsCall.isCanceled()) {
             updateInterestsCall.cancel();
+        }
+        if (deleteAccountCall != null && !deleteAccountCall.isCanceled()) {
+            deleteAccountCall.cancel();
         }
     }
 }

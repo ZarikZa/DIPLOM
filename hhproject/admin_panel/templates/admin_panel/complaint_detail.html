@@ -1,5 +1,7 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
+
+{% block flash_messages %}{% endblock %}
 
 {% block title_name %}Жалоба #{{ complaint.id }} - Админ панель{% endblock %}
 
@@ -240,9 +242,9 @@
 }
 
 .status-resolved {
-    background: rgba(16, 185, 129, 0.2);
-    color: #10b981;
-    border: 2px solid rgba(16, 185, 129, 0.3);
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--primary);
+    border: 2px solid rgba(59, 130, 246, 0.3);
 }
 
 .status-rejected {

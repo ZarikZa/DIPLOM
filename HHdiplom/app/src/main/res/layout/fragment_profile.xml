@@ -299,6 +299,17 @@
             android:textColor="@android:color/white"
             android:textSize="16sp" />
 
+        <Button
+            android:id="@+id/btnDeleteAccount"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_outline_button"
+            android:text="@string/profile_delete_account"
+            android:textAllCaps="false"
+            android:textColor="@android:color/holo_red_dark"
+            android:visibility="gone" />
+
         <ProgressBar
             android:id="@+id/progressBar"
             android:layout_width="wrap_content"

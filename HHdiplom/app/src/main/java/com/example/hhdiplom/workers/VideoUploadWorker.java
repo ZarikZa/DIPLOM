@@ -52,7 +52,6 @@ public class VideoUploadWorker extends Worker {
         try {
             Context ctx = getApplicationContext();
 
-            // важно: prefs для токенов
             ApiClient.init(ctx);
             UploadGate.begin();
 

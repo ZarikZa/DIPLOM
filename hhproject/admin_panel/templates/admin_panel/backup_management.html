@@ -1,5 +1,7 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
+
+{% block flash_messages %}{% endblock %}
 
 {% block title_name %}Управление бэкапами - Админ панель{% endblock %}
 
@@ -696,7 +698,7 @@
         <div class="admin-container">
             <div class="admin-content-header">
                 <h1>Управление бэкапами</h1>
-                <p>система зеного копирования через Django</p>
+                <p>Система резервного копирования через Django</p>
             </div>
             
              {% if messages %}
@@ -711,17 +713,17 @@
 
             <!-- Основные действия -->
             <div class="backup-grid">
-                <!-- создание бэкапа -->
+                <!-- Создание бэкапа -->
                 <div class="backup-card">
                     <div class="backup-card-header">
                         <i class="fas fa-plus-circle"></i>
-                        <h3>создание бэкапа</h3>
+                        <h3>Создание бэкапа</h3>
                     </div>
                     <div class="backup-options">
                         <div class="option-group">
                             <label class="option-label">Тип бэкапа</label>
                             <select id="backupType" class="admin-form-control">
-                                <option value="database">База данных (.json)</option>
+                                <option value="database">База данных (.zip)</option>
                                 <option value="media">Медиа файлы (.zip)</option>
                                 <option value="full">Полный бэкап (.zip)</option>
                             </select>
@@ -740,7 +742,7 @@
                     </div>
                     <div class="action-grid">
                         <button onclick="createBackup()" class="btn-backup btn-backup-success" id="createBackupBtn">
-                            <i class="fas fa-save"></i> создать бэкап
+                            <i class="fas fa-save"></i> Создать бэкап
                         </button>
                     </div>
                 </div>
@@ -755,8 +757,8 @@
                         <div class="file-upload-icon">
                             <i class="fas fa-cloud-upload-alt"></i>
                         </div>
-                        <div class="file-upload-text">Нажмите для выбо файла или петащите да</div>
-                        <div class="file-upload-hint">Поддесливаемые фоаты: .zip, .json</div>
+                        <div class="file-upload-text">Нажмите для выбора файла или перетащите его сюда</div>
+                        <div class="file-upload-hint">Поддерживаемые форматы: .zip и legacy .json, рекомендуется .zip</div>
                         <input type="file" id="backupFile" class="file-input" accept=".zip,.json">
                     </div>
                     <div class="action-grid" style="margin-top: 15px;">
@@ -769,27 +771,68 @@
                 <!-- Статус системы -->
                 <div class="backup-card">
                     <div class="backup-card-header">
-                        <i class="fas fa-plug"></i>
-                        <h3>Статус подключения</h3>
+                        <i class="fas fa-server"></i>
+                        <h3>Статус системы</h3>
+                    </div>
+                    <div class="system-stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalBackups">0</div>
+                            <div class="stat-label">Всего бэкапов</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalSize">0 B</div>
+                            <div class="stat-label">Общий размер</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="databaseSize">Unknown</div>
+                            <div class="stat-label">Размер базы</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="freeSpace">0 B</div>
+                            <div class="stat-label">Свободно</div>
+                        </div>
+                    </div>
+                    <div class="option-group" style="margin-bottom: 15px;">
+                        <div class="option-description">
+                            Хранилище: <strong id="storageBackend">-</strong>
+                        </div>
+                        <div class="option-description">
+                            Папка бэкапов: <strong id="backupDirectory">-</strong>
+                        </div>
+                        <div id="systemError" class="option-description" style="display: none; color: #dc2626;"></div>
                     </div>
                     <div id="connectionStatus">
                         <div class="procedure-status status-ok">
                             <i class="fas fa-check-circle"></i>
-                            <span>Пвеа подключения к БД...</span>
+                            <span>Проверяем подключение...</span>
                         </div>
                     </div>
                     <div class="action-grid" style="margin-top: 15px;">
                         <button onclick="testConnection()" class="btn-backup btn-backup-info">
-                            <i class="fas fa-vial"></i> Пветь подключение
+                            <i class="fas fa-vial"></i> Проверить подключение
                         </button>
+                    </div>
+                </div>
+
+                <!-- Медиа файлы -->
+                <div class="backup-card">
+                    <div class="backup-card-header">
+                        <i class="fas fa-photo-video"></i>
+                        <h3>Медиа файлы</h3>
+                    </div>
+                    <div id="mediaStats">
+                        <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 10px;"></i>
+                            <p>Загрузка статистики медиа...</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ик бэкапов -->
+            <!-- Список бэкапов -->
             <div class="admin-card">
                 <div class="admin-card-header">
-                    <h3><i class="fas fa-list"></i> ик бэкапов</h3>
+                    <h3><i class="fas fa-list"></i> Список бэкапов</h3>
                     <button onclick="loadBackupsList()" class="btn-admin btn-admin-primary btn-admin-sm">
                         <i class="fas fa-sync-alt"></i> Обновить
                     </button>
@@ -798,7 +841,7 @@
                     <div id="backupsList">
                         <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
                             <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 15px;"></i>
-                            <p>Загрузка иа бэкапов...</p>
+                            <p>Загрузка списка бэкапов...</p>
                         </div>
                     </div>
                 </div>
@@ -818,17 +861,17 @@
             <p id="modalMessage">Вы уверены, что хотите выполнить это действие?</p>
         </div>
         <div class="modal-footer">
-            <button class="btn-admin btn-admin-danger" onclick="confirmAction()">Подтвеслить</button>
+            <button class="btn-admin btn-admin-danger" onclick="confirmAction()">Подтвердить</button>
             <button class="btn-admin btn-admin-secondary" onclick="closeModal()">Отмена</button>
         </div>
     </div>
 </div>
 
-<!-- Модальное окно пга -->
+<!-- Модальное окно прогресса -->
 <div id="progressModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3 id="progressTitle">создание бэкапа</h3>
+            <h3 id="progressTitle">Создание бэкапа</h3>
             <button class="modal-close" onclick="closeProgressModal()">&times;</button>
         </div>
         <div class="modal-body">
@@ -841,44 +884,147 @@
 </div>
 
 <script>
-// JavaScript код для работы с ����системой бэкапов
 let currentAction = null;
 let actionParams = null;
+let progressInterval = null;
+let isBackupInProgress = false;
 
-// Загрузка стату�� ����системы
+function setTextContent(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.textContent = value;
+    }
+}
+
+async function fetchJson(url, options = {}) {
+    const response = await fetch(url, options);
+    const rawText = await response.text();
+    let data = {};
+
+    if (rawText) {
+        try {
+            data = JSON.parse(rawText);
+        } catch (error) {
+            throw new Error(`Сервер вернул неожиданный ответ (${response.status})`);
+        }
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || data.detail || data.message || `Ошибка HTTP ${response.status}`);
+    }
+
+    return data;
+}
+
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) {
+        return '0 B';
+    }
+
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const index = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+    return `${parseFloat((bytes / Math.pow(k, index)).toFixed(2))} ${sizes[index]}`;
+}
+
+function renderConnectionStatus(data) {
+    const statusElement = document.getElementById('connectionStatus');
+    if (!statusElement) {
+        return;
+    }
+
+    const databaseOk = !data.database_status || data.database_status.success;
+    const storageOk = !data.storage_status || data.storage_status.success;
+
+    if (databaseOk && storageOk && !data.error) {
+        statusElement.innerHTML = `
+            <div class="procedure-status status-ok">
+                <i class="fas fa-check-circle"></i>
+                <span>Подключение к базе и хранилищу: OK</span>
+            </div>
+        `;
+        return;
+    }
+
+    const message = data.error
+        || (data.database_status && data.database_status.message)
+        || (data.storage_status && data.storage_status.message)
+        || 'Не удалось проверить состояние системы';
+
+    statusElement.innerHTML = `
+        <div class="procedure-status status-error">
+            <i class="fas fa-times-circle"></i>
+            <span>${message}</span>
+        </div>
+    `;
+}
+
 function loadSystemStatus() {
-    fetch('{% url "admin_system_status" %}')
-        .then(response => response.json())
+    fetchJson('{% url "admin_system_status" %}')
         .then(data => {
-            document.getElementById('totalBackups').textContent = data.total_backups || '0';
-            document.getElementById('totalSize').textContent = formatFileSize(data.total_size || 0);
-            document.getElementById('databaseSize').textContent = data.database_size || 'Unknown';
-            document.getElementById('freeSpace').textContent = formatFileSize(data.free_space || 0);
+            setTextContent('totalBackups', data.total_backups || '0');
+            setTextContent('totalSize', formatFileSize(data.total_size || 0));
+            setTextContent('databaseSize', data.database_size || 'Unknown');
+            setTextContent('freeSpace', formatFileSize(data.free_space || 0));
+            setTextContent('storageBackend', data.storage_backend || '-');
+            setTextContent('backupDirectory', data.backup_directory || '-');
+
+            const systemError = document.getElementById('systemError');
+            if (systemError) {
+                if (data.error) {
+                    systemError.textContent = data.error;
+                    systemError.style.display = 'block';
+                } else {
+                    systemError.textContent = '';
+                    systemError.style.display = 'none';
+                }
+            }
+
+            renderConnectionStatus(data);
         })
         .catch(error => {
             console.error('Error loading system status:', error);
-            showNotification('Ошибка загрузки статуса системы', 'error');
+            renderConnectionStatus({ error: error.message });
+            const systemError = document.getElementById('systemError');
+            if (systemError) {
+                systemError.textContent = error.message;
+                systemError.style.display = 'block';
+            }
+            showNotification(`Ошибка загрузки статуса системы: ${error.message}`, 'error');
         });
 }
 
-// Загрузка ��и��а бэкапов
 function loadBackupsList() {
     const backupsListElement = document.getElementById('backupsList');
-    
-    fetch('{% url "admin_backups_list" %}')
-        .then(response => response.json())
+    if (!backupsListElement) {
+        return;
+    }
+
+    fetchJson('{% url "admin_backups_list" %}')
         .then(data => {
             if (data.success) {
-                renderBackupsList(data.backups);
-            } else {
-                backupsListElement.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Ошибка загрузки</h3>
-                        <p>${data.error || 'Не удалось загрузить ик бэкапов'}</p>
-                    </div>
-                `;
+                renderBackupsList(Array.isArray(data.backups) ? data.backups : []);
+                return;
             }
+
+            backupsListElement.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Ошибка загрузки</h3>
+                    <p>${data.error || 'Не удалось загрузить список бэкапов'}</p>
+                </div>
+            `;
         })
         .catch(error => {
             console.error('Error loading backups list:', error);
@@ -886,27 +1032,29 @@ function loadBackupsList() {
                 <div class="empty-state">
                     <i class="fas fa-exclamation-triangle"></i>
                     <h3>Ошибка загрузки</h3>
-                    <p>Не удалось загрузить ик бэкапов</p>
+                    <p>${error.message || 'Не удалось загрузить список бэкапов'}</p>
                 </div>
             `;
         });
 }
 
-// От����вка ��и��а бэкапов
 function renderBackupsList(backups) {
     const backupsListElement = document.getElementById('backupsList');
-    
-    if (backups.length === 0) {
+    if (!backupsListElement) {
+        return;
+    }
+
+    if (!backups.length) {
         backupsListElement.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-inbox"></i>
                 <h3>Нет созданных бэкапов</h3>
-                <p>создайте первый бэкап, чтобы он появился в ие</p>
+                <p>Создайте первый бэкап, чтобы он появился в списке.</p>
             </div>
         `;
         return;
     }
-    
+
     let html = `
         <div class="table-responsive">
             <table class="admin-table">
@@ -914,34 +1062,33 @@ function renderBackupsList(backups) {
                     <tr>
                         <th>Название</th>
                         <th>Тип</th>
-                        <th>размер</th>
+                        <th>Размер</th>
                         <th>Дата создания</th>
-                        <th>создан</th>
+                        <th>Создан</th>
                         <th>Действия</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
-    
+
     backups.forEach(backup => {
+        const safeName = String(backup.name || '').replace(/'/g, "\\'");
         html += `
             <tr>
                 <td>${backup.name}</td>
-                <td>
-                    <span class="badge">${backup.backup_type_display}</span>
-                </td>
+                <td><span class="badge">${backup.backup_type_display}</span></td>
                 <td>${backup.file_size_display}</td>
                 <td>${backup.created_at}</td>
                 <td>${backup.created_by}</td>
                 <td>
                     <div class="action-buttons">
                         <a href="${backup.download_url}" class="btn-admin btn-admin-primary btn-admin-sm">
-                            <i class="fas fa-download"></i> скачать
+                            <i class="fas fa-download"></i> Скачать
                         </a>
-                        <button onclick="showRestoreConfirmation(${backup.id}, '${backup.name}')" class="btn-admin btn-admin-warning btn-admin-sm">
+                        <button onclick="showRestoreConfirmation(${backup.id}, '${safeName}')" class="btn-admin btn-admin-warning btn-admin-sm">
                             <i class="fas fa-redo"></i> Восстановить
                         </button>
-                        <button onclick="showDeleteConfirmation(${backup.id}, '${backup.name}')" class="btn-admin btn-admin-danger btn-admin-sm">
+                        <button onclick="showDeleteConfirmation(${backup.id}, '${safeName}')" class="btn-admin btn-admin-danger btn-admin-sm">
                             <i class="fas fa-trash"></i> Удалить
                         </button>
                     </div>
@@ -949,80 +1096,14 @@ function renderBackupsList(backups) {
             </tr>
         `;
     });
-    
+
     html += `
                 </tbody>
             </table>
         </div>
     `;
-    
     backupsListElement.innerHTML = html;
 }
-
-// создание бэкапа
-// Глобальные переменные для отслеживания п��г����а
-let progressInterval = null;
-let isBackupInProgress = false;
-
-// создание бэкапа с отслеживанием п��г����а
-function createBackup() {
-    if (isBackupInProgress) {
-        showNotification('Бэкап уже выполняется, пожалуйста подождите...', 'warning');
-        return;
-    }
-    
-    const backupType = document.getElementById('backupType').value;
-    const backupName = document.getElementById('backupName').value;
-    
-    const btn = document.getElementById('createBackupBtn');
-    const originalText = btn.innerHTML;
-    
-    btn.innerHTML = '<span class="loading"></span> создание...';
-    btn.disabled = true;
-    isBackupInProgress = true;
-    
-    // Показываем модальное окно п��г����а
-    
-    // Запускаем отслеживание п��г����а
-    
-    const formData = new FormData();
-    formData.append('type', backupType);
-    if (backupName) {
-        formData.append('custom_name', backupName);
-    }
-    
-    fetch('{% url "admin_create_backup" %}', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        
-        if (data.success) {
-            showNotification(data.message || 'Бэкап успешно создан', 'success');
-            loadBackupsList();
-            loadSystemStatus();
-            document.getElementById('backupName').value = '';
-        } else {
-            showNotification(data.error || 'Ошибка создания бэкапа', 'error');
-        }
-    })
-    .catch(error => {
-        stopProgressTracking();
-        closeProgressModal();
-        console.error('Error creating backup:', error);
-        showNotification('Ошибка сети при создании бэкапа', 'error');
-    })
-    .finally(() => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        isBackupInProgress = false;
-    });
-}
-
 
 function stopProgressTracking() {
     if (progressInterval) {
@@ -1031,71 +1112,134 @@ function stopProgressTracking() {
     }
 }
 
-// Обновление п��г����а в модальном окне
 function updateProgress(percent, message) {
     const progressFill = document.getElementById('progressFill');
     const progressMessage = document.getElementById('progressMessage');
-    
-    if (progressFill && percent !== null) {
-        progressFill.style.width = percent + '%';
+
+    if (progressFill && percent !== null && percent !== undefined) {
+        progressFill.style.width = `${percent}%`;
     }
-    
+
     if (progressMessage && message) {
-        progressMessage.innerHTML = message;
-        
-        // Добавляем timestamp для отладки
-        const timestamp = new Date().toLocaleTimeString();
-        progressMessage.innerHTML += ` <small>(${timestamp})</small>`;
+        progressMessage.textContent = message;
     }
 }
-// Загрузка бэкапа
-function uploadBackup() {
-    const fileInput = document.getElementById('backupFile');
-    const file = fileInput.files[0];
-    
-    if (!file) {
-        showNotification('Выберите файл для загрузки', 'warning');
+
+function showProgressModal(title, message) {
+    setTextContent('progressTitle', title);
+    setTextContent('progressMessage', message);
+    const modal = document.getElementById('progressModal');
+    if (modal) {
+        modal.style.display = 'block';
+    }
+}
+
+function closeProgressModal() {
+    const modal = document.getElementById('progressModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function createBackup() {
+    if (isBackupInProgress) {
+        showNotification('Бэкап уже выполняется, пожалуйста подождите.', 'warning');
         return;
     }
-    
-    const formData = new FormData();
-    formData.append('backup_file', file);
-    
-    const btn = document.getElementById('uploadBackupBtn');
+
+    const backupType = document.getElementById('backupType').value;
+    const backupName = document.getElementById('backupName').value;
+    const btn = document.getElementById('createBackupBtn');
     const originalText = btn.innerHTML;
-    
-    btn.innerHTML = '<span class="loading"></span> Загрузка...';
+
+    btn.innerHTML = '<span class="loading"></span> Создание...';
     btn.disabled = true;
-    
-    fetch('{% url "admin_upload_backup" %}', {
+    isBackupInProgress = true;
+    showProgressModal('Создание бэкапа', 'Подготавливаем данные...');
+
+    const formData = new FormData();
+    formData.append('type', backupType);
+    if (backupName) {
+        formData.append('custom_name', backupName);
+    }
+
+    fetchJson('{% url "admin_create_backup" %}', {
         method: 'POST',
         headers: {
             'X-CSRFToken': '{{ csrf_token }}'
         },
         body: formData
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification(data.message || 'Бэкап успешно загружен', 'success');
-            fileInput.value = '';
-            document.getElementById('uploadBackupBtn').disabled = true;
-            loadBackupsList();
-            loadSystemStatus();
-        } else {
-            showNotification(data.error || 'Ошибка загрузки бэкапа', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error uploading backup:', error);
-        showNotification('Ошибка сети при загрузке бэкапа', 'error');
-    })
-    .finally(() => {
-        btn.innerHTML = originalText;
-    });
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message || 'Бэкап успешно создан.', 'success');
+                loadBackupsList();
+                loadSystemStatus();
+                document.getElementById('backupName').value = '';
+                closeProgressModal();
+                return;
+            }
+
+            showNotification(data.error || 'Ошибка создания бэкапа.', 'error');
+        })
+        .catch(error => {
+            console.error('Error creating backup:', error);
+            showNotification(error.message || 'Ошибка сети при создании бэкапа.', 'error');
+        })
+        .finally(() => {
+            stopProgressTracking();
+            closeProgressModal();
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            isBackupInProgress = false;
+        });
 }
 
-// Подтверждение восстановления
+function uploadBackup() {
+    const fileInput = document.getElementById('backupFile');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showNotification('Выберите файл для загрузки.', 'warning');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('backup_file', file);
+
+    const btn = document.getElementById('uploadBackupBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="loading"></span> Загрузка...';
+    btn.disabled = true;
+
+    fetchJson('{% url "admin_upload_backup" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+    })
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message || 'Бэкап успешно загружен.', 'success');
+                fileInput.value = '';
+                document.getElementById('uploadBackupBtn').disabled = true;
+                loadBackupsList();
+                loadSystemStatus();
+                return;
+            }
+
+            showNotification(data.error || 'Ошибка загрузки бэкапа.', 'error');
+        })
+        .catch(error => {
+            console.error('Error uploading backup:', error);
+            showNotification(error.message || 'Ошибка сети при загрузке бэкапа.', 'error');
+        })
+        .finally(() => {
+            btn.innerHTML = originalText;
+        });
+}
+
 function showRestoreConfirmation(backupId, backupName) {
     showModal(
         'Подтверждение восстановления',
@@ -1106,173 +1250,91 @@ function showRestoreConfirmation(backupId, backupName) {
          • Не может быть отменено<br><br>
          Вы уверены, что хотите продолжить?`,
         performRestore,
-        {backupId: backupId, backupName: backupName}
+        { backupId: backupId, backupName: backupName }
     );
 }
 
-// Выполнение восстановления
 function performRestore(params) {
     const formData = new FormData();
     formData.append('confirmed', 'true');
-    
-    fetch(`/admin_panel/backups/${params.backupId}/restore/`, {
+
+    fetchJson(`/admin_panel/backups/${params.backupId}/restore/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': '{{ csrf_token }}'
         },
         body: formData
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification(data.message || 'База данных успешно восстановлена', 'success');
-            loadBackupsList();
-        } else {
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message || 'База данных успешно восстановлена.', 'success');
+                loadBackupsList();
+                loadSystemStatus();
+                return;
+            }
+
             if (data.requires_confirmation) {
-                // Показываем модальное окно с подтверждением
                 showModal(
                     'Подтверждение восстановления',
                     data.message,
                     performRestore,
-                    {backupId: params.backupId, backupName: params.backupName}
+                    { backupId: params.backupId, backupName: params.backupName }
                 );
-            } else {
-                showNotification(data.error || 'Ошибка восстановления', 'error');
+                return;
             }
-        }
-    })
-    .catch(error => {
-        console.error('Error restoring backup:', error);
-        showNotification('Ошибка сети при восстановлении', 'error');
-    });
+
+            showNotification(data.error || 'Ошибка восстановления.', 'error');
+        })
+        .catch(error => {
+            console.error('Error restoring backup:', error);
+            showNotification(error.message || 'Ошибка сети при восстановлении.', 'error');
+        });
 }
 
-// Подтверждение удаления
 function showDeleteConfirmation(backupId, backupName) {
     showModal(
         'Подтверждение удаления',
         `Вы уверены, что хотите удалить бэкап "${backupName}"?`,
         performDelete,
-        {backupId: backupId, backupName: backupName}
+        { backupId: backupId, backupName: backupName }
     );
 }
 
-// Выполнение удаления
 function performDelete(params) {
-    fetch(`/admin_panel/backups/${params.backupId}/delete/`, {
+    fetchJson(`/admin_panel/backups/${params.backupId}/delete/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': '{{ csrf_token }}'
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification(data.message || 'Бэкап успешно удален', 'success');
-            loadBackupsList();
-            loadSystemStatus();
-        } else {
-            showNotification(data.error || 'Ошибка удаления бэкапа', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error deleting backup:', error);
-        showNotification('Ошибка сети при удалении', 'error');
-    });
-}
-
-// Показать уведомление
-function showNotification(message, type = 'success') {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.innerHTML = message;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 5000);
-}
-
-// Фо��ати��вание ��зме�� файла
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-// Инициализация п�� загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
-    loadSystemStatus();
-    loadBackupsList();
-    testConnection();
-    loadMediaStats();
-    
-    // Обработка drag & drop для загрузки файлов
-    const uploadArea = document.getElementById('uploadArea');
-    const fileInput = document.getElementById('backupFile');
-    
-    uploadArea.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        uploadArea.classList.add('dragover');
-    });
-    
-    uploadArea.addEventListener('dragleave', function() {
-        uploadArea.classList.remove('dragover');
-    });
-    
-    uploadArea.addEventListener('drop', function(e) {
-        e.preventDefault();
-        uploadArea.classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            fileInput.files = files;
-            document.getElementById('uploadBackupBtn').disabled = false;
-        }
-    });
-    
-    fileInput.addEventListener('change', function() {
-        document.getElementById('uploadBackupBtn').disabled = !this.files.length;
-    });
-});
-
-// Те��‚и��вание подключения
-function testConnection() {
-    fetch('{% url "admin_system_status" %}')
-        .then(response => response.json())
         .then(data => {
-            const statusElement = document.getElementById('connectionStatus');
-            if (!data.error) {
-                statusElement.innerHTML = `
-                    <div class="procedure-status status-ok">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Подключение к БД: OK</span>
-                    </div>
-                `;
-            } else {
-                statusElement.innerHTML = `
-                    <div class="procedure-status status-error">
-                        <i class="fas fa-times-circle"></i>
-                        <span>Ошибка подключения: ${data.error}</span>
-                    </div>
-                `;
+            if (data.success) {
+                showNotification(data.message || 'Бэкап успешно удален.', 'success');
+                loadBackupsList();
+                loadSystemStatus();
+                return;
             }
+
+            showNotification(data.error || 'Ошибка удаления бэкапа.', 'error');
         })
         .catch(error => {
-            const statusElement = document.getElementById('connectionStatus');
-            statusElement.innerHTML = `
-                <div class="procedure-status status-error">
-                    <i class="fas fa-times-circle"></i>
-                    <span>Ошибка пвесли подключения</span>
-                </div>
-            `;
+            console.error('Error deleting backup:', error);
+            showNotification(error.message || 'Ошибка сети при удалении.', 'error');
         });
 }
 
-// Модальные окна
+function testConnection() {
+    fetchJson('{% url "admin_system_status" %}')
+        .then(data => {
+            renderConnectionStatus(data);
+        })
+        .catch(error => {
+            renderConnectionStatus({ error: error.message || 'Ошибка проверки подключения' });
+        });
+}
+
 function showModal(title, message, action, params = null) {
-    document.getElementById('modalTitle').textContent = title;
+    setTextContent('modalTitle', title);
     document.getElementById('modalMessage').innerHTML = message;
     currentAction = action;
     actionParams = params;
@@ -1292,76 +1354,72 @@ function confirmAction() {
     closeModal();
 }
 
-function showProgressModal(title, message) {
-    document.getElementById('progressTitle').textContent = title;
-    document.getElementById('progressMessage').textContent = message;
-    document.getElementById('progressModal').style.display = 'block';
-}
-
-function closeProgressModal() {
-    document.getElementById('progressModal').style.display = 'none';
-}
-
-function updateProgress(percent, message) {
-    document.getElementById('progressFill').style.width = percent + '%';
-    document.getElementById('progressMessage').textContent = message;
-}
-
 function loadMediaStats() {
     const mediaStatsElement = document.getElementById('mediaStats');
-    
-    fetch('{% url "admin_media_stats" %}')
-        .then(response => response.json())
+    if (!mediaStatsElement) {
+        return;
+    }
+
+    fetchJson('{% url "admin_media_stats" %}')
         .then(data => {
-            let html = '';
-            
-            if (data.exists) {
-                html = `
-                    <div class="system-stats">
-                        <div class="stat-item">
-                            <div class="stat-value">${data.total_files}</div>
-                            <div class="stat-label">Всего файлов</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${data.total_size_formatted}</div>
-                            <div class="stat-label">Общий размер</div>
-                        </div>
+            if (!data.exists) {
+                mediaStatsElement.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                        <i class="fas fa-folder-open" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                        <p>Медиа-хранилище не найдено.</p>
                     </div>
-                    <div style="margin-top: 15px;">
-                        <h4>Типы файлов:</h4>
-                        <div style="font-size: 0.9rem; max-height: 100px; overflow-y: auto;">
                 `;
-                
-                // Показываем топ-10 типов файлов
-                const fileTypes = Object.entries(data.file_types)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 10);
-                
+                return;
+            }
+
+            let html = `
+                <div class="system-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">${data.total_files || 0}</div>
+                        <div class="stat-label">Всего файлов</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${data.total_size_formatted || '0 B'}</div>
+                        <div class="stat-label">Общий размер</div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <h4>Типы файлов:</h4>
+                    <div style="font-size: 0.9rem; max-height: 100px; overflow-y: auto;">
+            `;
+
+            const fileTypes = Object.entries(data.file_types || {})
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            if (fileTypes.length) {
                 fileTypes.forEach(([ext, count]) => {
                     html += `<div>${ext || 'без расширения'}: ${count} файлов</div>`;
                 });
-                
-                html += `
-                        </div>
-                        <h4 style="margin-top: 15px;">Крупнейшие файлы:</h4>
-                        <div style="font-size: 0.8rem; max-height: 120px; overflow-y: auto;">
-                `;
-                
-                data.largest_files_formatted.forEach(([path, size]) => {
+            } else {
+                html += `<div>Файлы пока не найдены.</div>`;
+            }
+
+            html += `
+                    </div>
+                    <h4 style="margin-top: 15px;">Крупнейшие файлы:</h4>
+                    <div style="font-size: 0.8rem; max-height: 120px; overflow-y: auto;">
+            `;
+
+            const largestFiles = Array.isArray(data.largest_files_formatted)
+                ? data.largest_files_formatted
+                : [];
+
+            if (largestFiles.length) {
+                largestFiles.forEach(([path, size]) => {
                     const fileName = path.split('/').pop() || path;
                     html += `<div title="${path}">${fileName}: ${size}</div>`;
                 });
-                
-                html += `</div>`;
             } else {
-                html = `
-                    <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
-                        <i class="fas fa-folder-open" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                        <p>Медиа диктогня не найдена</p>
-                    </div>
-                `;
+                html += `<div>Крупные файлы пока отсутствуют.</div>`;
             }
-            
+
+            html += `</div></div>`;
             mediaStatsElement.innerHTML = html;
         })
         .catch(error => {
@@ -1369,11 +1427,46 @@ function loadMediaStats() {
             mediaStatsElement.innerHTML = `
                 <div style="text-align: center; padding: 20px; color: var(--error);">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <p>Ошибка загрузки статистики</p>
+                    <p>${error.message || 'Ошибка загрузки статистики медиа.'}</p>
                 </div>
             `;
         });
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadSystemStatus();
+    loadBackupsList();
+    loadMediaStats();
+
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('backupFile');
+    const uploadButton = document.getElementById('uploadBackupBtn');
+
+    if (uploadArea && fileInput && uploadButton) {
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                uploadButton.disabled = false;
+            }
+        });
+
+        fileInput.addEventListener('change', function() {
+            uploadButton.disabled = !this.files.length;
+        });
+    }
+});
 </script>
 {% endblock %}
 

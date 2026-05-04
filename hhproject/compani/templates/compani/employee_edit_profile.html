@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
 
+{% block flash_messages %}{% endblock %}
+
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
 
-{% block title_name %}редактирование сотрудника{% endblock %}
+{% block title_name %}Редактирование сотрудника{% endblock %}
 
 {% block content %}
 <section style="max-width:760px;margin:0 auto;padding:28px 16px 40px;">
@@ -17,9 +19,18 @@
     {% endif %}
 
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
-        <h1 style="margin:0 0 12px;">редактирование профиля сотрудника</h1>
+        <h1 style="margin:0 0 12px;">Редактирование профиля сотрудника</h1>
+
+        {% if pending_email_change %}
+        <div style="margin:0 0 14px;padding:12px 14px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;">
+            Новый email ожидает подтверждения: <strong>{{ pending_email_change }}</strong>.
+            <a href="{% url 'company_profile_email_change_verify' %}" style="margin-left:8px;">Ввести код</a>
+        </div>
+        {% endif %}
+
         <form method="post">
             {% csrf_token %}
+
             <label>Имя</label>
             <input class="form-control" name="first_name" value="{{ profile.first_name|default:'' }}" required>
 
@@ -28,12 +39,15 @@
 
             <label style="margin-top:10px;">Email</label>
             <input class="form-control" type="email" name="email" value="{{ profile.email|default:api_user.email }}" required>
+            <small style="display:block;margin-top:6px;color:#64748b;">
+                Новый email сохранится только после подтверждения кода из письма.
+            </small>
 
             <label style="margin-top:10px;">Телефон</label>
             <input class="form-control" type="tel" name="phone" value="{{ profile.phone|default:'' }}">
 
             <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-primary" type="submit">сохранить</button>
+                <button class="btn btn-primary" type="submit">Сохранить</button>
                 <a class="btn btn-secondary" href="{% url 'employee_profile' %}">Отмена</a>
             </div>
         </form>

@@ -1,6 +1,7 @@
 package com.example.hhdiplom.activities;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -343,15 +344,24 @@ public class ChatMessagesActivity extends AppCompatActivity {
                              int vacancyId,
                              String companyName,
                              String vacancyTitle) {
-        Intent intent = new Intent(activity, ChatMessagesActivity.class);
-        intent.putExtra(EXTRA_CHAT_ID, chatId);
-        intent.putExtra(EXTRA_VACANCY_ID, vacancyId);
-        intent.putExtra(EXTRA_COMPANY_NAME, companyName);
-        intent.putExtra(EXTRA_VACANCY_TITLE, vacancyTitle);
-        activity.startActivity(intent);
+        activity.startActivity(createIntent(activity, chatId, vacancyId, companyName, vacancyTitle));
     }
 
     public static void start(@NonNull Activity activity, int chatId) {
         start(activity, chatId, -1, null, null);
+    }
+
+    @NonNull
+    public static Intent createIntent(@NonNull Context context,
+                                      int chatId,
+                                      int vacancyId,
+                                      String companyName,
+                                      String vacancyTitle) {
+        Intent intent = new Intent(context, ChatMessagesActivity.class);
+        intent.putExtra(EXTRA_CHAT_ID, chatId);
+        intent.putExtra(EXTRA_VACANCY_ID, vacancyId);
+        intent.putExtra(EXTRA_COMPANY_NAME, companyName);
+        intent.putExtra(EXTRA_VACANCY_TITLE, vacancyTitle);
+        return intent;
     }
 }

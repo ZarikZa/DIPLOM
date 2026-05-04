@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
 
+{% block flash_messages %}{% endblock %}
+
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
 
-{% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Company Profile{% else %}Профиль компании{% endif %}{% endblock %}
+{% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Company profile{% else %}Профиль компании{% endif %}{% endblock %}
 
 {% block content %}
 <style>
@@ -71,14 +73,30 @@
     color: #fff;
 }
 
+.company-profile-actions .btn.btn-delete {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    border-color: #b91c1c;
+    color: #fff;
+}
+
 .company-profile-actions .btn.btn-edit:hover {
     background: linear-gradient(135deg, #1d4ed8, #1e40af);
     border-color: #1e40af;
     color: #fff;
 }
 
+.company-profile-actions .btn.btn-delete:hover {
+    background: linear-gradient(135deg, #b91c1c, #991b1b);
+    border-color: #991b1b;
+    color: #fff;
+}
+
 [data-theme="dark"] .company-profile-actions .btn.btn-edit {
     box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35);
+}
+
+[data-theme="dark"] .company-profile-actions .btn.btn-delete {
+    box-shadow: 0 8px 18px rgba(185, 28, 28, 0.35);
 }
 
 [data-theme="dark"] .company-profile-actions .text-size-controls {
@@ -130,6 +148,7 @@
             </div>
             <a class="btn btn-edit" href="{% url 'edit_company_profile' %}">{% if request.LANGUAGE_CODE == 'en' %}Edit profile{% else %}Редактировать профиль{% endif %}</a>
             <a class="btn btn-edit" href="{% url 'change_password_request' %}">{% if request.LANGUAGE_CODE == 'en' %}Change password{% else %}Сменить пароль{% endif %}</a>
+            <button type="button" class="btn btn-delete" onclick="openDeleteCompanyModal()">{% if request.LANGUAGE_CODE == 'en' %}Delete company{% else %}Удалить компанию{% endif %}</button>
         </div>
         {% endif %}
     </div>
@@ -175,4 +194,40 @@
         </div>
     </div>
 </section>
+
+<div id="deleteCompanyModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>{% if request.LANGUAGE_CODE == 'en' %}Delete company{% else %}Удаление компании{% endif %}</h3>
+            <span class="close" onclick="closeDeleteCompanyModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>{% if request.LANGUAGE_CODE == 'en' %}The company account, vacancies, employees, responses and chats will be permanently deleted. This action cannot be undone.{% else %}Аккаунт компании, вакансии, сотрудники, отклики и чаты будут удалены без возможности восстановления. Это действие нельзя отменить.{% endif %}</p>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-cancel" onclick="closeDeleteCompanyModal()">{% if request.LANGUAGE_CODE == 'en' %}Cancel{% else %}Отмена{% endif %}</button>
+            <form method="post" action="{% url 'delete_company_profile' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-delete-confirm">{% if request.LANGUAGE_CODE == 'en' %}Delete forever{% else %}Удалить навсегда{% endif %}</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openDeleteCompanyModal() {
+    document.getElementById('deleteCompanyModal').style.display = 'block';
+}
+
+function closeDeleteCompanyModal() {
+    document.getElementById('deleteCompanyModal').style.display = 'none';
+}
+
+window.addEventListener('click', function(event) {
+    const deleteCompanyModal = document.getElementById('deleteCompanyModal');
+    if (event.target === deleteCompanyModal) {
+        closeDeleteCompanyModal();
+    }
+});
+</script>
 {% endblock %}

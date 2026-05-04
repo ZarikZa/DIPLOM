@@ -1,0 +1,566 @@
+@startuml
+hide empty members
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+left to right direction
+
+package "admin_panel.apps" {
+  class "AdminPanelConfig" as admin_panel_apps_AdminPanelConfig {
+    - default_auto_field
+    - name
+  }
+}
+
+package "admin_panel.forms" {
+  class "CompanyModerationForm" as admin_panel_forms_CompanyModerationForm {
+  }
+  class "BackupUploadForm" as admin_panel_forms_BackupUploadForm {
+    - backup_file: FileField
+  }
+  class "SiteAdminCreateForm" as admin_panel_forms_SiteAdminCreateForm {
+    - first_name: CharField
+    - last_name: CharField
+    - email: EmailField
+    - phone: CharField
+    - password1: CharField
+    - password2: CharField
+    --
+    + clean_email()
+    + clean_password2()
+    + clean_phone()
+    + save(commit = True)
+  }
+  class "SiteAdminEditForm" as admin_panel_forms_SiteAdminEditForm {
+    - email: EmailField
+    - phone: CharField
+    - first_name: CharField
+    - last_name: CharField
+    - is_active: BooleanField
+    --
+    + __init__(*args, **kwargs)
+    + clean_email()
+    + clean_phone()
+    + save(commit = True)
+  }
+  class "AdminProfileEditForm" as admin_panel_forms_AdminProfileEditForm {
+    - phone: CharField
+    - first_name: CharField
+    - last_name: CharField
+  }
+}
+
+package "admin_panel.procedure_manager" {
+  class "DjangoBackupManager" as admin_panel_procedure_manager_DjangoBackupManager {
+    + __init__()
+    + set_progress_callback(callback)
+    + _update_progress(message, percent = None)
+    + create_backup(backup_type = 'database', custom_name = None, user = None)
+    + _create_database_backup(base_name, user)
+    + _create_media_backup(base_name, user)
+    + _create_full_backup(base_name, user)
+    + restore_backup(backup_file, user)
+    + _restore_database_backup_from_memory(file_content, file_name, user)
+    + _restore_full_backup_from_memory(file_content, file_name, user)
+    + _restore_media_from_zip(zipf)
+    + get_system_info()
+    + _get_free_space()
+    + _get_database_size()
+    + _format_file_size(size_bytes)
+    + validate_backup(backup_file)
+    + test_connection()
+    + _create_media_backup(base_name, user)
+    + _create_full_backup(base_name, user)
+  }
+}
+
+package "admin_panel.statistics_service" {
+  class "StatisticsService" as admin_panel_statistics_service_StatisticsService {
+    + {static} get_main_statistics(start_date = None, end_date = None)
+    + {static} get_user_type_distribution(start_date = None, end_date = None)
+    + {static} get_vacancy_statistics(start_date = None, end_date = None)
+    + {static} get_company_statistics(start_date = None, end_date = None)
+    + {static} get_response_statistics(start_date = None, end_date = None)
+    + {static} get_complaint_statistics(start_date = None, end_date = None)
+  }
+}
+
+package "compani.apps" {
+  class "CompaniConfig" as compani_apps_CompaniConfig {
+    - default_auto_field
+    - name
+  }
+}
+
+package "compani.forms" {
+  class "CompanyRegistrationApiForm" as compani_forms_CompanyRegistrationApiForm {
+    - company_name: CharField
+    - company_number: CharField
+    - industry: CharField
+    - description: CharField
+    - email: EmailField
+    - phone: CharField
+    - verification_document: FileField
+    - password1: CharField
+    - password2: CharField
+    - personal_data_agreement: BooleanField
+    --
+    + clean_company_name()
+    + clean_company_number()
+    + clean_industry()
+    + clean_description()
+    + clean_phone()
+    + clean_verification_document()
+    + clean_password1()
+    + clean()
+  }
+  class "CompanySignUpForm" as compani_forms_CompanySignUpForm {
+    - company_name: CharField
+    - company_number: CharField
+    - industry: CharField
+    - description: CharField
+    - theme: CharField
+    - email: EmailField
+    - phone: CharField
+    - verification_document: FileField
+    - password1: CharField
+    - password2: CharField
+    --
+    + save(commit = True)
+  }
+  class "CompanyProfileEditForm" as compani_forms_CompanyProfileEditForm {
+    - company_name: CharField
+    - company_number: CharField
+    - industry: CharField
+    - description: CharField
+    - email: EmailField
+    - phone: CharField
+    --
+    + save(commit = True)
+  }
+  class "PasswordResetRequestForm" as compani_forms_PasswordResetRequestForm {
+    - email: EmailField
+  }
+  class "PasswordResetConfirmForm" as compani_forms_PasswordResetConfirmForm {
+    - new_password1: CharField
+    - new_password2: CharField
+    --
+    + clean()
+  }
+  class "HRAgentCreateForm" as compani_forms_HRAgentCreateForm {
+    - first_name: CharField
+    - last_name: CharField
+    - email: EmailField
+    - phone: CharField
+    --
+    + __init__(*args, **kwargs)
+    + save(commit = True, company = None)
+  }
+  class "HRAgentImportForm" as compani_forms_HRAgentImportForm {
+    - csv_file: FileField
+    --
+    + clean_csv_file()
+  }
+  class "HRAgentEditForm" as compani_forms_HRAgentEditForm {
+    - email: EmailField
+    - phone: CharField
+  }
+  class "VacancyForm" as compani_forms_VacancyForm {
+    - work_conditions: ModelChoiceField
+    - position: CharField
+    - description: CharField
+    - requirements: CharField
+    - salary_min: DecimalField
+    - salary_max: DecimalField
+    - experience: ChoiceField
+    - city: CharField
+    - category: ChoiceField
+    - work_conditions_details: CharField
+    - status: ModelChoiceField
+  }
+  class "ResponseStatusUpdateForm" as compani_forms_ResponseStatusUpdateForm {
+    - status: ModelChoiceField
+  }
+  class "EmployeeProfileForm" as compani_forms_EmployeeProfileForm {
+    - first_name: CharField
+    - last_name: CharField
+    - email: EmailField
+    - phone: CharField
+    --
+    + __init__(*args, **kwargs)
+    + save(commit = True)
+  }
+}
+
+package "home.admin" {
+  class "AplicatAdmin" as home_admin_AplicatAdmin {
+  }
+  class "CompanyAdmin" as home_admin_CompanyAdmin {
+  }
+  class "VacancyAdmin" as home_admin_VacancyAdmin {
+  }
+  class "RoleAdmin" as home_admin_RoleAdmin {
+  }
+  class "EmployeeAdmin" as home_admin_EmployeeAdmin {
+  }
+  class "StatusVacanciesAdmin" as home_admin_StatusVacanciesAdmin {
+  }
+  class "StatusResponseAdmin" as home_admin_StatusResponseAdmin {
+  }
+  class "ResponseAdmin" as home_admin_ResponseAdmin {
+  }
+  class "BackupAdmin" as home_admin_BackupAdmin {
+  }
+  class "AdminLogAdmin" as home_admin_AdminLogAdmin {
+  }
+  class "ComplaintAdmin" as home_admin_ComplaintAdmin {
+    - list_display
+    - list_filter
+    - search_fields
+    - readonly_fields
+    - actions
+    --
+    + mark_as_resolved(request, queryset)
+    + mark_as_rejected(request, queryset)
+  }
+}
+
+package "home.apps" {
+  class "HomeConfig" as home_apps_HomeConfig {
+    - default_auto_field
+    - name
+  }
+}
+
+package "home.backends" {
+  class "EmailBackend" as home_backends_EmailBackend {
+    + authenticate(request, username = None, password = None, **kwargs)
+  }
+}
+
+package "home.forms" {
+  class "CustomAuthenticationForm" as home_forms_CustomAuthenticationForm {
+    - username: EmailField
+    --
+    + __init__(*args, **kwargs)
+  }
+  class "BaseUserCreationForm" as home_forms_BaseUserCreationForm {
+    - email: EmailField
+    - phone: CharField
+    --
+    + save(commit = True)
+  }
+  class "ApplicantSignUpForm" as home_forms_ApplicantSignUpForm {
+    - first_name: CharField
+    - last_name: CharField
+    - birth_date: DateField
+    --
+    + __init__(*args, **kwargs)
+    + clean_birth_date()
+    + save(commit = True)
+  }
+  class "ApplicantEditForm" as home_forms_ApplicantEditForm {
+  }
+  class "UserEditForm" as home_forms_UserEditForm {
+  }
+  class "PasswordResetRequestForm" as home_forms_PasswordResetRequestForm {
+    - email: EmailField
+  }
+  class "CodeVerificationForm" as home_forms_CodeVerificationForm {
+    - code: CharField
+  }
+  class "SetNewPasswordForm" as home_forms_SetNewPasswordForm {
+    - new_password1: CharField
+    - new_password2: CharField
+    --
+    + clean()
+  }
+  class "ComplaintForm" as home_forms_ComplaintForm {
+  }
+}
+
+package "home.influxdb_metrics" {
+  class "InfluxDBSender" as home_influxdb_metrics_InfluxDBSender {
+    + __init__()
+    + send_backup_metrics()
+    + send_response_status_metrics()
+    + send_response_date_metrics()
+    + send_all_metrics()
+  }
+}
+
+package "home.metrics" {
+  class "BackUpByTypeCollector" as home_metrics_BackUpByTypeCollector {
+    + collect()
+  }
+  class "ResponseByStatusCollector" as home_metrics_ResponseByStatusCollector {
+    + collect()
+  }
+  class "ResponseByDateCollector" as home_metrics_ResponseByDateCollector {
+    + collect()
+  }
+}
+
+package "home.models" {
+  class "User" as home_models_User {
+    - email: EmailField
+    - phone: CharField
+    - USERNAME_FIELD
+    - REQUIRED_FIELDS
+    - USER_TYPE_CHOICES
+    - user_type: CharField
+    --
+    + __str__()
+    + save(*args, **kwargs)
+  }
+  class "Role" as home_models_Role {
+    - role_name: CharField
+    --
+    + __str__()
+  }
+  class "Company" as home_models_Company {
+    - STATUS_PENDING
+    - STATUS_APPROVED
+    - STATUS_REJECTED
+    - STATUS_CHOICES
+    - user: OneToOneField(User)
+    - name: CharField
+    - number: CharField
+    - industry: CharField
+    - description: TextField
+    - theme: CharField
+    - status: CharField
+    - verification_document: FileField
+    - created_at: DateTimeField
+    --
+    + __str__()
+    + is_approved()
+  }
+  class "Applicant" as home_models_Applicant {
+    - user: OneToOneField(User)
+    - first_name: CharField
+    - last_name: CharField
+    - birth_date: DateField
+    - resume: TextField
+    - theme: CharField
+    --
+    + __str__()
+    + add_to_favorites(vacancy)
+    + remove_from_favorites(vacancy)
+    + get_favorites()
+    + is_in_favorites(vacancy)
+  }
+  class "Employee" as home_models_Employee {
+    - user: OneToOneField(User)
+    - first_name: CharField
+    - last_name: CharField
+    - company: ForeignKey(Company)
+    - access_level: CharField
+    - theme: CharField
+    --
+    + __str__()
+  }
+  class "WorkConditions" as home_models_WorkConditions {
+    - work_conditions_name: CharField
+    --
+    + __str__()
+  }
+  class "StatusVacancies" as home_models_StatusVacancies {
+    - status_vacancies_name: CharField
+    --
+    + __str__()
+  }
+  class "StatusResponse" as home_models_StatusResponse {
+    - status_response_name: CharField
+    --
+    + __str__()
+  }
+  class "Vacancy" as home_models_Vacancy {
+    - company: ForeignKey(Company)
+    - work_conditions: ForeignKey(WorkConditions)
+    - position: CharField
+    - description: TextField
+    - requirements: TextField
+    - salary_min: DecimalField
+    - salary_max: DecimalField
+    - created_date: DateTimeField
+    - status: ForeignKey(StatusVacancies)
+    - views: PositiveIntegerField
+    - experience: CharField
+    - city: CharField
+    - category: CharField
+    - work_conditions_details: TextField
+    --
+    + __str__()
+  }
+  class "Complaint" as home_models_Complaint {
+    - COMPLAINT_TYPES
+    - STATUS_CHOICES
+    - vacancy: ForeignKey(Vacancy)
+    - complainant: ForeignKey(User)
+    - complaint_type: CharField
+    - description: TextField
+    - status: CharField
+    - created_at: DateTimeField
+    - resolved_at: DateTimeField
+    - admin_notes: TextField
+    --
+    + __str__()
+    + save(*args, **kwargs)
+  }
+  class "Response" as home_models_Response {
+    - applicants: ForeignKey(Applicant)
+    - vacancy: ForeignKey(Vacancy)
+    - response_date: DateTimeField
+    - status: ForeignKey(StatusResponse)
+    --
+    + __str__()
+  }
+  class "Favorites" as home_models_Favorites {
+    - applicant: ForeignKey(Applicant)
+    - vacancy: ForeignKey(Vacancy)
+    - added_date: DateTimeField
+    --
+    + __str__()
+  }
+  class "ActionType" as home_models_ActionType {
+    - code: CharField
+    - name: CharField
+    - description: TextField
+    --
+    + __str__()
+  }
+  class "AdminLog" as home_models_AdminLog {
+    - admin: ForeignKey(User)
+    - action: ForeignKey(ActionType)
+    - target_company: ForeignKey(Company)
+    - target_object_id: PositiveIntegerField
+    - target_content_type: CharField
+    - details: TextField
+    - ip_address: GenericIPAddressField
+    - user_agent: TextField
+    - created_at: DateTimeField
+    --
+    + __str__()
+  }
+  class "Backup" as home_models_Backup {
+    - BACKUP_TYPES
+    - name: CharField
+    - backup_file: FileField
+    - backup_type: CharField
+    - file_size: BigIntegerField
+    - created_at: DateTimeField
+    - created_by: ForeignKey(User)
+    --
+    + delete(*args, **kwargs)
+    + get_file_size_display()
+    + __str__()
+  }
+}
+
+package "external" {
+  class "AppConfig" as django_apps_AppConfig <<external>>
+  class "ModelAdmin" as django_contrib_admin_ModelAdmin <<external>>
+  class "ModelBackend" as django_contrib_auth_backends_ModelBackend <<external>>
+  class "AuthenticationForm" as django_contrib_auth_forms_AuthenticationForm <<external>>
+  class "UserChangeForm" as django_contrib_auth_forms_UserChangeForm <<external>>
+  class "UserCreationForm" as django_contrib_auth_forms_UserCreationForm <<external>>
+  class "AbstractUser" as django_contrib_auth_models_AbstractUser <<external>>
+  class "Model" as django_db_models_Model <<external>>
+  class "Form" as django_forms_Form <<external>>
+  class "ModelForm" as django_forms_ModelForm <<external>>
+}
+
+' Inheritance
+django_apps_AppConfig <|-- admin_panel_apps_AdminPanelConfig
+django_contrib_auth_forms_UserChangeForm <|-- admin_panel_forms_AdminProfileEditForm
+django_forms_Form <|-- admin_panel_forms_BackupUploadForm
+django_forms_ModelForm <|-- admin_panel_forms_CompanyModerationForm
+django_forms_ModelForm <|-- admin_panel_forms_SiteAdminCreateForm
+django_forms_ModelForm <|-- admin_panel_forms_SiteAdminEditForm
+django_apps_AppConfig <|-- compani_apps_CompaniConfig
+django_forms_ModelForm <|-- compani_forms_CompanyProfileEditForm
+django_forms_Form <|-- compani_forms_CompanyRegistrationApiForm
+home_forms_BaseUserCreationForm <|-- compani_forms_CompanySignUpForm
+django_forms_ModelForm <|-- compani_forms_EmployeeProfileForm
+home_forms_BaseUserCreationForm <|-- compani_forms_HRAgentCreateForm
+django_forms_ModelForm <|-- compani_forms_HRAgentEditForm
+django_forms_Form <|-- compani_forms_HRAgentImportForm
+django_forms_Form <|-- compani_forms_PasswordResetConfirmForm
+django_forms_Form <|-- compani_forms_PasswordResetRequestForm
+django_forms_ModelForm <|-- compani_forms_ResponseStatusUpdateForm
+django_forms_ModelForm <|-- compani_forms_VacancyForm
+django_contrib_admin_ModelAdmin <|-- home_admin_AdminLogAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_AplicatAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_BackupAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_CompanyAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_ComplaintAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_EmployeeAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_ResponseAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_RoleAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_StatusResponseAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_StatusVacanciesAdmin
+django_contrib_admin_ModelAdmin <|-- home_admin_VacancyAdmin
+django_apps_AppConfig <|-- home_apps_HomeConfig
+django_contrib_auth_backends_ModelBackend <|-- home_backends_EmailBackend
+django_forms_ModelForm <|-- home_forms_ApplicantEditForm
+home_forms_BaseUserCreationForm <|-- home_forms_ApplicantSignUpForm
+django_contrib_auth_forms_UserCreationForm <|-- home_forms_BaseUserCreationForm
+django_forms_Form <|-- home_forms_CodeVerificationForm
+django_forms_ModelForm <|-- home_forms_ComplaintForm
+django_contrib_auth_forms_AuthenticationForm <|-- home_forms_CustomAuthenticationForm
+django_forms_Form <|-- home_forms_PasswordResetRequestForm
+django_forms_Form <|-- home_forms_SetNewPasswordForm
+django_forms_ModelForm <|-- home_forms_UserEditForm
+django_db_models_Model <|-- home_models_ActionType
+django_db_models_Model <|-- home_models_AdminLog
+django_db_models_Model <|-- home_models_Applicant
+django_db_models_Model <|-- home_models_Backup
+django_db_models_Model <|-- home_models_Company
+django_db_models_Model <|-- home_models_Complaint
+django_db_models_Model <|-- home_models_Employee
+django_db_models_Model <|-- home_models_Favorites
+django_db_models_Model <|-- home_models_Response
+django_db_models_Model <|-- home_models_Role
+django_db_models_Model <|-- home_models_StatusResponse
+django_db_models_Model <|-- home_models_StatusVacancies
+django_contrib_auth_models_AbstractUser <|-- home_models_User
+django_db_models_Model <|-- home_models_Vacancy
+django_db_models_Model <|-- home_models_WorkConditions
+
+' Associations
+admin_panel_forms_AdminProfileEditForm ..> home_models_User : ModelForm Meta.model
+admin_panel_forms_CompanyModerationForm ..> home_models_Company : ModelForm Meta.model
+admin_panel_forms_SiteAdminCreateForm ..> home_models_User : ModelForm Meta.model
+admin_panel_forms_SiteAdminEditForm ..> home_models_User : ModelForm Meta.model
+compani_forms_CompanyProfileEditForm ..> home_models_User : ModelForm Meta.model
+compani_forms_CompanySignUpForm ..> home_models_User : ModelForm Meta.model
+compani_forms_EmployeeProfileForm ..> home_models_Employee : ModelForm Meta.model
+compani_forms_HRAgentCreateForm ..> home_models_User : ModelForm Meta.model
+compani_forms_HRAgentEditForm ..> home_models_Employee : ModelForm Meta.model
+compani_forms_ResponseStatusUpdateForm ..> home_models_Response : ModelForm Meta.model
+compani_forms_VacancyForm ..> home_models_Vacancy : ModelForm Meta.model
+home_forms_ApplicantEditForm ..> home_models_Applicant : ModelForm Meta.model
+home_forms_BaseUserCreationForm ..> home_models_User : ModelForm Meta.model
+home_forms_ComplaintForm ..> home_models_Complaint : ModelForm Meta.model
+home_forms_CustomAuthenticationForm ..> home_models_User : ModelForm Meta.model
+home_forms_UserEditForm ..> home_models_User : ModelForm Meta.model
+home_models_AdminLog --> home_models_User : ForeignKey admin
+home_models_AdminLog --> home_models_ActionType : ForeignKey action
+home_models_AdminLog --> home_models_Company : ForeignKey target_company
+home_models_Applicant --> home_models_User : OneToOneField user
+home_models_Backup --> home_models_User : ForeignKey created_by
+home_models_Company --> home_models_User : OneToOneField user
+home_models_Complaint --> home_models_Vacancy : ForeignKey vacancy
+home_models_Complaint --> home_models_User : ForeignKey complainant
+home_models_Employee --> home_models_User : OneToOneField user
+home_models_Employee --> home_models_Company : ForeignKey company
+home_models_Favorites --> home_models_Applicant : ForeignKey applicant
+home_models_Favorites --> home_models_Vacancy : ForeignKey vacancy
+home_models_Response --> home_models_Applicant : ForeignKey applicants
+home_models_Response --> home_models_Vacancy : ForeignKey vacancy
+home_models_Response --> home_models_StatusResponse : ForeignKey status
+home_models_Vacancy --> home_models_Company : ForeignKey company
+home_models_Vacancy --> home_models_WorkConditions : ForeignKey work_conditions
+home_models_Vacancy --> home_models_StatusVacancies : ForeignKey status
+@enduml

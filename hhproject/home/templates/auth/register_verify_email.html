@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block flash_messages %}{% endblock %}
+
+{% block title %}Подтверждение регистрации - WorkMPT{% endblock %}
+
+{% block content %}
+<div class="login-section">
+    <div class="login-container-wrapper">
+        <div class="login-container">
+            <h2>Подтверждение регистрации</h2>
+
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if form.non_field_errors %}
+            <ul class="errorlist">
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            <div class="email-info">
+                <p class="email-label">Код отправлен на:</p>
+                <p class="email-value">{{ email }}</p>
+                <p class="attempts-info">
+                    Осталось попыток: <span class="attempts-count {% if attempts == 1 %}attempts-warning{% endif %}">{{ attempts }}</span>
+                </p>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="form-group" style="--index: 1;">
+                    <label for="id_code">Код подтверждения</label>
+                    {{ form.code }}
+                    {% if form.code.errors %}
+                    <ul class="errorlist">
+                        {% for error in form.code.errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="--index: 2;">
+                    Завершить регистрацию
+                </button>
+
+                <div class="back-link-container">
+                    <a href="{% url 'registration_user' %}?restart=1" class="back-link">
+                        ← Изменить email
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

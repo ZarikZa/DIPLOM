@@ -57,14 +57,34 @@ public class ResponseDetailsActivity extends AppCompatActivity {
     private int vacancyId;
 
     public static Intent createIntent(@NonNull Context context, @NonNull ResponseItem response) {
+        return createIntent(
+                context,
+                response.getId(),
+                response.getVacancyId(),
+                response.getVacancyPosition(),
+                response.getCompanyName(),
+                response.getStatusName(),
+                response.getResponseDate(),
+                response.getApplicantName()
+        );
+    }
+
+    public static Intent createIntent(@NonNull Context context,
+                                      int responseId,
+                                      int vacancyId,
+                                      String vacancyPosition,
+                                      String companyName,
+                                      String statusName,
+                                      String responseDate,
+                                      String applicantName) {
         Intent intent = new Intent(context, ResponseDetailsActivity.class);
-        intent.putExtra(EXTRA_RESPONSE_ID, response.getId());
-        intent.putExtra(EXTRA_VACANCY_ID, response.getVacancyId());
-        intent.putExtra(EXTRA_VACANCY_POSITION, response.getVacancyPosition());
-        intent.putExtra(EXTRA_COMPANY_NAME, response.getCompanyName());
-        intent.putExtra(EXTRA_STATUS_NAME, response.getStatusName());
-        intent.putExtra(EXTRA_RESPONSE_DATE, response.getResponseDate());
-        intent.putExtra(EXTRA_APPLICANT_NAME, response.getApplicantName());
+        intent.putExtra(EXTRA_RESPONSE_ID, responseId);
+        intent.putExtra(EXTRA_VACANCY_ID, vacancyId);
+        intent.putExtra(EXTRA_VACANCY_POSITION, vacancyPosition);
+        intent.putExtra(EXTRA_COMPANY_NAME, companyName);
+        intent.putExtra(EXTRA_STATUS_NAME, statusName);
+        intent.putExtra(EXTRA_RESPONSE_DATE, responseDate);
+        intent.putExtra(EXTRA_APPLICANT_NAME, applicantName);
         return intent;
     }
 

@@ -1,744 +1,674 @@
-import os
-import zipfile
+from __future__ import annotations
+
 import json
-from datetime import datetime
-from django.db import connection
-from django.conf import settings
-from django.core import serializers
-from pathlib import Path
+import re
 import shutil
-import tempfile
+import zipfile
+from contextlib import contextmanager, suppress
+from datetime import datetime
+from pathlib import Path
+from uuid import uuid4
+
 from django.apps import apps
-import django
-from io import BytesIO
-import time
+from django.conf import settings
+from django.core.files import File
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.core.management import call_command
+from django.core.management.color import no_style
+from django.db import connection
+from django.utils import timezone
+
 
 class DjangoBackupManager:
+    """Storage-agnostic backup manager for database and media archives."""
+
+    ARCHIVE_METADATA_NAME = "metadata.json"
+    ARCHIVE_DATABASE_NAME = "database.json"
+    ARCHIVE_MEDIA_PREFIX = "media/"
+    FORMAT_NAME = "workmpt-backup"
+    FORMAT_VERSION = 2
+    STORAGE_SKIP_ROOTS = ("backups", "_tmp_uploads", "_tmp_backup")
+    DUMPDATA_EXCLUDES = (
+        "admin.logentry",
+        "sessions.session",
+        "apihh_main.backup",
+        "home.role",
+    )
+
     def __init__(self):
-        self.backup_dir = Path(settings.MEDIA_ROOT) / 'backups'
-        self.backup_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Замените 'yourapp' на имя вашего приложения!
-        self.models_to_backup = [
-            'auth.User',
-            'auth.Group', 
-            'auth.Permission',
-            'yourapp.Role',
-            'yourapp.Company',
-            'yourapp.Applicant',
-            'yourapp.Employee',
-            'yourapp.WorkConditions',
-            'yourapp.StatusVacancies',
-            'yourapp.StatusResponse',
-            'yourapp.Vacancy',
-            'yourapp.Complaint',
-            'yourapp.Response',
-            'yourapp.Favorites',
-            'yourapp.AdminLog',
-            'yourapp.Backup',
-        ]
-        
-        # Для отслеживания прогресса
+        base_tmp_dir = Path(
+            getattr(settings, "FILE_UPLOAD_TEMP_DIR", Path(settings.BASE_DIR) / "_tmp_uploads")
+        )
+        self.temp_root = base_tmp_dir / "_tmp_backup"
+        self.temp_root.mkdir(parents=True, exist_ok=True)
         self.progress_callback = None
 
     def set_progress_callback(self, callback):
-        """Установка callback для отслеживания прогресса"""
         self.progress_callback = callback
 
     def _update_progress(self, message, percent=None):
-        """Обновление прогресса"""
         if self.progress_callback:
             self.progress_callback(message, percent)
 
-    def create_backup(self, backup_type='database', custom_name=None, user=None):
-        """Создание бэкапа через Django"""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        base_name = custom_name or f"backup_{backup_type}_{timestamp}"
-        
-        self._update_progress(f"Начинаем создание бэкапа типа: {backup_type}")
-        
-        try:
-            if backup_type == 'full':
-                return self._create_full_backup(base_name, user)
-            elif backup_type == 'media':
-                return self._create_media_backup(base_name, user)
-            else:  # database
-                return self._create_database_backup(base_name, user)
-                
-        except Exception as e:
-            self._update_progress(f"Ошибка создания бэкапа: {str(e)}")
-            return {'success': False, 'error': str(e)}
+    def create_backup(self, backup_type="database", custom_name=None, user=None):
+        backup_type = (backup_type or "database").strip().lower()
+        base_name = self._build_base_name(backup_type, custom_name)
 
-    def _create_database_backup(self, base_name, user):
-        """Создание бэкапа базы данных через Django serializers"""
-        filename = f"{base_name}.json"
-        filepath = self.backup_dir / filename
-        
-        self._update_progress("Начинаем бэкап базы данных...", 10)
-        
-        try:
-            backup_data = {}
-            total_models = len(self.models_to_backup)
-            
-            # Собираем данные из всех моделей
-            for i, model_path in enumerate(self.models_to_backup):
-                try:
-                    app_label, model_name = model_path.split('.')
-                    model = apps.get_model(app_label, model_name)
-                    
-                    self._update_progress(f"Бэкап модели: {model_path}...", 10 + (i * 70 // total_models))
-                    
-                    # Сериализуем данные модели
-                    data = serializers.serialize('json', model.objects.all())
-                    backup_data[model_path] = json.loads(data)
-                    
-                    self._update_progress(f"Модель {model_path} завершена ({len(json.loads(data))} объектов)")
-                    
-                except Exception as e:
-                    print(f"Warning: Could not backup {model_path}: {e}")
-                    self._update_progress(f"Предупреждение: не удалось создать бэкап {model_path}: {e}")
-                    continue
-            
-            self._update_progress("Сохраняем данные в файл...", 80)
-            
-            # Сохраняем в файл
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'metadata': {
-                        'created_at': datetime.now().isoformat(),
-                        'backup_type': 'database',
-                        'django_version': django.get_version(),
-                        'models_backed_up': list(backup_data.keys())
-                    },
-                    'data': backup_data
-                }, f, ensure_ascii=False, indent=2)
-            
-            file_size = filepath.stat().st_size
-            
-            self._update_progress(f"Бэкап базы данных завершен! Размер: {self._format_file_size(file_size)}", 100)
-            
-            return {
-                'success': True,
-                'filepath': str(filepath),
-                'filename': filename,
-                'file_size': file_size,
-                'backup_type': 'database',
-                'method': 'django_serializer',
-                'created_at': datetime.now()
-            }
-            
-        except Exception as e:
-            if filepath.exists():
-                filepath.unlink()
-            self._update_progress(f"Ошибка бэкапа базы данных: {str(e)}")
-            raise Exception(f"Database backup failed: {str(e)}")
+        creators = {
+            "database": self._create_database_backup,
+            "media": self._create_media_backup,
+            "full": self._create_full_backup,
+        }
+        creator = creators.get(backup_type)
+        if creator is None:
+            return {"success": False, "error": "Unsupported backup type."}
 
-    def _create_media_backup(self, base_name, user):
-        """Создание бэкапа медиа файлов"""
-        filename = f"{base_name}_media.zip"
-        filepath = self.backup_dir / filename
-        
-        self._update_progress("Начинаем бэкап медиа файлов...", 10)
-        
         try:
-            media_dir = Path(settings.MEDIA_ROOT)
-            media_files = []
-            
-            if media_dir.exists():
-                self._update_progress("Сканируем медиа файлы...", 20)
-                
-                # Собираем список всех медиа файлов
-                media_files = list(media_dir.rglob('*'))
-                media_files = [f for f in media_files if f.is_file()]
-                
-                self._update_progress(f"Найдено {len(media_files)} файлов для бэкапа", 30)
-            
-            with zipfile.ZipFile(filepath, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                total_files = len(media_files)
-                
-                for i, media_file in enumerate(media_files):
-                    try:
-                        # Обновляем прогресс
-                        progress = 30 + (i * 60 // total_files) if total_files > 0 else 90
-                        self._update_progress(f"Добавляем файл: {media_file.name}...", progress)
-                        
-                        # Сохраняем относительный путь
-                        arcname = media_file.relative_to(media_dir)
-                        zipf.write(media_file, f"media/{arcname}")
-                        
-                        if i % 100 == 0:  # Логируем каждые 100 файлов
-                            self._update_progress(f"Обработано {i}/{total_files} файлов...")
-                            
-                    except Exception as e:
-                        print(f"Warning: Could not add {media_file}: {e}")
-                        self._update_progress(f"Предупреждение: не удалось добавить {media_file}: {e}")
-                        continue
-            
-            file_size = filepath.stat().st_size
-            
-            self._update_progress(f"Бэкап медиа файлов завершен! Размер: {self._format_file_size(file_size)}", 100)
-            
-            return {
-                'success': True,
-                'filepath': str(filepath),
-                'filename': filename,
-                'file_size': file_size,
-                'backup_type': 'media',
-                'method': 'zip',
-                'created_at': datetime.now()
-            }
-            
-        except Exception as e:
-            if filepath.exists():
-                filepath.unlink()
-            self._update_progress(f"Ошибка бэкапа медиа файлов: {str(e)}")
-            raise Exception(f"Media backup failed: {str(e)}")
+            return creator(base_name, user)
+        except Exception as exc:
+            self._update_progress(f"Ошибка создания бэкапа: {exc}")
+            return {"success": False, "error": str(exc)}
 
-    def _create_full_backup(self, base_name, user):
-        """Создание полного бэкапа (база + медиа)"""
-        filename = f"{base_name}_full.zip"
-        filepath = self.backup_dir / filename
-        
-        self._update_progress("Начинаем создание полного бэкапа...", 5)
-        
+    def inspect_backup(self, backup_file):
+        file_name = Path(getattr(backup_file, "name", "")).name
+        suffix = Path(file_name).suffix.lower()
+
         try:
-            # Сначала создаем бэкап базы данных
-            self._update_progress("Создаем бэкап базы данных...", 10)
-            db_backup = self._create_database_backup(f"{base_name}_db", user)
-            
-            self._update_progress("База данных завершена, начинаем упаковку в ZIP...", 50)
-            
-            with zipfile.ZipFile(filepath, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Добавляем бэкап базы данных
-                self._update_progress("Добавляем бэкап базы данных в архив...", 60)
-                zipf.write(db_backup['filepath'], 'database.json')
-                
-                # Добавляем медиа файлы
-                self._update_progress("Добавляем медиа файлы в архив...", 70)
-                media_dir = Path(settings.MEDIA_ROOT)
-                if media_dir.exists():
-                    media_files = list(media_dir.rglob('*'))
-                    media_files = [f for f in media_files if f.is_file()]
-                    total_files = len(media_files)
-                    
-                    for i, media_file in enumerate(media_files):
-                        try:
-                            progress = 70 + (i * 25 // total_files) if total_files > 0 else 95
-                            self._update_progress(f"Добавляем медиа файл: {media_file.name}...", progress)
-                            
-                            arcname = media_file.relative_to(media_dir)
-                            zipf.write(media_file, f"media/{arcname}")
-                            
-                            if i % 100 == 0:
-                                self._update_progress(f"Медиа файлов обработано: {i}/{total_files}")
-                                
-                        except Exception as e:
-                            print(f"Warning: Could not add {media_file}: {e}")
-                            self._update_progress(f"Предупреждение: не удалось добавить {media_file}: {e}")
-                            continue
-            
-            # Удаляем временный файл бэкапа БД
-            if Path(db_backup['filepath']).exists():
-                Path(db_backup['filepath']).unlink()
-            
-            file_size = filepath.stat().st_size
-            
-            self._update_progress(f"Полный бэкап завершен! Размер: {self._format_file_size(file_size)}", 100)
-            
-            return {
-                'success': True,
-                'filepath': str(filepath),
-                'filename': filename,
-                'file_size': file_size,
-                'backup_type': 'full',
-                'method': 'composite',
-                'created_at': datetime.now()
-            }
-            
-        except Exception as e:
-            # Удаляем частично созданные файлы
-            if filepath.exists():
-                filepath.unlink()
-            self._update_progress(f"Ошибка создания полного бэкапа: {str(e)}")
-            raise Exception(f"Full backup failed: {str(e)}")
+            if hasattr(backup_file, "seek"):
+                backup_file.seek(0)
 
-    def restore_backup(self, backup_file, user):
-        """Восстановление из бэкапа без использования временных файлов"""
-        self._update_progress("Начинаем восстановление из бэкапа...")
-        
-        try:
-            # Читаем все содержимое файла в память
-            file_content = backup_file.read()
-            file_name = backup_file.name
-            
-            self._update_progress(f"Файл прочитан: {file_name}, размер: {self._format_file_size(len(file_content))}")
-            
-            # Определяем тип бэкапа и восстанавливаем
-            if file_name.endswith('.zip'):
-                result = self._restore_full_backup_from_memory(file_content, file_name, user)
-            elif file_name.endswith('.json'):
-                result = self._restore_database_backup_from_memory(file_content, file_name, user)
-            else:
-                raise Exception("Unsupported backup format. Use .zip or .json")
-            
-            self._update_progress("Восстановление завершено успешно!")
-            return result
-                
-        except Exception as e:
-            self._update_progress(f"Ошибка восстановления: {str(e)}")
-            raise Exception(f"Restore failed: {str(e)}")
+            if suffix == ".zip":
+                with zipfile.ZipFile(backup_file, "r") as archive:
+                    members = archive.namelist()
+                    metadata = self._read_archive_metadata(archive)
+                    contains_database = self.ARCHIVE_DATABASE_NAME in members
+                    contains_media = any(
+                        name.startswith(self.ARCHIVE_MEDIA_PREFIX) and not name.endswith("/")
+                        for name in members
+                    )
+                    if not contains_database and not contains_media:
+                        return {"valid": False, "error": "Archive has no database or media payload."}
 
-    def _restore_database_backup_from_memory(self, file_content, file_name, user):
-        """Восстановление базы данных из JSON в памяти"""
-        self._update_progress("Восстанавливаем базу данных из JSON...")
-        
-        try:
-            # Декодируем JSON из памяти
-            backup_data = json.loads(file_content.decode('utf-8'))
-            
-            if 'data' not in backup_data:
-                raise Exception("Invalid backup format: missing 'data' section")
-            
-            restored_models = 0
-            total_objects = 0
-            total_models = len(backup_data['data'])
-            
-            # Восстанавливаем данные для каждой модели
-            for i, (model_path, objects_data) in enumerate(backup_data['data'].items()):
-                try:
-                    progress = 10 + (i * 80 // total_models)
-                    self._update_progress(f"Восстанавливаем модель: {model_path} ({len(objects_data)} объектов)...", progress)
-                    
-                    app_label, model_name = model_path.split('.')
-                    model = apps.get_model(app_label, model_name)
-                    
-                    # Восстанавливаем объекты
-                    for obj_data in objects_data:
-                        try:
-                            # Используем Django deserializer
-                            obj = serializers.deserialize('json', json.dumps([obj_data]))
-                            for deserialized_obj in obj:
-                                deserialized_obj.save()
-                            total_objects += 1
-                        except Exception as e:
-                            print(f"Warning: Could not restore object in {model_path}: {e}")
-                            continue
-                    
-                    restored_models += 1
-                    self._update_progress(f"Модель {model_path} восстановлена ({len(objects_data)} объектов)")
-                    
-                except Exception as e:
-                    print(f"Warning: Could not restore model {model_path}: {e}")
-                    self._update_progress(f"Предупреждение: не удалось восстановить модель {model_path}: {e}")
-                    continue
-            
-            success_message = f'База данных успешно восстановлена: {restored_models} моделей, {total_objects} объектов'
-            self._update_progress(success_message, 100)
-            
-            return {
-                'success': True, 
-                'message': success_message
-            }
-            
-        except Exception as e:
-            self._update_progress(f"Ошибка восстановления базы данных: {str(e)}")
-            raise Exception(f"Database restore failed: {str(e)}")
+                    backup_type = metadata.get("backup_type")
+                    if backup_type not in {"database", "media", "full"}:
+                        if contains_database and contains_media:
+                            backup_type = "full"
+                        elif contains_media:
+                            backup_type = "media"
+                        else:
+                            backup_type = "database"
 
-    def _restore_full_backup_from_memory(self, file_content, file_name, user):
-        """Восстановление полного бэкапа из памяти"""
-        self._update_progress("Восстанавливаем полный бэкап...")
-        
-        try:
-            # Используем BytesIO для работы с ZIP в памяти
-            zip_buffer = BytesIO(file_content)
-            
-            with zipfile.ZipFile(zip_buffer, 'r') as zipf:
-                self._update_progress("ZIP архив открыт, ищем файлы...")
-                
-                # Ищем файл базы данных
-                db_file_info = None
-                media_files_count = 0
-                
-                for file_info in zipf.filelist:
-                    if file_info.filename == 'database.json':
-                        db_file_info = file_info
-                    elif file_info.filename.startswith('media/') and not file_info.is_dir():
-                        media_files_count += 1
-                
-                self._update_progress(f"Найдено: database.json и {media_files_count} медиа файлов")
-                
-                if not db_file_info:
-                    return {'success': False, 'error': 'Database backup not found in full backup'}
-                
-                # Читаем базу данных из ZIP
-                with zipf.open('database.json') as db_file:
-                    db_content = db_file.read()
-                
-                # Восстанавливаем базу данных
-                self._update_progress("Восстанавливаем базу данных...", 30)
-                db_result = self._restore_database_backup_from_memory(db_content, 'database.json', user)
-                if not db_result['success']:
-                    return db_result
-                
-                # Восстанавливаем медиа файлы
-                self._update_progress("Восстанавливаем медиа файлы...", 70)
-                media_files_restored = self._restore_media_from_zip(zipf)
-                
-                self._update_progress(f"Восстановлено {media_files_restored} медиа файлов", 100)
-            
-            return {
-                'success': True, 
-                'message': f'Полный бэкап успешно восстановлен. {media_files_restored} медиа файлов восстановлено.'
-            }
-            
-        except Exception as e:
-            self._update_progress(f"Ошибка восстановления полного бэкапа: {str(e)}")
-            raise Exception(f"Full backup restore failed: {str(e)}")
+                    return {
+                        "valid": True,
+                        "backup_type": backup_type,
+                        "format": metadata.get("format") or "legacy-zip",
+                        "contains_database": contains_database,
+                        "contains_media": contains_media,
+                    }
 
-    def _restore_media_from_zip(self, zipf):
-        """Восстановление медиа файлов из ZIP архива"""
-        media_files_restored = 0
-        media_dest = Path(settings.MEDIA_ROOT)
-        
-        # Создаем backup старых медиа файлов
-        backup_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        media_backup = media_dest.parent / f"media_backup_{backup_timestamp}"
-        
-        try:
-            # Создаем резервную копию существующих медиа файлов
-            if media_dest.exists():
-                print(f"Creating media backup: {media_backup}")
-                shutil.move(str(media_dest), str(media_backup))
-            
-            # Создаем новую медиа директорию
-            media_dest.mkdir(parents=True, exist_ok=True)
-            
-            # Восстанавливаем медиа файлы из ZIP
-            for file_info in zipf.filelist:
-                if file_info.filename.startswith('media/') and not file_info.is_dir():
-                    try:
-                        # Получаем относительный путь
-                        relative_path = file_info.filename[6:]  # Убираем 'media/'
-                        if not relative_path:
-                            continue
-                            
-                        # Создаем полный путь назначения
-                        dest_path = media_dest / relative_path
-                        dest_path.parent.mkdir(parents=True, exist_ok=True)
-                        
-                        # Извлекаем файл
-                        with zipf.open(file_info.filename) as source_file:
-                            with open(dest_path, 'wb') as dest_file:
-                                dest_file.write(source_file.read())
-                        
-                        media_files_restored += 1
-                        
-                    except Exception as e:
-                        print(f"Warning: Could not restore media file {file_info.filename}: {e}")
-                        continue
-            
-            return media_files_restored
-            
-        except Exception as e:
-            # В случае ошибки пытаемся восстановить из backup
-            print(f"Error restoring media, attempting rollback: {e}")
-            if media_backup.exists() and not media_dest.exists():
-                try:
-                    shutil.move(str(media_backup), str(media_dest))
-                    print("Media rollback successful")
-                except Exception as rollback_error:
-                    print(f"Media rollback failed: {rollback_error}")
-            raise
+            if suffix == ".json":
+                payload = json.load(backup_file)
+                if isinstance(payload, list):
+                    return {
+                        "valid": True,
+                        "backup_type": "database",
+                        "format": "fixture-json",
+                        "contains_database": True,
+                        "contains_media": False,
+                    }
+                if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+                    return {
+                        "valid": True,
+                        "backup_type": "database",
+                        "format": "legacy-django-json",
+                        "contains_database": True,
+                        "contains_media": False,
+                    }
+                return {"valid": False, "error": "Unsupported JSON backup structure."}
 
-    def get_system_info(self):
-        """Получение информации о системе"""
-        try:
-            backup_files = list(self.backup_dir.glob('*'))
-            total_size = sum(f.stat().st_size for f in backup_files if f.is_file())
-            
-            # Получаем размер базы данных
-            db_size = self._get_database_size()
-            
-            return {
-                'total_backups': len(backup_files),
-                'total_size': total_size,
-                'free_space': self._get_free_space(),
-                'database_size': db_size,
-                'backup_directory': str(self.backup_dir),
-                'error': None
-            }
-        except Exception as e:
-            return {
-                'total_backups': 0,
-                'total_size': 0,
-                'free_space': 0,
-                'database_size': 'Unknown',
-                'error': str(e)
-            }
-
-    def _get_free_space(self):
-        """Получение свободного места на диске"""
-        try:
-            total, used, free = shutil.disk_usage(self.backup_dir)
-            return free
-        except:
-            return 0
-
-    def _get_database_size(self):
-        """Получение размера базы данных"""
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT pg_database_size(%s)", [settings.DATABASES['default']['NAME']])
-                result = cursor.fetchone()
-                return self._format_file_size(result[0]) if result else 'Unknown'
-        except:
-            return 'Unknown'
-
-    def _format_file_size(self, size_bytes):
-        """Форматирование размера файла в читаемый вид"""
-        if size_bytes == 0:
-            return "0 B"
-        
-        size_names = ["B", "KB", "MB", "GB"]
-        i = 0
-        size = size_bytes
-        
-        while size >= 1024 and i < len(size_names) - 1:
-            size /= 1024.0
-            i += 1
-        
-        return f"{size:.2f} {size_names[i]}"
+            return {"valid": False, "error": "Unsupported backup format."}
+        except Exception as exc:
+            return {"valid": False, "error": str(exc)}
+        finally:
+            if hasattr(backup_file, "seek"):
+                with suppress(Exception):
+                    backup_file.seek(0)
 
     def validate_backup(self, backup_file):
-        """Проверка целостности бэкапа"""
+        return bool(self.inspect_backup(backup_file).get("valid"))
+
+    def restore_backup(self, backup_file, user):
+        self._update_progress("Подготавливаем файл бэкапа...", 5)
+        temp_path = self._copy_backup_to_temp_file(backup_file)
+
         try:
-            file_content = backup_file.read()
-            
-            if backup_file.name.endswith('.json'):
-                # Проверяем JSON файл
-                data = json.loads(file_content.decode('utf-8'))
-                return 'metadata' in data and 'data' in data
-            elif backup_file.name.endswith('.zip'):
-                # Проверяем ZIP архив в памяти
-                zip_buffer = BytesIO(file_content)
-                with zipfile.ZipFile(zip_buffer, 'r') as zipf:
-                    return zipf.testzip() is None
-            else:
-                return False
-        except:
-            return False
+            suffix = temp_path.suffix.lower()
+            if suffix == ".zip":
+                return self._restore_archive(temp_path, user)
+            if suffix == ".json":
+                return self._restore_database_payload(temp_path, user)
+            raise Exception("Unsupported backup format. Use .zip or .json")
         finally:
-            # Возвращаем указатель файла в начало
-            backup_file.seek(0)
+            with suppress(FileNotFoundError):
+                temp_path.unlink()
+
+    def get_system_info(self):
+        backup_model = self._backup_model()
+        totals = {"total_backups": 0, "total_size": 0, "free_space": 0, "database_size": "Unknown"}
+
+        try:
+            totals["total_backups"] = backup_model.objects.count()
+            totals["total_size"] = sum(
+                (backup.file_size or 0) for backup in backup_model.objects.only("file_size")
+            )
+            totals["free_space"] = self._get_free_space()
+            totals["database_size"] = self._get_database_size()
+
+            db_status = self._check_database_connection()
+            storage_status = self._check_storage_connection()
+            error = None
+            if not db_status["success"]:
+                error = db_status["message"]
+            elif not storage_status["success"]:
+                error = storage_status["message"]
+
+            totals.update(
+                {
+                    "backup_directory": self._describe_backup_location(),
+                    "storage_backend": default_storage.__class__.__name__,
+                    "storage_status": storage_status,
+                    "database_status": db_status,
+                    "error": error,
+                }
+            )
+            return totals
+        except Exception as exc:
+            totals["error"] = str(exc)
+            totals["backup_directory"] = self._describe_backup_location()
+            totals["storage_backend"] = default_storage.__class__.__name__
+            return totals
+
+    def get_media_stats(self):
+        stats = {
+            "exists": True,
+            "total_files": 0,
+            "total_size": 0,
+            "file_types": {},
+            "largest_files": [],
+        }
+
+        media_files = self._collect_media_storage_files()
+        largest = []
+        for storage_path in media_files:
+            with suppress(Exception):
+                file_size = default_storage.size(storage_path)
+                suffix = Path(storage_path).suffix.lower() or "<none>"
+                stats["total_files"] += 1
+                stats["total_size"] += file_size
+                stats["file_types"][suffix] = stats["file_types"].get(suffix, 0) + 1
+                largest.append((storage_path, file_size))
+
+        largest.sort(key=lambda item: item[1], reverse=True)
+        stats["largest_files"] = largest[:10]
+        return stats
 
     def test_connection(self):
-        """Тестирование подключения к базе данных"""
+        db_status = self._check_database_connection()
+        storage_status = self._check_storage_connection()
+        if db_status["success"] and storage_status["success"]:
+            return {"success": True, "message": "Database and storage connections are OK."}
+        if not db_status["success"]:
+            return db_status
+        return storage_status
+
+    def _create_database_backup(self, base_name, user):
+        display_name = f"{base_name}.zip"
+        archive_path = self._make_temp_file(".zip")
+
+        self._update_progress("Создаем дамп базы данных...", 10)
+        try:
+            with self._temporary_work_dir() as work_dir:
+                database_dump_path = work_dir / self.ARCHIVE_DATABASE_NAME
+                self._dump_database(database_dump_path)
+                metadata = self._build_metadata("database", user=user)
+                self._update_progress("Упаковываем дамп базы данных...", 75)
+                self._write_archive(
+                    archive_path,
+                    metadata=metadata,
+                    database_dump_path=database_dump_path,
+                )
+            file_size = archive_path.stat().st_size
+            self._update_progress("Бэкап базы данных готов.", 100)
+            return self._result_payload(archive_path, display_name, "database", file_size)
+        except Exception:
+            with suppress(FileNotFoundError):
+                archive_path.unlink()
+            raise
+
+    def _create_media_backup(self, base_name, user):
+        display_name = f"{base_name}.zip"
+        archive_path = self._make_temp_file(".zip")
+        media_files = self._collect_media_storage_files()
+
+        self._update_progress("Собираем медиафайлы для бэкапа...", 10)
+        try:
+            metadata = self._build_metadata("media", user=user, media_files_count=len(media_files))
+            self._write_archive(
+                archive_path,
+                metadata=metadata,
+                media_files=media_files,
+            )
+            file_size = archive_path.stat().st_size
+            self._update_progress("Медиабэкап готов.", 100)
+            return self._result_payload(archive_path, display_name, "media", file_size)
+        except Exception:
+            with suppress(FileNotFoundError):
+                archive_path.unlink()
+            raise
+
+    def _create_full_backup(self, base_name, user):
+        display_name = f"{base_name}.zip"
+        archive_path = self._make_temp_file(".zip")
+        media_files = self._collect_media_storage_files()
+
+        self._update_progress("Создаем полный бэкап: база данных и медиа...", 5)
+        try:
+            with self._temporary_work_dir() as work_dir:
+                database_dump_path = work_dir / self.ARCHIVE_DATABASE_NAME
+                self._dump_database(database_dump_path)
+                metadata = self._build_metadata("full", user=user, media_files_count=len(media_files))
+                self._write_archive(
+                    archive_path,
+                    metadata=metadata,
+                    database_dump_path=database_dump_path,
+                    media_files=media_files,
+                )
+            file_size = archive_path.stat().st_size
+            self._update_progress("Полный бэкап готов.", 100)
+            return self._result_payload(archive_path, display_name, "full", file_size)
+        except Exception:
+            with suppress(FileNotFoundError):
+                archive_path.unlink()
+            raise
+
+    def _write_archive(self, archive_path, *, metadata, database_dump_path=None, media_files=None):
+        media_files = media_files or []
+        total_media = len(media_files)
+
+        with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr(
+                self.ARCHIVE_METADATA_NAME,
+                json.dumps(metadata, ensure_ascii=False, indent=2),
+            )
+
+            if database_dump_path is not None:
+                archive.write(database_dump_path, self.ARCHIVE_DATABASE_NAME)
+
+            if media_files:
+                for index, storage_path in enumerate(media_files, start=1):
+                    progress = 55 + int(index * 40 / max(total_media, 1))
+                    if index == 1 or index == total_media or index % 25 == 0:
+                        self._update_progress(
+                            f"Добавляем медиафайл {index}/{total_media}: {Path(storage_path).name}",
+                            progress,
+                        )
+                    with default_storage.open(storage_path, "rb") as source, archive.open(
+                        f"{self.ARCHIVE_MEDIA_PREFIX}{storage_path}", "w"
+                    ) as destination:
+                        shutil.copyfileobj(source, destination, length=1024 * 1024)
+
+    def _dump_database(self, output_path):
+        exclude = list(self.DUMPDATA_EXCLUDES)
+        with open(output_path, "w", encoding="utf-8") as output:
+            call_command(
+                "dumpdata",
+                database="default",
+                exclude=exclude,
+                indent=2,
+                verbosity=0,
+                stdout=output,
+            )
+
+    def _restore_archive(self, archive_path, user):
+        self._update_progress("Открываем архив бэкапа...", 10)
+        with open(archive_path, "rb") as archive_file:
+            backup_info = self.inspect_backup(archive_file)
+        if not backup_info.get("valid"):
+            raise Exception(backup_info.get("error") or "Invalid archive backup.")
+
+        with zipfile.ZipFile(archive_path, "r") as archive:
+            contains_database = backup_info.get("contains_database")
+            contains_media = backup_info.get("contains_media")
+            database_result = None
+
+            if contains_database:
+                self._update_progress("Восстанавливаем базу данных из архива...", 25)
+                with self._temporary_work_dir() as work_dir:
+                    database_payload_path = work_dir / self.ARCHIVE_DATABASE_NAME
+                    with archive.open(self.ARCHIVE_DATABASE_NAME, "r") as source, open(
+                        database_payload_path, "wb"
+                    ) as destination:
+                        shutil.copyfileobj(source, destination)
+                    database_result = self._restore_database_payload(database_payload_path, user)
+                    if not database_result["success"]:
+                        return database_result
+
+            if contains_media:
+                self._update_progress("Восстанавливаем медиахранилище...", 80)
+                restored_media = self._restore_media_from_archive(archive)
+                message = f"Восстановление завершено. Медиафайлов восстановлено: {restored_media}."
+            else:
+                message = database_result["message"] if database_result else "Восстановление завершено."
+
+            self._update_progress(message, 100)
+            return {"success": True, "message": message}
+
+    def _restore_database_payload(self, payload_path, user):
+        fixture_path = self._normalize_database_payload(payload_path)
+        preserved_backups = self._capture_backup_records()
+        actor_user_id = getattr(user, "id", None)
+
+        try:
+            self._update_progress("Очищаем текущую базу данных...", 35)
+            call_command("flush", database="default", verbosity=0, interactive=False)
+            self._update_progress("Загружаем данные из бэкапа...", 65)
+            call_command("loaddata", str(fixture_path), database="default", verbosity=0)
+            self._update_progress("Возвращаем служебные записи бэкапов...", 85)
+            self._restore_backup_records(preserved_backups, actor_user_id=actor_user_id)
+            self._update_progress("Синхронизируем счетчики идентификаторов...", 92)
+            self.reset_primary_key_sequences()
+        finally:
+            if fixture_path != payload_path:
+                with suppress(FileNotFoundError):
+                    fixture_path.unlink()
+
+        return {"success": True, "message": "База данных успешно восстановлена."}
+
+    def _normalize_database_payload(self, payload_path):
+        if payload_path.suffix.lower() != ".json":
+            raise Exception("Database payload must be a JSON file.")
+
+        with open(payload_path, "r", encoding="utf-8") as source:
+            payload = json.load(source)
+
+        if isinstance(payload, list):
+            return payload_path
+
+        if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
+            fixture_items = []
+            for objects_data in payload["data"].values():
+                if isinstance(objects_data, list):
+                    fixture_items.extend(objects_data)
+            temp_fixture = self._make_temp_file(".json")
+            with open(temp_fixture, "w", encoding="utf-8") as destination:
+                json.dump(fixture_items, destination, ensure_ascii=False, indent=2)
+            return temp_fixture
+
+        raise Exception("Unsupported JSON backup structure.")
+
+    def _restore_media_from_archive(self, archive):
+        current_media_files = self._collect_media_storage_files()
+        for storage_path in current_media_files:
+            with suppress(Exception):
+                default_storage.delete(storage_path)
+
+        restored_count = 0
+        media_members = [
+            name
+            for name in archive.namelist()
+            if name.startswith(self.ARCHIVE_MEDIA_PREFIX) and not name.endswith("/")
+        ]
+
+        for index, archive_name in enumerate(media_members, start=1):
+            relative_path = archive_name[len(self.ARCHIVE_MEDIA_PREFIX) :].strip("/")
+            if not relative_path or self._should_skip_storage_path(relative_path):
+                continue
+            progress = 82 + int(index * 16 / max(len(media_members), 1))
+            if index == 1 or index == len(media_members) or index % 25 == 0:
+                self._update_progress(
+                    f"Восстанавливаем медиафайл {index}/{len(media_members)}: {Path(relative_path).name}",
+                    progress,
+                )
+            with archive.open(archive_name, "r") as source:
+                default_storage.save(relative_path, File(source, name=Path(relative_path).name))
+            restored_count += 1
+
+        return restored_count
+
+    def _capture_backup_records(self):
+        backup_model = self._backup_model()
+        return [
+            {
+                "id": backup.id,
+                "name": backup.name,
+                "backup_file": backup.backup_file.name,
+                "backup_type": backup.backup_type,
+                "file_size": backup.file_size,
+                "created_by_id": backup.created_by_id,
+            }
+            for backup in backup_model.objects.all()
+        ]
+
+    def _restore_backup_records(self, preserved_records, *, actor_user_id=None):
+        if not preserved_records:
+            return
+
+        backup_model = self._backup_model()
+        user_model = self._user_model()
+        actor_user = None
+        if actor_user_id is not None:
+            actor_user = user_model.objects.filter(pk=actor_user_id).first()
+        fallback_user = actor_user or user_model.objects.filter(is_superuser=True).order_by("id").first()
+        fallback_user = fallback_user or user_model.objects.order_by("id").first()
+
+        for record in preserved_records:
+            if not record["backup_file"] or not default_storage.exists(record["backup_file"]):
+                continue
+
+            created_by = user_model.objects.filter(pk=record["created_by_id"]).first() or fallback_user
+            if created_by is None:
+                continue
+
+            backup = backup_model(
+                id=record["id"],
+                name=record["name"],
+                backup_file=record["backup_file"],
+                backup_type=record["backup_type"],
+                file_size=record["file_size"],
+                created_by=created_by,
+            )
+            backup.save(force_insert=True)
+
+    def reset_primary_key_sequences(self, models=None):
+        model_list = list(
+            models
+            or [
+                model
+                for model in apps.get_models()
+                if model._meta.managed and not model._meta.proxy and not model._meta.swapped
+            ]
+        )
+        if not model_list:
+            return
+
+        sql_statements = connection.ops.sequence_reset_sql(no_style(), model_list)
+        if not sql_statements:
+            return
+
+        with connection.cursor() as cursor:
+            for sql in sql_statements:
+                cursor.execute(sql)
+
+    def _check_database_connection(self):
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1")
-                return {'success': True, 'message': 'Database connection OK'}
-        except Exception as e:
-            return {'success': False, 'message': f'Database connection failed: {str(e)}'}
+            return {"success": True, "message": "Database connection OK"}
+        except Exception as exc:
+            return {"success": False, "message": f"Database connection failed: {exc}"}
 
-    def _create_media_backup(self, base_name, user):
-        """Создание бэкапа медиа файлов с детальной отладкой"""
-        filename = f"{base_name}_media.zip"
-        filepath = self.backup_dir / filename
-        
-        print(f"DEBUG: Starting media backup. Base name: {base_name}, Filepath: {filepath}")
-        self._update_progress("Начинаем бэкап медиа файлов...", 10)
-        
+    def _check_storage_connection(self):
+        probe_name = f"backups/_healthchecks/{timezone.now().strftime('%Y%m%d_%H%M%S_%f')}.txt"
         try:
-            media_dir = Path(settings.MEDIA_ROOT)
-            print(f"DEBUG: Media directory: {media_dir}, exists: {media_dir.exists()}")
-            
-            media_files = []
-            
-            if media_dir.exists():
-                self._update_progress("Сканируем медиа файлы...", 20)
-                print("DEBUG: Starting to scan media files...")
-                
-                # Собираем список всех медиа файлов с детальным логированием
-                start_time = time.time()
-                try:
-                    media_files = list(media_dir.rglob('*'))
-                    print(f"DEBUG: Found {len(media_files)} total items in media directory")
-                    
-                    # Фильтруем только файлы
-                    media_files = [f for f in media_files if f.is_file()]
-                    print(f"DEBUG: Filtered to {len(media_files)} actual files")
-                    
-                    scan_time = time.time() - start_time
-                    print(f"DEBUG: File scanning took {scan_time:.2f} seconds")
-                    
-                except Exception as scan_error:
-                    print(f"DEBUG: Error during file scanning: {scan_error}")
-                    raise scan_error
-                
-                self._update_progress(f"Найдено {len(media_files)} файлов для бэкапа", 30)
-                
-                # Если файлов слишком много, логируем первые 10
-                if media_files:
-                    print(f"DEBUG: First 10 files: {[str(f) for f in media_files[:10]]}")
-            else:
-                print("DEBUG: Media directory does not exist!")
-                self._update_progress("Медиа директория не найдена", 30)
-            
-            # Проверяем доступность записи
-            print(f"DEBUG: Checking write access to {filepath.parent}")
-            try:
-                filepath.parent.mkdir(parents=True, exist_ok=True)
-                test_file = filepath.parent / "test_write.tmp"
-                with open(test_file, 'w') as f:
-                    f.write("test")
-                test_file.unlink()
-                print("DEBUG: Write access confirmed")
-            except Exception as e:
-                print(f"DEBUG: Write access error: {e}")
-                raise Exception(f"No write access to backup directory: {e}")
-            
-            print(f"DEBUG: Creating ZIP file at {filepath}")
-            self._update_progress("Создаем ZIP архив...", 40)
-            
-            with zipfile.ZipFile(filepath, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                total_files = len(media_files)
-                print(f"DEBUG: Starting to add {total_files} files to ZIP")
-                
-                processed_files = 0
-                success_files = 0
-                error_files = 0
-                
-                for i, media_file in enumerate(media_files):
-                    try:
-                        processed_files += 1
-                        
-                        # Обновляем прогресс каждые 10 файлов или для первых 10 файлов
-                        if i < 10 or i % 100 == 0:
-                            progress = 40 + (i * 50 // total_files) if total_files > 0 else 90
-                            self._update_progress(f"Добавляем файл {i+1}/{total_files}: {media_file.name}...", progress)
-                            print(f"DEBUG: Processing file {i+1}/{total_files}: {media_file}")
-                        
-                        # Проверяем существование файла и его размер
-                        if not media_file.exists():
-                            print(f"DEBUG: File does not exist: {media_file}")
-                            error_files += 1
-                            continue
-                        
-                        file_size = media_file.stat().st_size
-                        if file_size == 0:
-                            print(f"DEBUG: Empty file: {media_file}")
-                        
-                        # Сохраняем относительный путь
-                        try:
-                            arcname = media_file.relative_to(media_dir)
-                            zipf.write(media_file, f"media/{arcname}")
-                            success_files += 1
-                            
-                            if i < 5:  # Детально логируем первые 5 файлов
-                                print(f"DEBUG: Successfully added: {media_file} -> media/{arcname}")
-                                
-                        except Exception as write_error:
-                            print(f"DEBUG: Error writing {media_file} to ZIP: {write_error}")
-                            error_files += 1
-                            continue
-                            
-                    except Exception as e:
-                        print(f"DEBUG: Unexpected error processing {media_file}: {e}")
-                        error_files += 1
-                        continue
-                
-                print(f"DEBUG: ZIP creation completed. Success: {success_files}, Errors: {error_files}, Total: {processed_files}")
-                self._update_progress(f"ZIP создан. Успешно: {success_files}, Ошибок: {error_files}", 90)
-            
-            # Проверяем созданный файл
-            if filepath.exists():
-                file_size = filepath.stat().st_size
-                print(f"DEBUG: Backup file created successfully. Size: {file_size} bytes")
-                
-                # Проверяем целостность ZIP
-                try:
-                    with zipfile.ZipFile(filepath, 'r') as test_zip:
-                        test_result = test_zip.testzip()
-                        if test_result is None:
-                            print("DEBUG: ZIP file integrity check passed")
-                        else:
-                            print(f"DEBUG: ZIP file integrity check failed: {test_result}")
-                except Exception as integrity_error:
-                    print(f"DEBUG: ZIP integrity check error: {integrity_error}")
-            else:
-                print("DEBUG: Backup file was not created!")
-                raise Exception("Backup file was not created")
-            
-            file_size = filepath.stat().st_size
-            
-            final_message = f"Бэкап медиа файлов завершен! Размер: {self._format_file_size(file_size)}"
-            print(f"DEBUG: {final_message}")
-            self._update_progress(final_message, 100)
-            
-            return {
-                'success': True,
-                'filepath': str(filepath),
-                'filename': filename,
-                'file_size': file_size,
-                'backup_type': 'media',
-                'method': 'zip',
-                'created_at': datetime.now()
-            }
-            
-        except Exception as e:
-            print(f"DEBUG: Media backup failed with error: {e}")
-            if filepath.exists():
-                try:
-                    filepath.unlink()
-                    print("DEBUG: Removed incomplete backup file")
-                except:
-                    print("DEBUG: Could not remove incomplete backup file")
-            self._update_progress(f"Ошибка бэкапа медиа файлов: {str(e)}")
-            raise Exception(f"Media backup failed: {str(e)}")
+            saved_name = default_storage.save(
+                probe_name,
+                ContentFile(b"backup-healthcheck", name="healthcheck.txt"),
+            )
+            default_storage.delete(saved_name)
+            return {"success": True, "message": "Storage connection OK"}
+        except Exception as exc:
+            return {"success": False, "message": f"Storage connection failed: {exc}"}
 
-    def _create_full_backup(self, base_name, user):
-        """Создание полного бэкапа (база + медиа)"""
-        filename = f"{base_name}_full.zip"
-        filepath = self.backup_dir / filename
-        
+    def _collect_media_storage_files(self):
+        collected = []
+        for storage_path in self._walk_storage(""):
+            if not self._should_skip_storage_path(storage_path):
+                collected.append(storage_path)
+        return collected
+
+    def _walk_storage(self, prefix):
         try:
-            # Сначала создаем бэкап базы данных
-            db_backup = self._create_database_backup(f"{base_name}_db", user)
-            
-            with zipfile.ZipFile(filepath, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Добавляем бэкап базы данных
-                zipf.write(db_backup['filepath'], 'database.json')
-                
-                # Добавляем медиа файлы
-                media_dir = Path(settings.MEDIA_ROOT)
-                if media_dir.exists():
-                    for media_file in media_dir.rglob('*'):
-                        if media_file.is_file():
-                            try:
-                                arcname = media_file.relative_to(media_dir)
-                                zipf.write(media_file, f"media/{arcname}")
-                            except Exception as e:
-                                print(f"Warning: Could not add {media_file}: {e}")
-                                continue
-            
-            # Удаляем временный файл бэкапа БД
-            if Path(db_backup['filepath']).exists():
-                Path(db_backup['filepath']).unlink()
-            
-            file_size = filepath.stat().st_size
-            
-            return {
-                'success': True,
-                'filepath': str(filepath),
-                'filename': filename,
-                'file_size': file_size,
-                'backup_type': 'full',
-                'method': 'composite',
-                'created_at': datetime.now()
-            }
-            
-        except Exception as e:
-            # Удаляем частично созданные файлы
-            if filepath.exists():
-                filepath.unlink()
-            raise Exception(f"Full backup failed: {str(e)}")
+            directories, files = default_storage.listdir(prefix)
+        except Exception:
+            return
+
+        for file_name in files:
+            storage_path = f"{prefix}/{file_name}" if prefix else file_name
+            yield storage_path.replace("\\", "/").lstrip("/")
+
+        for directory in directories:
+            next_prefix = f"{prefix}/{directory}" if prefix else directory
+            normalized_prefix = next_prefix.replace("\\", "/").strip("/")
+            if self._should_skip_storage_path(normalized_prefix):
+                continue
+            yield from self._walk_storage(normalized_prefix)
+
+    def _should_skip_storage_path(self, relative_path):
+        normalized = str(relative_path).replace("\\", "/").strip("/")
+        if not normalized:
+            return False
+        for root in self.STORAGE_SKIP_ROOTS:
+            if normalized == root or normalized.startswith(f"{root}/"):
+                return True
+        return False
+
+    def _get_free_space(self):
+        try:
+            return shutil.disk_usage(self.temp_root).free
+        except Exception:
+            return 0
+
+    def _get_database_size(self):
+        engine = settings.DATABASES["default"]["ENGINE"]
+        try:
+            with connection.cursor() as cursor:
+                if "postgresql" in engine:
+                    cursor.execute("SELECT pg_database_size(%s)", [settings.DATABASES["default"]["NAME"]])
+                    result = cursor.fetchone()
+                    return self._format_file_size(result[0]) if result else "Unknown"
+                if "sqlite3" in engine:
+                    db_path = Path(settings.DATABASES["default"]["NAME"])
+                    return self._format_file_size(db_path.stat().st_size) if db_path.exists() else "Unknown"
+        except Exception:
+            return "Unknown"
+        return "Unknown"
+
+    def _format_file_size(self, size_bytes):
+        if not size_bytes:
+            return "0 B"
+
+        size_names = ["B", "KB", "MB", "GB", "TB"]
+        size = float(size_bytes)
+        index = 0
+        while size >= 1024 and index < len(size_names) - 1:
+            size /= 1024.0
+            index += 1
+        return f"{size:.2f} {size_names[index]}"
+
+    def _build_metadata(self, backup_type, *, user=None, media_files_count=0):
+        user_email = ""
+        if user is not None:
+            user_email = getattr(user, "email", "") or getattr(user, "username", "")
+        return {
+            "format": self.FORMAT_NAME,
+            "version": self.FORMAT_VERSION,
+            "backup_type": backup_type,
+            "created_at": timezone.now().isoformat(),
+            "created_by": user_email,
+            "database_engine": settings.DATABASES["default"]["ENGINE"],
+            "storage_backend": default_storage.__class__.__name__,
+            "use_s3_media": bool(getattr(settings, "USE_S3_MEDIA", False)),
+            "media_files_count": media_files_count,
+        }
+
+    def _read_archive_metadata(self, archive):
+        if self.ARCHIVE_METADATA_NAME not in archive.namelist():
+            return {}
+        with archive.open(self.ARCHIVE_METADATA_NAME, "r") as metadata_file:
+            return json.loads(metadata_file.read().decode("utf-8"))
+
+    def _build_base_name(self, backup_type, custom_name):
+        timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+        if custom_name:
+            cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", custom_name.strip()).strip("._-")
+            if cleaned:
+                return f"{cleaned}_{timestamp}"
+        return f"backup_{backup_type}_{timestamp}"
+
+    def _result_payload(self, archive_path, display_name, backup_type, file_size):
+        return {
+            "success": True,
+            "filepath": str(archive_path),
+            "filename": display_name,
+            "file_size": file_size,
+            "backup_type": backup_type,
+            "created_at": timezone.now(),
+        }
+
+    def _make_temp_file(self, suffix):
+        self.temp_root.mkdir(parents=True, exist_ok=True)
+        temp_path = self.temp_root / f"backup_{uuid4().hex}{suffix}"
+        with open(temp_path, "xb"):
+            pass
+        return temp_path
+
+    @contextmanager
+    def _temporary_work_dir(self):
+        self.temp_root.mkdir(parents=True, exist_ok=True)
+        work_dir = self.temp_root / f"work_{uuid4().hex}"
+        work_dir.mkdir(parents=True, exist_ok=False)
+        try:
+            yield work_dir
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+    def _copy_backup_to_temp_file(self, backup_file):
+        suffix = Path(getattr(backup_file, "name", "")).suffix or ".bin"
+        temp_path = self._make_temp_file(suffix)
+        with open(temp_path, "wb") as destination:
+            if hasattr(backup_file, "chunks"):
+                for chunk in backup_file.chunks():
+                    destination.write(chunk)
+            else:
+                shutil.copyfileobj(backup_file, destination)
+        if hasattr(backup_file, "seek"):
+            with suppress(Exception):
+                backup_file.seek(0)
+        return temp_path
+
+    def _describe_backup_location(self):
+        if getattr(settings, "USE_S3_MEDIA", False):
+            bucket = getattr(settings, "AWS_STORAGE_BUCKET_NAME", "").strip()
+            location = getattr(settings, "AWS_LOCATION", "").strip("/")
+            prefix = "backups/"
+            if location:
+                prefix = f"{location}/{prefix}"
+            return f"S3: {bucket}/{prefix}".rstrip("/")
+        return str(Path(settings.MEDIA_ROOT) / "backups")
+
+    def _backup_model(self):
+        return apps.get_model("apihh_main", "Backup")
+
+    def _user_model(self):
+        return apps.get_model("apihh_main", "User")

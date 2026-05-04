@@ -10,8 +10,11 @@ from io import BytesIO
 from functools import wraps
 from urllib.parse import quote, urljoin
 
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import logout as auth_logout
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.urls import reverse
 from django.shortcuts import redirect, render
 from reportlab.graphics import renderPDF
 from reportlab.graphics.charts.barcharts import VerticalBarChart
@@ -54,6 +57,11 @@ ERROR_FIELD_LABELS = {
     'requirements': 'Требования',
     'work_conditions_details': 'Детали условий',
 }
+
+COMPANY_PROFILE_EMAIL_CHANGE_SESSION_KEY = 'pending_company_profile_email_change'
+COMPANY_PROFILE_EMAIL_CHANGE_TARGET_SESSION_KEY = 'pending_company_profile_email_change_target'
+COMPANY_PROFILE_EMAIL_CHANGE_TARGET_OWNER = 'company'
+COMPANY_PROFILE_EMAIL_CHANGE_TARGET_EMPLOYEE = 'employee'
 
 
 def _safe_json(resp):
@@ -206,6 +214,39 @@ def _employee_role(request: HttpRequest) -> str:
             return role
 
     return ''
+
+
+def _normalize_email(value: str | None) -> str:
+    return str(value or '').strip().lower()
+
+
+def _clear_pending_company_profile_email_change(request: HttpRequest) -> None:
+    request.session.pop(COMPANY_PROFILE_EMAIL_CHANGE_SESSION_KEY, None)
+    request.session.pop(COMPANY_PROFILE_EMAIL_CHANGE_TARGET_SESSION_KEY, None)
+
+
+def _store_pending_company_profile_email_change(request: HttpRequest, email: str, target: str) -> None:
+    request.session[COMPANY_PROFILE_EMAIL_CHANGE_SESSION_KEY] = _normalize_email(email)
+    request.session[COMPANY_PROFILE_EMAIL_CHANGE_TARGET_SESSION_KEY] = target
+
+
+def _resolve_company_profile_email_change_target(request: HttpRequest) -> str:
+    target = str(request.session.get(COMPANY_PROFILE_EMAIL_CHANGE_TARGET_SESSION_KEY) or '').strip().lower()
+    if target == COMPANY_PROFILE_EMAIL_CHANGE_TARGET_EMPLOYEE:
+        return COMPANY_PROFILE_EMAIL_CHANGE_TARGET_EMPLOYEE
+    return COMPANY_PROFILE_EMAIL_CHANGE_TARGET_OWNER
+
+
+def _company_email_change_back_route(target: str) -> str:
+    if target == COMPANY_PROFILE_EMAIL_CHANGE_TARGET_EMPLOYEE:
+        return 'edit_employee_profile'
+    return 'edit_company_profile'
+
+
+def _company_email_change_done_route(target: str) -> str:
+    if target == COMPANY_PROFILE_EMAIL_CHANGE_TARGET_EMPLOYEE:
+        return 'employee_profile'
+    return 'company_profile'
 
 
 def api_login_required(view_func):
@@ -379,6 +420,25 @@ def _pdf_font_names() -> tuple[str, str]:
     return 'Helvetica', 'Helvetica-Bold'
 
 
+def _finish_company_account_session(request: HttpRequest) -> HttpResponse:
+    clear_tokens(request)
+    request.session.pop('ui_theme', None)
+    request.session.pop('ui_font_size', None)
+    request.session.pop('font_size', None)
+    request.session.pop('theme', None)
+    auth_logout(request)
+    response = redirect('home_page')
+    response.set_cookie('reset_ui_preferences', '1', max_age=120, path='/', samesite='Lax')
+    response.set_cookie(
+        settings.LANGUAGE_COOKIE_NAME,
+        'ru',
+        max_age=60 * 60 * 24 * 365,
+        path='/',
+        samesite='Lax',
+    )
+    return response
+
+
 def account_pending(request: HttpRequest) -> HttpResponse:
     return render(request, 'auth/account_pending.html')
 
@@ -521,8 +581,12 @@ def company_profile(request: HttpRequest) -> HttpResponse:
 def edit_company_profile(request: HttpRequest) -> HttpResponse:
     company, company_error = _load_company_me(request)
     user_profile, _ = _load_user_profile(request)
+    if not user_profile:
+        user_profile = {}
 
     if request.method == 'POST':
+        requested_email = _normalize_email(request.POST.get('email'))
+        current_email = _normalize_email(user_profile.get('email') or _api_user(request).get('email'))
         company_payload = {
             'name': request.POST.get('company_name') or '',
             'number': request.POST.get('company_number') or '',
@@ -532,34 +596,73 @@ def edit_company_profile(request: HttpRequest) -> HttpResponse:
         company_payload = {k: v for k, v in company_payload.items() if v != ''}
 
         user_payload = {
-            'email': request.POST.get('email') or '',
             'phone': request.POST.get('phone') or '',
         }
         user_payload = {k: v for k, v in user_payload.items() if v != ''}
 
         try:
+            company_updated = False
+            contact_updated = False
             company_resp = api_patch(request, 'company/me/', json=company_payload)
             company_data = _safe_json(company_resp)
             if company_resp.status_code >= 400:
                 messages.error(request, _first_error(company_data, 'Не удалось обновить профиль компании'))
                 company = company_data if isinstance(company_data, dict) else company
-            else:
-                company = company_data if isinstance(company_data, dict) else company
+                return render(
+                    request,
+                    'compani/profile/edit_company_profile.html',
+                    {
+                        'company': company if isinstance(company, dict) else {},
+                        'user_profile': user_profile,
+                        'pending_email_change': request.session.get(COMPANY_PROFILE_EMAIL_CHANGE_SESSION_KEY),
+                        'api_user': _api_user(request),
+                    },
+                )
+
+            if isinstance(company_data, dict):
+                company = company_data
+            company_updated = bool(company_payload)
 
             if user_payload:
                 user_resp = api_patch(request, 'user/profile/', json=user_payload)
                 user_data = _safe_json(user_resp)
                 if user_resp.status_code >= 400:
-                    messages.warning(request, _first_error(user_data, 'Данные контакта не обновлены'))
+                    messages.warning(request, _first_error(user_data, 'Контактные данные не обновлены.'))
                 elif isinstance(user_data, dict):
                     user_profile = user_data
                     session_user = _api_user(request)
                     session_user['email'] = user_data.get('email', session_user.get('email'))
+                    session_user['phone'] = user_data.get('phone', session_user.get('phone'))
                     request.session['api_user'] = session_user
+                    contact_updated = True
 
-            if company_resp.status_code < 400:
-                messages.success(request, 'Профиль компании обновлен')
+            if requested_email and requested_email != current_email:
+                change_resp = api_post(
+                    request,
+                    'user/profile/request-email-change/',
+                    json={'email': requested_email},
+                )
+                change_data = _safe_json(change_resp)
+                if change_resp.status_code >= 400:
+                    if company_updated or contact_updated:
+                        messages.success(request, 'Остальные данные профиля компании сохранены.')
+                    messages.error(request, _first_error(change_data, 'Не удалось отправить код подтверждения на новый email.'))
+                else:
+                    _store_pending_company_profile_email_change(
+                        request,
+                        requested_email,
+                        COMPANY_PROFILE_EMAIL_CHANGE_TARGET_OWNER,
+                    )
+                    messages.success(request, 'Код подтверждения отправлен на новый email.')
+                    if company_updated or contact_updated:
+                        messages.info(request, 'Остальные данные профиля компании уже сохранены.')
+                    return redirect('company_profile_email_change_verify')
+            elif company_updated or contact_updated:
+                _clear_pending_company_profile_email_change(request)
+                messages.success(request, 'Профиль компании обновлен.')
                 return redirect('company_profile')
+            else:
+                messages.info(request, 'Изменений для сохранения нет.')
         except Exception:
             messages.error(request, 'Ошибка сети при обновлении профиля компании')
 
@@ -576,7 +679,58 @@ def edit_company_profile(request: HttpRequest) -> HttpResponse:
         {
             'company': company,
             'user_profile': user_profile,
+            'pending_email_change': request.session.get(COMPANY_PROFILE_EMAIL_CHANGE_SESSION_KEY),
             'api_user': _api_user(request),
+        },
+    )
+
+
+@company_staff_required
+def company_profile_email_change_verify(request: HttpRequest) -> HttpResponse:
+    pending_email = _normalize_email(request.session.get(COMPANY_PROFILE_EMAIL_CHANGE_SESSION_KEY))
+    target = _resolve_company_profile_email_change_target(request)
+    back_route = _company_email_change_back_route(target)
+    done_route = _company_email_change_done_route(target)
+
+    if request.GET.get('change') == '1':
+        _clear_pending_company_profile_email_change(request)
+        return redirect(back_route)
+
+    if not pending_email:
+        messages.info(request, 'Сначала укажите новый email в профиле.')
+        return redirect(back_route)
+
+    if request.method == 'POST':
+        code = str(request.POST.get('code') or '').strip()
+        if not code.isdigit() or len(code) != 6:
+            messages.error(request, 'Введите корректный 6-значный код.')
+        else:
+            try:
+                resp = api_post(
+                    request,
+                    'user/profile/confirm-email-change/',
+                    json={'email': pending_email, 'code': code},
+                )
+                data = _safe_json(resp)
+                if resp.status_code >= 400:
+                    messages.error(request, _first_error(data, 'Не удалось подтвердить новый email.'))
+                else:
+                    session_user = _api_user(request)
+                    session_user['email'] = (data or {}).get('email', pending_email)
+                    request.session['api_user'] = session_user
+                    _clear_pending_company_profile_email_change(request)
+                    messages.success(request, 'Email успешно подтвержден и обновлен.')
+                    return redirect(done_route)
+            except Exception:
+                messages.error(request, 'Ошибка сети при подтверждении нового email.')
+
+    return render(
+        request,
+        'profile_verify_email.html',
+        {
+            'email': pending_email,
+            'api_user': _api_user(request),
+            'change_email_url': f"{reverse('company_profile_email_change_verify')}?change=1",
         },
     )
 
@@ -1508,44 +1662,102 @@ def edit_employee_profile(request: HttpRequest) -> HttpResponse:
         profile = {}
 
     if request.method == 'POST':
+        requested_email = _normalize_email(request.POST.get('email'))
+        current_email = _normalize_email(profile.get('email') or _api_user(request).get('email'))
         payload = {
             'first_name': request.POST.get('first_name') or '',
             'last_name': request.POST.get('last_name') or '',
-            'email': request.POST.get('email') or '',
             'phone': request.POST.get('phone') or '',
         }
         payload = {k: v for k, v in payload.items() if v != ''}
 
         try:
-            resp = api_patch(request, 'user/profile/', json=payload)
-            data = _safe_json(resp)
-            if resp.status_code >= 400:
-                messages.error(request, _first_error(data, 'Не удалось обновить профиль сотрудника'))
-            else:
-                messages.success(request, 'Профиль сотрудника обновлен')
-                profile = data if isinstance(data, dict) else profile
-                session_user = _api_user(request)
-                session_user['first_name'] = profile.get('first_name', session_user.get('first_name'))
-                session_user['last_name'] = profile.get('last_name', session_user.get('last_name'))
-                session_user['email'] = profile.get('email', session_user.get('email'))
-                request.session['api_user'] = session_user
+            profile_updated = False
+            if payload:
+                resp = api_patch(request, 'user/profile/', json=payload)
+                data = _safe_json(resp)
+                if resp.status_code >= 400:
+                    messages.error(request, _first_error(data, 'Не удалось обновить профиль сотрудника'))
+                else:
+                    profile = data if isinstance(data, dict) else profile
+                    session_user = _api_user(request)
+                    session_user['first_name'] = profile.get('first_name', session_user.get('first_name'))
+                    session_user['last_name'] = profile.get('last_name', session_user.get('last_name'))
+                    session_user['email'] = profile.get('email', session_user.get('email'))
+                    session_user['phone'] = profile.get('phone', session_user.get('phone'))
+                    request.session['api_user'] = session_user
+                    profile_updated = True
+
+            if requested_email and requested_email != current_email:
+                change_resp = api_post(
+                    request,
+                    'user/profile/request-email-change/',
+                    json={'email': requested_email},
+                )
+                change_data = _safe_json(change_resp)
+                if change_resp.status_code >= 400:
+                    if profile_updated:
+                        messages.success(request, 'Остальные данные профиля сотрудника сохранены.')
+                    messages.error(request, _first_error(change_data, 'Не удалось отправить код подтверждения на новый email.'))
+                else:
+                    _store_pending_company_profile_email_change(
+                        request,
+                        requested_email,
+                        COMPANY_PROFILE_EMAIL_CHANGE_TARGET_EMPLOYEE,
+                    )
+                    messages.success(request, 'Код подтверждения отправлен на новый email.')
+                    if profile_updated:
+                        messages.info(request, 'Остальные данные профиля сотрудника уже сохранены.')
+                    return redirect('company_profile_email_change_verify')
+            elif profile_updated:
+                _clear_pending_company_profile_email_change(request)
+                messages.success(request, 'Профиль сотрудника обновлен.')
                 return redirect('employee_profile')
+            else:
+                messages.info(request, 'Изменений для сохранения нет.')
         except Exception:
             messages.error(request, 'Ошибка сети при обновлении профиля сотрудника')
 
     return render(
         request,
         'compani/employee_edit_profile.html',
-        {'profile': profile, 'api_user': _api_user(request)},
+        {
+            'profile': profile,
+            'pending_email_change': request.session.get(COMPANY_PROFILE_EMAIL_CHANGE_SESSION_KEY),
+            'api_user': _api_user(request),
+        },
     )
 
 
 @company_owner_required
-def delete_company_profile(request: HttpRequest) -> HttpResponse:
+def _legacy_delete_company_profile_placeholder(request: HttpRequest) -> HttpResponse:
     if request.method == 'POST':
         clear_tokens(request)
         messages.info(request, 'Удаление компании через API не реализовано. Вы вышли из системы.')
         return redirect('home_page')
+    return redirect('company_profile')
+
+
+@company_owner_required
+def delete_company_profile(request: HttpRequest) -> HttpResponse:
+    if request.method != 'POST':
+        return redirect('company_profile')
+
+    try:
+        resp = api_delete(request, 'user/profile/')
+        data = _safe_json(resp)
+        if resp.status_code < 400:
+            messages.success(request, 'Компания и связанные данные удалены без возможности восстановления.')
+            return _finish_company_account_session(request)
+
+        if resp.status_code == 401:
+            messages.info(request, 'Сессия истекла. Войдите снова.')
+            return _finish_company_account_session(request)
+
+        messages.error(request, _first_error(data, 'Не удалось удалить компанию'))
+    except Exception:
+        messages.error(request, 'Ошибка сети при удалении компании')
+
     return redirect('company_profile')
 
 

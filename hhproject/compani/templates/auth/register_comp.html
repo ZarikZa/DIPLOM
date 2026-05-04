@@ -1,12 +1,14 @@
 {% extends 'base.html' %}
 
-{% block title_name %}регистрация компании{% endblock %}
+{% block flash_messages %}{% endblock %}
+
+{% block title_name %}Регистрация компании{% endblock %}
 
 {% block content %}
 <div class="register-section">
     <div class="register-container-wrapper">
         <div class="register-container">
-            <h2>создать аккаунт компании</h2>
+            <h2>Создать аккаунт компании</h2>
 
             {% if messages %}
                 <div class="errorlist">

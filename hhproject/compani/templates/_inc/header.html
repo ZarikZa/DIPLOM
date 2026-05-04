@@ -1,4 +1,4 @@
-﻿{% load static %}
+{% load static %}
 <style>
     /* =================================== */
     /* ОБЩИЕ Переменные */
@@ -82,7 +82,7 @@
         color: transparent;
     }
 
-    /* Де��топ меню */
+    /* Десктопное меню */
     .header-nav {
         display: flex;
         align-items: center;
@@ -138,7 +138,7 @@
     }
 
     /* =================================== */
-    /* БУ��ЕР */
+    /* Бургер-меню */
     /* =================================== */
     .header-toggle {
         display: none;
@@ -162,7 +162,7 @@
         transition: all 0.3s ease;
     }
 
-    /* Анимация бу��е�� → к����ик */
+    /* Анимация бургера в крестик */
     .header-toggle.active span:nth-child(1) {
         transform: rotate(45deg) translate(5px, 5px);
     }
@@ -266,7 +266,7 @@
         }
     }
 
-    /* На де��топе ����ваем мобильное меню */
+    /* На десктопе скрываем мобильное меню */
     @media (min-width: 769px) {
         .mobile-menu {
             display: none !important;
@@ -377,7 +377,7 @@
 <header class="header">
     <div class="header-container">
         <a href="{% url 'home_comp' %}" class="header-logo">
-            <span>HR-Lab</span>
+            <span>WorkMPT</span>
         </a>
         
         <!-- Детопное меню -->
@@ -390,12 +390,12 @@
                         <li><a href="{% url 'vacancy_list' %}" class="header-link">Вакансии</a></li>
                         <li><a href="{% url 'responses_list' %}" class="header-link">Отклики</a></li>
                         <li><a href="{% url 'company_chats' %}" class="header-link">Чаты</a></li>
-                        <li><a href="{% url 'company_stats' %}" class="header-link">статистика</a></li>
+                        <li><a href="{% url 'company_stats' %}" class="header-link">Статистика</a></li>
                     {% elif api_user.user_type == "staff" and api_user.employee_role == "hr" %}
                         <li><a href="{% url 'vacancy_list' %}" class="header-link">Вакансии</a></li>
                         <li><a href="{% url 'responses_list' %}" class="header-link">Отклики</a></li>
                         <li><a href="{% url 'company_chats' %}" class="header-link">Чаты</a></li>
-                        <li><a href="{% url 'company_stats' %}" class="header-link">статистика</a></li>
+                        <li><a href="{% url 'company_stats' %}" class="header-link">Статистика</a></li>
                     {% endif %}
                     {% if api_user.user_type == "staff" %}
                         <li><a href="{% url 'employee_profile' %}" class="header-link">Профиль</a></li>
@@ -406,7 +406,7 @@
                     {% endif %}
                     {% if api_user.user_type == "company" %}
                         <li><a href="{% url 'hr_agents_list' %}" class="header-link">HR-агенты</a></li>
-                        <li><a href="{% url 'content_managers_list' %}" class="header-link">Контент-менеджер</a></li>
+                        <li><a href="{% url 'content_managers_list' %}" class="header-link">Контент-менеджеры</a></li>
                         <li><a href="{% url 'company_profile' %}" class="header-link">Профиль</a></li>
                     {% endif %}
                 
@@ -414,7 +414,7 @@
                    
                 {% else %}
                     <li><a href="{% url 'login_user' %}" class="header-button header-button--login">Войти</a></li>
-                    <li><a href="{% url 'reg_comp' %}" class="header-button header-button--register">регистрация</a></li>
+                    <li><a href="{% url 'reg_comp' %}" class="header-button header-button--register">Регистрация</a></li>
                 {% endif %}
             </ul>
         </nav>
@@ -438,12 +438,12 @@
                 <li><a href="{% url 'vacancy_list' %}" class="mobile-link">Вакансии</a></li>
                 <li><a href="{% url 'responses_list' %}" class="mobile-link">Отклики</a></li>
                 <li><a href="{% url 'company_chats' %}" class="mobile-link">Чаты</a></li>
-                <li><a href="{% url 'company_stats' %}" class="mobile-link">статистика</a></li>
+                <li><a href="{% url 'company_stats' %}" class="mobile-link">Статистика</a></li>
             {% elif api_user.user_type == "staff" and api_user.employee_role == "hr" %}
                 <li><a href="{% url 'vacancy_list' %}" class="mobile-link">Вакансии</a></li>
                 <li><a href="{% url 'responses_list' %}" class="mobile-link">Отклики</a></li>
                 <li><a href="{% url 'company_chats' %}" class="mobile-link">Чаты</a></li>
-                <li><a href="{% url 'company_stats' %}" class="mobile-link">статистика</a></li>
+                <li><a href="{% url 'company_stats' %}" class="mobile-link">Статистика</a></li>
             {% endif %}
             {% if api_user.user_type == "staff" %}
                 <li><a href="{% url 'employee_profile' %}" class="mobile-link">Профиль</a></li>
@@ -454,7 +454,7 @@
             {% endif %}
             {% if api_user.user_type == "company" %}
                 <li><a href="{% url 'hr_agents_list' %}" class="mobile-link">HR-агенты</a></li>
-                <li><a href="{% url 'content_managers_list' %}" class="mobile-link">Контент-менеджер</a></li>
+                <li><a href="{% url 'content_managers_list' %}" class="mobile-link">Контент-менеджеры</a></li>
                 <li><a href="{% url 'company_profile' %}" class="mobile-link">Профиль</a></li>
             {% endif %}
         
@@ -462,7 +462,7 @@
            
         {% else %}
             <li><a href="{% url 'login_user' %}" class="mobile-button mobile-button--login">Войти</a></li>
-            <li><a href="{% url 'reg_comp' %}" class="mobile-button mobile-button--register">регистрация</a></li>
+            <li><a href="{% url 'reg_comp' %}" class="mobile-button mobile-button--register">Регистрация</a></li>
         {% endif %}
     </ul>
 </div>
@@ -477,7 +477,7 @@ document.addEventListener('DOMContentLoaded', function () {
         mobileMenu.classList.toggle('active');
         toggle.classList.toggle('active');
         
-        // Блоки��ем/��зблоки��ем ����лл
+        // Блокируем и разблокируем скролл
         if (mobileMenu.classList.contains('active')) {
             document.body.style.overflow = 'hidden';
         } else {
@@ -485,7 +485,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     
-    // Клик по бу��е��
+    // Клик по бургеру
     if (toggle) {
         toggle.addEventListener('click', function(e) {
             e.preventDefault();
@@ -494,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     
-    // Зак��тие п�� клике на ссылку
+    // Закрытие при клике на ссылку
     if (mobileMenu) {
         mobileMenu.querySelectorAll('a').forEach(link => {
             link.addEventListener('click', function() {
@@ -503,7 +503,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
     
-    // Зак��тие по клику вне меню
+    // Закрытие по клику вне меню
     document.addEventListener('click', function(e) {
         if (mobileMenu && mobileMenu.classList.contains('active') && 
             !mobileMenu.contains(e.target) && 
@@ -512,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
     
-    // Зак��тие по Escape
+    // Закрытие по Escape
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && mobileMenu && mobileMenu.classList.contains('active')) {
             toggleMenu();

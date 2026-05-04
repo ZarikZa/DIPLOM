@@ -352,5 +352,19 @@
         <item>Другое</item>
     </string-array>
     <string name="bullet_separator">•</string>
+    <string name="profile_delete_account">Удалить аккаунт</string>
+    <string name="profile_delete_account_title">Удаление аккаунта</string>
+    <string name="profile_delete_account_message">Аккаунт, отклики, чаты и избранное будут удалены без возможности восстановления. Продолжить?</string>
+    <string name="profile_delete_account_confirm">Удалить</string>
+    <string name="profile_delete_account_loading">Удаление...</string>
+    <string name="profile_delete_account_success">Аккаунт удалён</string>
+    <string name="profile_delete_account_forbidden">Удаление аккаунта доступно только для соискателя</string>
+    <string name="profile_delete_account_error">Не удалось удалить аккаунт: %1$d</string>
+    <string name="notification_chat_channel_name">Сообщения чатов</string>
+    <string name="notification_response_channel_name">Статусы откликов</string>
+    <string name="notification_chat_title">Новое сообщение от %1$s</string>
+    <string name="notification_chat_text_fallback">Откройте чат, чтобы прочитать сообщение</string>
+    <string name="notification_response_title">Статус отклика изменился</string>
+    <string name="notification_response_text">%1$s: %2$s</string>
 </resources>
 

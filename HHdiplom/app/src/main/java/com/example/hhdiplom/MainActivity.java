@@ -17,6 +17,7 @@ import com.example.hhdiplom.fragments.FeedVideoFragment;
 import com.example.hhdiplom.fragments.ProfileFragment;
 import com.example.hhdiplom.fragments.ResponsesFragment;
 import com.example.hhdiplom.fragments.VacanciesFragment;
+import com.example.hhdiplom.notifications.AppNotificationCoordinator;
 import com.example.hhdiplom.utils.ThemePrefs;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -32,6 +33,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         ApiClient.init(this);
+        AppNotificationCoordinator.requestPermissionIfNeeded(this);
+        AppNotificationCoordinator.schedule(this);
 
         fragmentContainer = findViewById(R.id.fragmentContainer);
         bottomNavigationView = findViewById(R.id.bottomNavigationView);
@@ -45,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onTokenRefreshFailed(String error) {
                 runOnUiThread(() -> {
+                    AppNotificationCoordinator.onUserLoggedOut(MainActivity.this);
                     ApiClient.clearTokens();
                     Toast.makeText(MainActivity.this,
                             getString(R.string.session_expired_login_again),

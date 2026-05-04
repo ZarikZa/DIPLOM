@@ -71,25 +71,11 @@ public class ApiClient {
         return apiService;
     }
 
-    // ========= ROLE OVERRIDE =========
-
     public static String getEmployeeRoleOverride() {
         if (sharedPreferences == null) return "";
         return sharedPreferences.getString(KEY_EMPLOYEE_ROLE_OVERRIDE, "");
     }
 
-    public static void clearEmployeeRoleOverride() {
-        if (sharedPreferences == null) return;
-        sharedPreferences.edit().remove(KEY_EMPLOYEE_ROLE_OVERRIDE).apply();
-    }
-
-    public static String getEffectiveEmployeeRole() {
-        String override = getEmployeeRoleOverride();
-        if (override != null && !override.trim().isEmpty()) return override;
-        return getEmployeeRole();
-    }
-
-    // ============ USER INFO ============
 
     public static void saveUserInfo(UserProfile userProfile) {
         if (userProfile == null || sharedPreferences == null) return;
@@ -122,11 +108,6 @@ public class ApiClient {
         return sharedPreferences.getString(KEY_EMAIL, "");
     }
 
-    public static String getUserPhone() {
-        if (sharedPreferences == null) return "";
-        return sharedPreferences.getString(KEY_PHONE, "");
-    }
-
     public static String getEmployeeRole() {
         if (sharedPreferences == null) return "";
         return sharedPreferences.getString(KEY_EMPLOYEE_ROLE, "");
@@ -151,22 +132,10 @@ public class ApiClient {
         return sharedPreferences.getInt(KEY_APPLICANT_ID, 0);
     }
 
-    public static String getUserFirstName() {
-        if (sharedPreferences == null) return "";
-        return sharedPreferences.getString(KEY_FIRST_NAME, "");
-    }
-
-    public static String getUserLastName() {
-        if (sharedPreferences == null) return "";
-        return sharedPreferences.getString(KEY_LAST_NAME, "");
-    }
-
     public static int getUserId() {
         if (sharedPreferences == null) return 0;
         return sharedPreferences.getInt(KEY_USER_ID, 0);
     }
-
-    // ============ TOKENS ============
 
     public static void saveTokens(String accessToken, String refreshToken, int userId, String userType) {
         if (sharedPreferences == null) {
@@ -191,12 +160,6 @@ public class ApiClient {
         apiService = null;
         retrofit = null;
         getApiService();
-    }
-
-    public static void saveTokensAndProfile(String accessToken, String refreshToken,
-                                            int userId, String userType, UserProfile userProfile) {
-        saveTokens(accessToken, refreshToken, userId, userType);
-        saveUserInfo(userProfile);
     }
 
     public static void clearTokens() {
@@ -321,7 +284,6 @@ public class ApiClient {
         }
     }
 
-    // ============ RETROFIT CREATE ============
 
     private static Retrofit createRetrofit() {
 
@@ -474,29 +436,6 @@ public class ApiClient {
      * UTF-8 fixer для application/json без charset (если нужно).
      * Сейчас не используется напрямую, но можешь подключить вместо ForceUtf8JsonInterceptor.
      */
-    static class Utf8JsonInterceptor implements Interceptor {
-        @Override
-        public okhttp3.Response intercept(Chain chain) throws IOException {
-            okhttp3.Response response = chain.proceed(chain.request());
-
-            ResponseBody body = response.body();
-            if (body == null) return response;
-
-            MediaType contentType = body.contentType();
-            if (contentType != null
-                    && "application".equalsIgnoreCase(contentType.type())
-                    && "json".equalsIgnoreCase(contentType.subtype())
-                    && contentType.charset() == null) {
-
-                byte[] bytes = body.bytes();
-                MediaType utf8 = MediaType.get("application/json; charset=utf-8");
-                ResponseBody newBody = ResponseBody.create(bytes, utf8);
-                return response.newBuilder().body(newBody).build();
-            }
-
-            return response;
-        }
-    }
 
     // внутри ApiClient.java (как static class)
     static class BlockCmVideosDuringUploadInterceptor implements okhttp3.Interceptor {

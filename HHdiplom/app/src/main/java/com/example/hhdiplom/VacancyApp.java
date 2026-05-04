@@ -2,6 +2,8 @@ package com.example.hhdiplom;
 
 import android.app.Application;
 
+import com.example.hhdiplom.api.ApiClient;
+import com.example.hhdiplom.notifications.AppNotificationCoordinator;
 import com.example.hhdiplom.utils.LanguagePrefs;
 import com.example.hhdiplom.utils.ThemePrefs;
 
@@ -11,5 +13,7 @@ public class VacancyApp extends Application {
         super.onCreate();
         ThemePrefs.applySavedTheme(this);
         LanguagePrefs.applySavedLanguage(this);
+        ApiClient.init(this);
+        AppNotificationCoordinator.schedule(this);
     }
 }

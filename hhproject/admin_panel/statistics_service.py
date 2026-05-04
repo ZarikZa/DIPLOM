@@ -20,6 +20,9 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch
 
 class StatisticsService:
+    @staticmethod
+    def _platform_users():
+        return User.objects.exclude(user_type='adminsite').exclude(is_superuser=True)
     
     @staticmethod
     def get_main_statistics(start_date=None, end_date=None):
@@ -34,7 +37,8 @@ class StatisticsService:
                 'date_joined__date__range': [start_date, end_date]
             }
         
-        user_count = User.objects.filter(**base_filters).count()
+        platform_users = StatisticsService._platform_users()
+        user_count = platform_users.filter(**base_filters).count()
         
         # Для компаний, вакансий и откликов используем соответствующие поля дат
         company_filters = {}
@@ -51,7 +55,7 @@ class StatisticsService:
         response_count = Response.objects.filter(**response_filters).count()
         
         # Статистика за неделю (всегда за последние 7 дней)
-        new_users_week = User.objects.filter(
+        new_users_week = platform_users.filter(
             date_joined__date__gte=week_ago
         ).count()
         new_companies_week = Company.objects.filter(
@@ -90,7 +94,7 @@ class StatisticsService:
         if start_date and end_date:
             base_filters = {'date_joined__date__range': [start_date, end_date]}
         
-        distribution = User.objects.filter(**base_filters).values('user_type').annotate(
+        distribution = StatisticsService._platform_users().filter(**base_filters).values('user_type').annotate(
             count=Count('id')
         ).order_by('-count')
         
@@ -131,10 +135,6 @@ class StatisticsService:
         for item in category_stats:
             category_labels.append(item['category'])
             category_data.append(item['count'])
-        
-        if not category_data:
-            category_labels = ['IT', 'Маркетинг', 'Продажи', 'HR']
-            category_data = [10, 5, 3, 2]
         
         return {
             'category': {
@@ -262,11 +262,6 @@ class StatisticsService:
         for item in type_stats:
             type_labels.append(dict(Complaint.COMPLAINT_TYPES).get(item['complaint_type'], item['complaint_type']))
             type_data.append(item['count'])
-        
-        # Если данных нет, создаем демо-данные для тестирования
-        if not type_data:
-            type_labels = ['Спам', 'Мошенничество', 'Неуместный контент']
-            type_data = [5, 3, 2]
         
         return {
             'type_distribution': {

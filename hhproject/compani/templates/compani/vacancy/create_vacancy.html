@@ -1,10 +1,12 @@
 {% extends 'base.html' %}
 
+{% block flash_messages %}{% endblock %}
+
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
 
-{% block title_name %}создать вакансию{% endblock %}
+{% block title_name %}Создать вакансию{% endblock %}
 
 {% block content %}
 <section style="max-width:980px;margin:0 auto;padding:28px 16px 40px;">
@@ -17,8 +19,8 @@
     {% endif %}
 
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px;">
-        <h1 style="margin:0 0 12px;">создать вакансию</h1>
-        {% include 'compani/vacancy/_vacancy_form_fields.html' with vacancy=form_data submit_label='создать' categories=categories new_category=new_category allow_category_suggestion=True category_suggestions=category_suggestions %}
+        <h1 style="margin:0 0 12px;">Создать вакансию</h1>
+        {% include 'compani/vacancy/_vacancy_form_fields.html' with vacancy=form_data submit_label='Создать' categories=categories new_category=new_category allow_category_suggestion=True category_suggestions=category_suggestions %}
     </div>
 </section>
 {% endblock %}

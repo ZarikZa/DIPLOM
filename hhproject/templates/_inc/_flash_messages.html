@@ -1,0 +1,7 @@
+{% if messages %}
+<div class="{{ container_class|default:'app-global-messages' }}" data-global-messages="1" aria-live="polite">
+    {% for message in messages %}
+    <div class="alert app-notification {{ message.tags|default:'info' }}" data-message-tags="{{ message.tags|default:'info' }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}

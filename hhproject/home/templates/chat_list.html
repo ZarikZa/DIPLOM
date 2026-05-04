@@ -1,4 +1,6 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
+
+{% block flash_messages %}{% endblock %}
 
 {% block title_name %}{% if request.LANGUAGE_CODE == 'en' %}Chats{% else %}Чаты{% endif %}{% endblock %}
 

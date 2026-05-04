@@ -1,4 +1,4 @@
-﻿import os
+import os
 from urllib.parse import urljoin
 
 import requests
@@ -7,58 +7,65 @@ import requests
 DEFAULT_TIMEOUT = 15
 
 
-def api_base_url() -> str:
-    base = os.getenv('API_BASE_URL', 'http://172.20.10.2:8001/api/')
-    if not base.endswith('/'):
-        base += '/'
+def api_base_url(request=None) -> str:
+    base = os.getenv("API_BASE_URL", "").strip()
+    if not base and request is not None:
+        try:
+            base = request.build_absolute_uri("/api/")
+        except Exception:
+            base = ""
+    if not base:
+        base = "http://127.0.0.1:8000/api/"
+    if not base.endswith("/"):
+        base += "/"
     return base
 
 
-def _make_url(path: str) -> str:
-    return urljoin(api_base_url(), path.lstrip('/'))
+def _make_url(path: str, request=None) -> str:
+    return urljoin(api_base_url(request), path.lstrip("/"))
 
 
 def get_token(request):
-    return request.session.get('api_access')
+    return request.session.get("api_access")
 
 
 def set_tokens(request, access: str, refresh: str | None = None):
-    request.session['api_access'] = access
+    request.session["api_access"] = access
     if refresh is not None:
-        request.session['api_refresh'] = refresh
+        request.session["api_refresh"] = refresh
 
 
 def clear_tokens(request):
-    request.session.pop('api_access', None)
-    request.session.pop('api_refresh', None)
-    request.session.pop('api_user', None)
+    request.session.pop("api_access", None)
+    request.session.pop("api_refresh", None)
+    request.session.pop("api_user", None)
 
 
 def _headers(request, extra: dict | None = None) -> dict:
-    headers = {'Accept': 'application/json'}
+    headers = {"Accept": "application/json"}
     token = get_token(request)
     if token:
-        headers['Authorization'] = f'Bearer {token}'
+        headers["Authorization"] = f"Bearer {token}"
     if extra:
         headers.update(extra)
     return headers
 
 
 def _is_auth_endpoint(path: str) -> bool:
-    normalized = path.lstrip('/')
-    return normalized.startswith('auth/login/') or normalized.startswith('token/refresh/')
+    normalized = path.lstrip("/")
+    return normalized.startswith("auth/login/") or normalized.startswith("token/refresh/")
 
 
 def _refresh_access_token(request) -> bool:
-    refresh = request.session.get('api_refresh')
+    refresh = request.session.get("api_refresh")
     if not refresh:
         return False
 
     try:
         response = requests.post(
-            _make_url('token/refresh/'),
-            json={'refresh': refresh},
-            headers={'Accept': 'application/json'},
+            _make_url("token/refresh/", request),
+            json={"refresh": refresh},
+            headers={"Accept": "application/json"},
             timeout=DEFAULT_TIMEOUT,
         )
     except Exception:
@@ -74,12 +81,12 @@ def _refresh_access_token(request) -> bool:
         clear_tokens(request)
         return False
 
-    access = payload.get('access')
+    access = payload.get("access")
     if not access:
         clear_tokens(request)
         return False
 
-    set_tokens(request, access, payload.get('refresh'))
+    set_tokens(request, access, payload.get("refresh"))
     return True
 
 
@@ -96,7 +103,7 @@ def _rewind_files(files) -> None:
                 file_objects.append(item[1])
 
     for file_obj in file_objects:
-        if hasattr(file_obj, 'seek'):
+        if hasattr(file_obj, "seek"):
             try:
                 file_obj.seek(0)
             except Exception:
@@ -104,7 +111,7 @@ def _rewind_files(files) -> None:
 
 
 def _request(request, method: str, path: str, *, params=None, json=None, data=None, files=None, headers: dict | None = None):
-    url = _make_url(path)
+    url = _make_url(path, request)
     response = requests.request(
         method,
         url,
@@ -136,13 +143,13 @@ def _request(request, method: str, path: str, *, params=None, json=None, data=No
 
 
 def api_get(request, path: str, params: dict | None = None, headers: dict | None = None):
-    return _request(request, 'GET', path, params=params, headers=headers)
+    return _request(request, "GET", path, params=params, headers=headers)
 
 
 def api_post(request, path: str, json: dict | None = None, data=None, files=None, headers: dict | None = None):
     return _request(
         request,
-        'POST',
+        "POST",
         path,
         json=json,
         data=data,
@@ -154,7 +161,7 @@ def api_post(request, path: str, json: dict | None = None, data=None, files=None
 def api_put(request, path: str, json: dict | None = None, headers: dict | None = None):
     return _request(
         request,
-        'PUT',
+        "PUT",
         path,
         json=json,
         headers=headers,
@@ -164,7 +171,7 @@ def api_put(request, path: str, json: dict | None = None, headers: dict | None =
 def api_patch(request, path: str, json: dict | None = None, data=None, files=None, headers: dict | None = None):
     return _request(
         request,
-        'PATCH',
+        "PATCH",
         path,
         json=json,
         data=data,
@@ -174,4 +181,4 @@ def api_patch(request, path: str, json: dict | None = None, data=None, files=Non
 
 
 def api_delete(request, path: str, headers: dict | None = None):
-    return _request(request, 'DELETE', path, headers=headers)
+    return _request(request, "DELETE", path, headers=headers)

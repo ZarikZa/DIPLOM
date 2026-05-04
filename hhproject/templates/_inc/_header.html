@@ -1,4 +1,4 @@
-﻿{% load static %}
+{% load static %}
 
 <style>
     /* =================================== */
@@ -312,7 +312,7 @@
 <header class="header" id="main-header">
     <div class="header-container">
         <a href="{% url 'home_page' %}" class="header-logo">
-            <span>HR-Lab</span>
+            <span>WorkMPT</span>
         </a>
 
         <!-- Детопное меню -->
@@ -322,7 +322,7 @@
                 <li><a href="{% url 'vakansi_page' %}" class="header-link">Вакансии</a></li>
 
                 {% if api_user or request.user.is_authenticated %}
-                    {% if api_user.user_type == "applicant" %}
+                    {% if api_user and api_user.user_type == "applicant" and not request.user.is_superuser and request.user.user_type != "adminsite" %}
                         <li><a href="{% url 'applicant_profile' %}" class="header-link">Профиль</a></li>
                         <li><a href="{% url 'applicant_video_feed' %}" class="header-link">Видео</a></li>
                         <li><a href="{% url 'applicant_chats' %}" class="header-link">Чаты</a></li>
@@ -352,7 +352,7 @@
         <li><a href="{% url 'vakansi_page' %}" class="mobile-link">Вакансии</a></li>
 
         {% if api_user or request.user.is_authenticated %}
-            {% if api_user.user_type == "applicant" %}
+            {% if api_user and api_user.user_type == "applicant" and not request.user.is_superuser and request.user.user_type != "adminsite" %}
                 <li><a href="{% url 'applicant_profile' %}" class="mobile-link">Профиль</a></li>
                 <li><a href="{% url 'applicant_video_feed' %}" class="mobile-link">Видео</a></li>
                 <li><a href="{% url 'applicant_chats' %}" class="mobile-link">Чаты</a></li>

@@ -5,18 +5,22 @@ from functools import wraps
 import hashlib
 import json
 import re
+import secrets
 from urllib.parse import quote, urljoin
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login as auth_login, logout as auth_logout
 from django.core.cache import cache
+from django.core.files.storage import default_storage
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.urls import reverse
 from django.shortcuts import redirect, render
-from django.utils import translation
+from django.utils import timezone, translation
 from django.views.decorators.http import require_POST
 
-from .api_client import api_base_url, api_get, api_patch, api_post, api_put, clear_tokens, set_tokens
+from apihh_main.email_service import send_email_message
+from .api_client import api_base_url, api_delete, api_get, api_patch, api_post, api_put, clear_tokens, set_tokens
 from .forms import CodeVerificationForm, PasswordResetRequestForm, SetNewPasswordForm
 
 
@@ -84,16 +88,113 @@ VALID_COMPLAINT_TYPES = {'spam', 'fraud', 'inappropriate', 'discrimination', 'fa
 PASSWORD_RESET_EMAIL_SESSION_KEY = 'password_reset_email'
 PASSWORD_RESET_CODE_SESSION_KEY = 'password_reset_code'
 PASSWORD_RESET_ATTEMPTS_SESSION_KEY = 'password_reset_attempts_left'
+REGISTRATION_PENDING_SESSION_KEY = 'pending_applicant_registration'
+REGISTRATION_CODE_HASH_SESSION_KEY = 'pending_applicant_registration_code_hash'
+REGISTRATION_EXPIRES_SESSION_KEY = 'pending_applicant_registration_expires_at'
+REGISTRATION_ATTEMPTS_SESSION_KEY = 'pending_applicant_registration_attempts_left'
+PROFILE_EMAIL_CHANGE_SESSION_KEY = 'pending_profile_email_change'
 LANGUAGE_SESSION_KEY = 'django_language'
 SUPPORTED_UI_LANGUAGES = {'ru', 'en'}
 LOGIN_MAX_FAILED_ATTEMPTS = 3
 LOGIN_BLOCK_SECONDS = 5 * 60
+REGISTRATION_MAX_ATTEMPTS = 3
+REGISTRATION_CODE_TTL_SECONDS = 10 * 60
 
 
 def _clear_password_reset_session(request: HttpRequest) -> None:
     request.session.pop(PASSWORD_RESET_EMAIL_SESSION_KEY, None)
     request.session.pop(PASSWORD_RESET_CODE_SESSION_KEY, None)
     request.session.pop(PASSWORD_RESET_ATTEMPTS_SESSION_KEY, None)
+
+
+def _generate_registration_code() -> str:
+    return f"{secrets.randbelow(1000000):06d}"
+
+
+def _registration_code_hash(email: str, code: str) -> str:
+    identity = f"{str(email or '').strip().lower()}|{str(code or '').strip()}"
+    return hashlib.sha256(identity.encode('utf-8')).hexdigest()
+
+
+def _build_registration_email(first_name: str, code: str) -> tuple[str, str, str]:
+    recipient_name = (first_name or '').strip() or 'пользователь'
+    subject = f"Код подтверждения регистрации: {code}"
+    html_message = f"""<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+    <p>Здравствуйте, {recipient_name}!</p><p>Код подтверждения регистрации: <b>{code}</b></p>
+    <p>Код действителен 10 минут.</p></body></html>"""
+    plain_message = (
+        f"Здравствуйте, {recipient_name}!\n\n"
+        f"Код подтверждения регистрации: {code}\n\n"
+        f"Код действителен 10 минут."
+    )
+    return subject, plain_message, html_message
+
+
+def _delete_pending_registration_file(pending_data: dict | None) -> None:
+    if not isinstance(pending_data, dict):
+        return
+
+    file_path = str(pending_data.get('resume_file_path') or '').strip()
+    if not file_path:
+        return
+
+    try:
+        default_storage.delete(file_path)
+    except Exception:
+        pass
+
+
+def _clear_pending_applicant_registration(request: HttpRequest) -> None:
+    pending_data = request.session.get(REGISTRATION_PENDING_SESSION_KEY)
+    _delete_pending_registration_file(pending_data)
+    request.session.pop(REGISTRATION_PENDING_SESSION_KEY, None)
+    request.session.pop(REGISTRATION_CODE_HASH_SESSION_KEY, None)
+    request.session.pop(REGISTRATION_EXPIRES_SESSION_KEY, None)
+    request.session.pop(REGISTRATION_ATTEMPTS_SESSION_KEY, None)
+
+
+def _clear_pending_profile_email_change(request: HttpRequest) -> None:
+    request.session.pop(PROFILE_EMAIL_CHANGE_SESSION_KEY, None)
+
+
+def _store_pending_resume_file(resume_file) -> dict:
+    file_name = str(getattr(resume_file, 'name', '') or 'resume')
+    storage_path = default_storage.save(
+        f"pending_registrations/applicants/{secrets.token_hex(16)}_{file_name}",
+        resume_file,
+    )
+    return {
+        'resume_file_path': storage_path,
+        'resume_file_name': file_name,
+        'resume_file_content_type': str(getattr(resume_file, 'content_type', '') or ''),
+    }
+
+
+def _get_pending_applicant_registration(request: HttpRequest) -> dict | None:
+    pending_data = request.session.get(REGISTRATION_PENDING_SESSION_KEY)
+    if not isinstance(pending_data, dict):
+        return None
+
+    expires_at = float(request.session.get(REGISTRATION_EXPIRES_SESSION_KEY) or 0)
+    if expires_at and timezone.now().timestamp() >= expires_at:
+        _clear_pending_applicant_registration(request)
+        return None
+
+    return pending_data
+
+
+def _build_pending_registration_payload(pending_data: dict) -> dict:
+    return {
+        'first_name': str(pending_data.get('first_name') or ''),
+        'last_name': str(pending_data.get('last_name') or ''),
+        'phone': str(pending_data.get('phone') or ''),
+        'email': str(pending_data.get('email') or ''),
+        'username': str(pending_data.get('username') or ''),
+        'birth_date': str(pending_data.get('birth_date') or ''),
+        'resume': str(pending_data.get('resume') or ''),
+        'password': str(pending_data.get('password') or ''),
+        'password2': str(pending_data.get('password2') or ''),
+    }
 
 
 def _client_ip(request: HttpRequest) -> str:
@@ -248,6 +349,33 @@ def _extract_page_meta(payload, rows: list):
 def _is_applicant_user(request: HttpRequest) -> bool:
     api_user = request.session.get('api_user') or {}
     return str(api_user.get('user_type') or '').lower() == 'applicant'
+
+
+def _redirect_for_current_role(request: HttpRequest) -> HttpResponse:
+    if request.user.is_authenticated:
+        if getattr(request.user, 'is_superuser', False) or str(getattr(request.user, 'user_type', '') or '').lower() == 'adminsite':
+            return redirect('admin_dashboard')
+
+    api_user = request.session.get('api_user') or {}
+    user_type = str(api_user.get('user_type') or '').lower()
+    if user_type in {'company', 'staff'}:
+        return redirect('home_comp')
+    return redirect('home_page')
+
+
+def _require_applicant_route_access(request: HttpRequest, ru_message: str, en_message: str) -> HttpResponse | None:
+    if _is_applicant_user(request):
+        return None
+
+    messages.error(
+        request,
+        _ui_text(
+            request,
+            ru_message,
+            en_message,
+        ),
+    )
+    return _redirect_for_current_role(request)
 
 
 def _load_interest_preferences(request: HttpRequest) -> tuple[list[str], list[str]]:
@@ -601,7 +729,243 @@ def custom_logout(request: HttpRequest) -> HttpResponse:
     return response
 
 
+def _finish_account_session(request: HttpRequest) -> HttpResponse:
+    clear_tokens(request)
+    request.session.pop('ui_theme', None)
+    request.session.pop('ui_font_size', None)
+    request.session.pop('font_size', None)
+    request.session.pop('theme', None)
+    auth_logout(request)
+    response = redirect('home_page')
+    response.set_cookie('reset_ui_preferences', '1', max_age=120, path='/', samesite='Lax')
+    response.set_cookie(
+        settings.LANGUAGE_COOKIE_NAME,
+        'ru',
+        max_age=60 * 60 * 24 * 365,
+        path='/',
+        samesite='Lax',
+    )
+    return response
+
+
+def _custom_register_with_email_verification(request: HttpRequest) -> HttpResponse:
+    if request.method == 'GET' and request.GET.get('restart'):
+        _clear_pending_applicant_registration(request)
+
+    if request.method == 'POST':
+        _clear_pending_applicant_registration(request)
+
+        first_name = (request.POST.get('first_name') or '').strip()
+        last_name = (request.POST.get('last_name') or '').strip()
+        phone = (request.POST.get('phone') or '').strip()
+        email = (request.POST.get('email') or '').strip().lower()
+        birth_date = (request.POST.get('birth_date') or '').strip()
+        resume = (request.POST.get('resume') or '').strip()
+        resume_file = request.FILES.get('resume_file')
+        password = request.POST.get('password1') or ''
+        password2 = request.POST.get('password2') or ''
+        agreement = request.POST.get('personal_data_agreement')
+
+        if not agreement:
+            messages.error(request, 'Нужно согласие на обработку персональных данных')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        required_fields = {
+            'Имя': first_name,
+            'Фамилия': last_name,
+            'Телефон': phone,
+            'Email': email,
+            'Дата рождения': birth_date,
+            'Пароль': password,
+            'Подтверждение пароля': password2,
+        }
+        missing = [label for label, value in required_fields.items() if not value]
+        if missing:
+            messages.error(request, f"Заполните поля: {', '.join(missing)}")
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        if not _is_valid_cyrillic_name(first_name):
+            messages.error(request, 'Имя должно содержать только кириллицу, пробел или дефис.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        if not _is_valid_cyrillic_name(last_name):
+            messages.error(request, 'Фамилия должна содержать только кириллицу, пробел или дефис.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        normalized_phone = _normalize_ru_phone(phone)
+        if not normalized_phone:
+            messages.error(request, 'Введите телефон в формате +7XXXXXXXXXX.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+        phone = normalized_phone
+
+        if not _is_at_least_14_years_old(birth_date):
+            messages.error(request, 'Регистрация доступна только с 14 лет. Проверьте дату рождения.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        if len(password) < 8:
+            messages.error(request, 'Пароль должен содержать не менее 8 символов.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        if password != password2:
+            messages.error(request, 'Пароли не совпадают.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        user_model = get_user_model()
+        if user_model.objects.filter(email__iexact=email).exists():
+            messages.error(request, 'Пользователь с таким email уже зарегистрирован.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        pending_data = {
+            'first_name': first_name,
+            'last_name': last_name,
+            'phone': phone,
+            'email': email,
+            'username': email,
+            'birth_date': birth_date,
+            'resume': resume,
+            'password': password,
+            'password2': password2,
+            'resume_file_path': '',
+            'resume_file_name': '',
+            'resume_file_content_type': '',
+        }
+
+        try:
+            if resume_file:
+                pending_data.update(_store_pending_resume_file(resume_file))
+
+            code = _generate_registration_code()
+            subject, plain_message, html_message = _build_registration_email(first_name, code)
+            send_email_message(
+                recipient_email=email,
+                subject=subject,
+                plain_message=plain_message,
+                html_message=html_message,
+                fail_silently=False,
+            )
+        except Exception:
+            _delete_pending_registration_file(pending_data)
+            messages.error(request, 'Не удалось отправить код подтверждения на почту.')
+            return render(request, 'auth/register_api.html', {'form_data': request.POST})
+
+        request.session[REGISTRATION_PENDING_SESSION_KEY] = pending_data
+        request.session[REGISTRATION_CODE_HASH_SESSION_KEY] = _registration_code_hash(email, code)
+        request.session[REGISTRATION_EXPIRES_SESSION_KEY] = timezone.now().timestamp() + REGISTRATION_CODE_TTL_SECONDS
+        request.session[REGISTRATION_ATTEMPTS_SESSION_KEY] = REGISTRATION_MAX_ATTEMPTS
+
+        messages.success(request, 'Код подтверждения отправлен на указанный email.')
+        return redirect('registration_verify_email')
+
+    return render(request, 'auth/register_api.html', {'form_data': {}})
+
+
 def custom_register(request: HttpRequest) -> HttpResponse:
+    return _custom_register_with_email_verification(request)
+
+
+def registration_verify_email(request: HttpRequest) -> HttpResponse:
+    pending_data = _get_pending_applicant_registration(request)
+    if not pending_data:
+        messages.info(request, 'Сначала заполните форму регистрации и получите код подтверждения.')
+        return redirect('registration_user')
+
+    form = CodeVerificationForm(request.POST or None)
+    attempts = int(request.session.get(REGISTRATION_ATTEMPTS_SESSION_KEY, REGISTRATION_MAX_ATTEMPTS) or REGISTRATION_MAX_ATTEMPTS)
+    email = str(pending_data.get('email') or '')
+
+    if request.method == 'POST' and form.is_valid():
+        entered_code = str(form.cleaned_data.get('code') or '').strip()
+        expected_hash = str(request.session.get(REGISTRATION_CODE_HASH_SESSION_KEY) or '')
+        if _registration_code_hash(email, entered_code) != expected_hash:
+            attempts = max(0, attempts - 1)
+            request.session[REGISTRATION_ATTEMPTS_SESSION_KEY] = attempts
+            if attempts <= 0:
+                _clear_pending_applicant_registration(request)
+                messages.error(request, 'Количество попыток исчерпано. Заполните форму регистрации заново.')
+                return redirect('registration_user')
+            form.add_error('code', 'Неверный код подтверждения.')
+        else:
+            payload = _build_pending_registration_payload(pending_data)
+            temp_file = None
+            try:
+                if pending_data.get('resume_file_path'):
+                    temp_file = default_storage.open(str(pending_data.get('resume_file_path')), 'rb')
+                    register_resp = api_post(
+                        request,
+                        'user/register_applicant/',
+                        data=payload,
+                        files={
+                            'resume_file': (
+                                str(pending_data.get('resume_file_name') or 'resume'),
+                                temp_file,
+                                str(pending_data.get('resume_file_content_type') or 'application/octet-stream'),
+                            )
+                        },
+                    )
+                else:
+                    register_resp = api_post(request, 'user/register_applicant/', json=payload)
+            except Exception:
+                if temp_file:
+                    try:
+                        temp_file.close()
+                    except Exception:
+                        pass
+                form.add_error(None, 'Ошибка сети при завершении регистрации.')
+            else:
+                if temp_file:
+                    try:
+                        temp_file.close()
+                    except Exception:
+                        pass
+
+                register_data = _safe_json(register_resp)
+                if register_resp.status_code >= 400:
+                    _clear_pending_applicant_registration(request)
+                    messages.error(request, _first_error(register_data, 'Не удалось завершить регистрацию. Заполните форму ещё раз.'))
+                    return redirect('registration_user')
+
+                password = str(pending_data.get('password') or '')
+                _clear_pending_applicant_registration(request)
+
+                try:
+                    login_resp = api_post(request, 'auth/login/', json={'email': email, 'password': password})
+                    login_data = _safe_json(login_resp)
+                    if (
+                        login_resp.status_code < 400
+                        and isinstance(login_data, dict)
+                        and login_data.get('access')
+                    ):
+                        set_tokens(request, login_data.get('access'), login_data.get('refresh'))
+                        request.session['api_user'] = {
+                            'user_id': login_data.get('user_id'),
+                            'email': login_data.get('email'),
+                            'username': login_data.get('username'),
+                            'user_type': login_data.get('user_type'),
+                            'first_name': login_data.get('first_name'),
+                            'last_name': login_data.get('last_name'),
+                        }
+                        request.session['show_interests_modal'] = True
+                        messages.success(request, 'Регистрация завершена. Выберите интересующие сферы.')
+                        return redirect('applicant_profile')
+                except Exception:
+                    pass
+
+                messages.success(request, 'Регистрация завершена. Войдите в аккаунт.')
+                return redirect(f"/login/?email={email}")
+
+    return render(
+        request,
+        'auth/register_verify_email.html',
+        {
+            'form': form,
+            'email': email,
+            'attempts': attempts,
+            'api_user': request.session.get('api_user'),
+        },
+    )
+
+
+def _legacy_custom_register_direct_api(request: HttpRequest) -> HttpResponse:
     if request.method == 'POST':
         first_name = (request.POST.get('first_name') or '').strip()
         last_name = (request.POST.get('last_name') or '').strip()
@@ -858,6 +1222,14 @@ def remove_from_favorites(request: HttpRequest, vacancy_id: int) -> HttpResponse
 
 @api_login_required
 def applicant_profile(request: HttpRequest) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Профиль соискателя доступен только соискателям.',
+        'Applicant profile is available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
     profile = {}
     favorites = []
     responses = []
@@ -934,6 +1306,17 @@ def applicant_profile(request: HttpRequest) -> HttpResponse:
 
 @api_login_required
 def edit_applicant_profile(request: HttpRequest) -> HttpResponse:
+    profile = {}
+    try:
+        profile_resp = api_get(request, 'user/profile/')
+        if profile_resp.status_code < 400:
+            profile = _safe_json(profile_resp) or {}
+            if isinstance(profile, dict):
+                profile['avatar'] = _absolute_api_media_url(profile.get('avatar'))
+                profile['resume_file'] = _absolute_api_media_url(profile.get('resume_file'))
+    except Exception:
+        pass
+
     if request.method == 'POST':
         payload = {
             'first_name': request.POST.get('first_name') or '',
@@ -987,11 +1370,214 @@ def edit_applicant_profile(request: HttpRequest) -> HttpResponse:
 
 
 @api_login_required
-def delete_applicant_profile(request: HttpRequest) -> HttpResponse:
+def edit_applicant_profile(request: HttpRequest) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Редактирование профиля доступно только соискателям.',
+        'Profile editing is available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
+    profile = {}
+    try:
+        profile_resp = api_get(request, 'user/profile/')
+        if profile_resp.status_code < 400:
+            profile = _safe_json(profile_resp) or {}
+            if isinstance(profile, dict):
+                profile['avatar'] = _absolute_api_media_url(profile.get('avatar'))
+                profile['resume_file'] = _absolute_api_media_url(profile.get('resume_file'))
+    except Exception:
+        pass
+
+    if request.method == 'POST':
+        requested_email = (request.POST.get('email') or '').strip().lower()
+        current_email = str(
+            profile.get('email')
+            or ((request.session.get('api_user') or {}).get('email'))
+            or ''
+        ).strip().lower()
+        payload = {
+            'first_name': request.POST.get('first_name') or '',
+            'last_name': request.POST.get('last_name') or '',
+            'phone': request.POST.get('phone') or '',
+            'birth_date': request.POST.get('birth_date') or '',
+            'resume': request.POST.get('resume') or '',
+        }
+        payload = {k: v for k, v in payload.items() if v}
+
+        files = {}
+        avatar = request.FILES.get('avatar')
+        resume_file = request.FILES.get('resume_file')
+        if avatar:
+            files['avatar'] = avatar
+        if resume_file:
+            files['resume_file'] = resume_file
+
+        profile_updated = False
+        try:
+            if payload or files:
+                if files:
+                    resp = api_patch(request, 'user/profile/', data=payload, files=files)
+                else:
+                    resp = api_patch(request, 'user/profile/', json=payload)
+                data = _safe_json(resp)
+                if resp.status_code >= 400:
+                    messages.error(request, _first_error(data, 'Не удалось обновить профиль.'))
+                    return render(
+                        request,
+                        'edit_applicant_profile.html',
+                        {
+                            'profile': profile,
+                            'api_user': request.session.get('api_user'),
+                            'pending_email_change': request.session.get(PROFILE_EMAIL_CHANGE_SESSION_KEY),
+                        },
+                    )
+
+                updated = data or {}
+                current_user = request.session.get('api_user') or {}
+                current_user['first_name'] = updated.get('first_name', current_user.get('first_name'))
+                current_user['last_name'] = updated.get('last_name', current_user.get('last_name'))
+                current_user['email'] = updated.get('email', current_user.get('email'))
+                request.session['api_user'] = current_user
+                if isinstance(updated, dict):
+                    updated['avatar'] = _absolute_api_media_url(updated.get('avatar'))
+                    updated['resume_file'] = _absolute_api_media_url(updated.get('resume_file'))
+                    profile = updated
+                profile_updated = True
+
+            if requested_email and requested_email != current_email:
+                change_resp = api_post(
+                    request,
+                    'user/profile/request-email-change/',
+                    json={'email': requested_email},
+                )
+                change_data = _safe_json(change_resp)
+                if change_resp.status_code >= 400:
+                    if profile_updated:
+                        messages.success(request, 'Остальные данные профиля обновлены.')
+                    messages.error(request, _first_error(change_data, 'Не удалось отправить код подтверждения на новый email.'))
+                else:
+                    request.session[PROFILE_EMAIL_CHANGE_SESSION_KEY] = requested_email
+                    messages.success(request, 'Код подтверждения отправлен на новый email.')
+                    if profile_updated:
+                        messages.info(request, 'Остальные данные профиля уже сохранены.')
+                    return redirect('applicant_profile_email_change_verify')
+            elif profile_updated:
+                _clear_pending_profile_email_change(request)
+                messages.success(request, 'Профиль обновлен.')
+                return redirect('applicant_profile')
+            else:
+                messages.info(request, 'Изменений для сохранения нет.')
+        except Exception:
+            messages.error(request, 'Ошибка сети при обновлении профиля.')
+
+    return render(
+        request,
+        'edit_applicant_profile.html',
+        {
+            'profile': profile,
+            'api_user': request.session.get('api_user'),
+            'pending_email_change': request.session.get(PROFILE_EMAIL_CHANGE_SESSION_KEY),
+        },
+    )
+
+
+@api_login_required
+def applicant_profile_email_change_verify(request: HttpRequest) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Подтверждение email доступно только соискателям.',
+        'Email confirmation is available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
+    pending_email = str(request.session.get(PROFILE_EMAIL_CHANGE_SESSION_KEY) or '').strip().lower()
+    if request.GET.get('change') == '1':
+        _clear_pending_profile_email_change(request)
+        return redirect('edit_applicant_profile')
+
+    if not pending_email:
+        messages.info(request, 'Сначала укажите новый email в профиле.')
+        return redirect('edit_applicant_profile')
+
+    if request.method == 'POST':
+        code = str(request.POST.get('code') or '').strip()
+        if not re.fullmatch(r'\d{6}', code):
+            messages.error(request, 'Введите корректный 6-значный код.')
+        else:
+            try:
+                resp = api_post(
+                    request,
+                    'user/profile/confirm-email-change/',
+                    json={'email': pending_email, 'code': code},
+                )
+                data = _safe_json(resp)
+                if resp.status_code >= 400:
+                    messages.error(request, _first_error(data, 'Не удалось подтвердить новый email.'))
+                else:
+                    current_user = request.session.get('api_user') or {}
+                    current_user['email'] = (data or {}).get('email', pending_email)
+                    request.session['api_user'] = current_user
+                    _clear_pending_profile_email_change(request)
+                    messages.success(request, 'Email успешно подтвержден и обновлен.')
+                    return redirect('applicant_profile')
+            except Exception:
+                messages.error(request, 'Ошибка сети при подтверждении нового email.')
+
+    return render(
+        request,
+        'profile_verify_email.html',
+        {
+            'email': pending_email,
+            'api_user': request.session.get('api_user'),
+            'change_email_url': f"{reverse('applicant_profile_email_change_verify')}?change=1",
+        },
+    )
+
+
+@api_login_required
+def _legacy_delete_applicant_profile_placeholder(request: HttpRequest) -> HttpResponse:
     if request.method == 'POST':
         clear_tokens(request)
         messages.info(request, 'Удаление аккаунта через API не реализовано. Вы вышли из системы.')
         return redirect('home_page')
+    return redirect('applicant_profile')
+
+
+@api_login_required
+def delete_applicant_profile(request: HttpRequest) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Удаление аккаунта доступно только соискателям.',
+        'Account deletion is available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
+    if request.method != 'POST':
+        return redirect('applicant_profile')
+
+    if not _is_applicant_user(request):
+        messages.error(request, 'Удаление аккаунта доступно только соискателю.')
+        return redirect('home_page')
+
+    try:
+        resp = api_delete(request, 'user/profile/')
+        data = _safe_json(resp)
+        if resp.status_code < 400:
+            messages.success(request, 'Аккаунт удалён без возможности восстановления.')
+            return _finish_account_session(request)
+
+        if resp.status_code == 401:
+            messages.info(request, 'Сессия истекла. Войдите снова.')
+            return _finish_account_session(request)
+
+        messages.error(request, _first_error(data, 'Не удалось удалить аккаунт'))
+    except Exception:
+        messages.error(request, 'Ошибка сети при удалении аккаунта')
+
     return redirect('applicant_profile')
 
 
@@ -1462,6 +2048,14 @@ def video_toggle_like(request: HttpRequest, video_id: int) -> JsonResponse:
 
 @api_login_required
 def applicant_chats(request: HttpRequest) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Чаты соискателя доступны только соискателям.',
+        'Applicant chats are available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
     page = request.GET.get('page') or 1
     archived_raw = str(request.GET.get('archived') or '0').strip().lower()
     is_archived_view = archived_raw in {'1', 'true', 'yes', 'on'}
@@ -1520,6 +2114,14 @@ def _safe_chat_next_url(request: HttpRequest) -> str | None:
 
 @api_login_required
 def applicant_chat_archive(request: HttpRequest, chat_id: int) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Чаты соискателя доступны только соискателям.',
+        'Applicant chats are available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
     if request.method != 'POST':
         return redirect('applicant_chats')
 
@@ -1541,6 +2143,14 @@ def applicant_chat_archive(request: HttpRequest, chat_id: int) -> HttpResponse:
 
 @api_login_required
 def applicant_chat_unarchive(request: HttpRequest, chat_id: int) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Чаты соискателя доступны только соискателям.',
+        'Applicant chats are available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
     if request.method != 'POST':
         return redirect('applicant_chats')
 
@@ -1565,6 +2175,14 @@ def applicant_chat_unarchive(request: HttpRequest, chat_id: int) -> HttpResponse
 
 @api_login_required
 def applicant_chat_detail(request: HttpRequest, chat_id: int) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Чаты соискателя доступны только соискателям.',
+        'Applicant chats are available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
     chat = None
     chat_messages = []
 
@@ -1604,6 +2222,14 @@ def applicant_chat_detail(request: HttpRequest, chat_id: int) -> HttpResponse:
 
 @api_login_required
 def applicant_chat_send_message(request: HttpRequest, chat_id: int) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Чаты соискателя доступны только соискателям.',
+        'Applicant chats are available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
     if request.method != 'POST':
         return redirect('applicant_chat_detail', chat_id=chat_id)
 
@@ -1625,6 +2251,14 @@ def applicant_chat_send_message(request: HttpRequest, chat_id: int) -> HttpRespo
 
 @api_login_required
 def open_chat_for_vacancy(request: HttpRequest, vacancy_id: int) -> HttpResponse:
+    denied_response = _require_applicant_route_access(
+        request,
+        'Чаты соискателя доступны только соискателям.',
+        'Applicant chats are available only to applicants.',
+    )
+    if denied_response is not None:
+        return denied_response
+
     try:
         resp = api_get(request, 'chats/by_vacancy/', params={'vacancy_id': vacancy_id})
         data = _safe_json(resp)

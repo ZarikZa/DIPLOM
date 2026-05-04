@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block flash_messages %}{% endblock %}
+
 {% block header %}
     {% include '_inc/header.html' %}
 {% endblock %}
@@ -81,7 +83,7 @@
             {% endfor %}
         </select>
         <button class="btn btn-secondary" type="submit">Фильтр</button>
-        <a class="btn btn-secondary" href="{% url 'content_manager_videos' %}">с</a>
+        <a class="btn btn-secondary" href="{% url 'content_manager_videos' %}">Сбросить</a>
     </form>
 
     <div style="margin-top:14px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));">
@@ -100,7 +102,7 @@
                 {% endif %}
 
                 <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
-                    <div style="color:#334155;">статус: {% if item.is_active %}<strong style="color:#047857;">активно</strong>{% else %}<strong style="color:#b45309;">выключено</strong>{% endif %}</div>
+                    <div style="color:#334155;">Статус: {% if item.is_active %}<strong style="color:#047857;">Активно</strong>{% else %}<strong style="color:#b45309;">Выключено</strong>{% endif %}</div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         {% if item.is_active %}
                         <form method="post">

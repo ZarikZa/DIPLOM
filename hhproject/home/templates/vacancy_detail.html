@@ -1,7 +1,9 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ vacancy.position }} - {{ vacancy.company_name|default:'Компания' }} - CareerHub{% endblock %}
+{% block flash_messages %}{% endblock %}
+
+{% block title %}{{ vacancy.position }} - {{ vacancy.company_name|default:'Компания' }} - WorkMPT{% endblock %}
 
 {% block content %}
 <div class="vacancy-detail-section">

@@ -3,9 +3,9 @@ import subprocess
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.core.files import File
-from django.db import connection
+from django.db import connection, IntegrityError
 from django.db.utils import ProgrammingError
 from datetime import timedelta
 import os
@@ -43,6 +43,22 @@ def get_admin_context(request):
         'site_admins_count': site_admins_count,
         'is_superuser': request.user.is_superuser,
     }
+
+
+def get_platform_users_queryset():
+    return User.objects.exclude(user_type='adminsite').exclude(is_superuser=True)
+
+
+def _save_backup_record_with_synced_sequence(backup_manager: DjangoBackupManager, backup: Backup) -> None:
+    backup_manager.reset_primary_key_sequences([Backup])
+    try:
+        backup.save(force_insert=True)
+    except IntegrityError as exc:
+        error_text = str(exc).lower()
+        if 'duplicate key' not in error_text and 'unique constraint' not in error_text:
+            raise
+        backup_manager.reset_primary_key_sequences([Backup])
+        backup.save(force_insert=True)
 
 def get_or_create_action_type(code, name=None):
     """
@@ -276,7 +292,7 @@ def admin_dashboard(request):
     recent_logs = AdminLog.objects.all().order_by('-created_at')[:10]
     
     # Статистика пользователей
-    total_users = User.objects.count()
+    total_users = get_platform_users_queryset().count()
     company_users = User.objects.filter(user_type='company').count()
     applicant_users = User.objects.filter(user_type='applicant').count()
     
@@ -1024,7 +1040,7 @@ def send_company_status_email(company, old_status):
     new_status_display = company.get_status_display()
     updated_at = company.created_at.strftime('%d.%m.%Y') if getattr(company, 'created_at', None) else '-'
 
-    subject = f'HR-Lab: обновлен статус компании "{company.name}"'
+    subject = f'WorkMPT: обновлен статус компании "{company.name}"'
     plain_message = (
         f'Здравствуйте!\n\n'
         f'Статус компании "{company.name}" изменен.\n'
@@ -1032,7 +1048,7 @@ def send_company_status_email(company, old_status):
         f'Новый статус: {new_status_display}\n\n'
         f'{status_description}\n\n'
         f'Дата обновления: {updated_at}\n\n'
-        f'Это автоматическое сообщение HR-Lab.'
+        f'Это автоматическое сообщение WorkMPT.'
     )
 
     html_message = f"""
@@ -1166,19 +1182,18 @@ def create_backup_api(request):
                 # Сохраняем в базу данных
                 backup = Backup(
                     name=result['filename'],
-                    backup_type=backup_type,
+                    backup_type=result.get('backup_type', backup_type),
                     file_size=result['file_size'],
                     created_by=request.user
                 )
                 
-                # Сохраняем файл
-                with open(result['filepath'], 'rb') as f:
-                    backup.backup_file.save(result['filename'], File(f))
-                backup.save()
-                
-                # Удаляем временный файл
-                if os.path.exists(result['filepath']):
-                    os.remove(result['filepath'])
+                try:
+                    with open(result['filepath'], 'rb') as f:
+                        backup.backup_file.save(result['filename'], File(f), save=False)
+                    _save_backup_record_with_synced_sequence(backup_manager, backup)
+                finally:
+                    if os.path.exists(result['filepath']):
+                        os.remove(result['filepath'])
                 
                 # Логируем - ИСПРАВЛЕНО
                 action_type = get_or_create_action_type('backup_created', 'Бэкап создан')
@@ -1222,17 +1237,14 @@ def upload_backup_api(request):
             backup_manager = DjangoBackupManager()
             
             try:
-                # Проверяем бэкап
-                if not backup_manager.validate_backup(backup_file):
+                backup_info = backup_manager.inspect_backup(backup_file)
+                if not backup_info.get('valid'):
                     return JsonResponse({
                         'success': False,
-                        'error': 'Файл бэкапа поврежден или имеет неверный формат'
+                        'error': backup_info.get('error') or 'Файл бэкапа поврежден или имеет неверный формат'
                     }, status=400)
                 
-                # Определяем тип бэкапа по расширению
-                backup_type = 'database'
-                if backup_file.name.endswith('.zip'):
-                    backup_type = 'full'
+                backup_type = backup_info.get('backup_type') or 'database'
                 
                 # Сохраняем бэкап
                 backup = Backup(
@@ -1241,8 +1253,8 @@ def upload_backup_api(request):
                     file_size=backup_file.size,
                     created_by=request.user
                 )
-                backup.backup_file.save(backup_file.name, backup_file)
-                backup.save()
+                backup.backup_file.save(backup_file.name, backup_file, save=False)
+                _save_backup_record_with_synced_sequence(backup_manager, backup)
                 
                 # Логируем - ИСПРАВЛЕНО
                 action_type = get_or_create_action_type('backup_uploaded', 'Бэкап загружен')
@@ -1270,51 +1282,6 @@ def upload_backup_api(request):
     
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
-def get_media_stats(self):
-    """Получение статистики медиа файлов"""
-    media_dir = Path(settings.MEDIA_ROOT)
-    stats = {
-        'exists': False,
-        'total_files': 0,
-        'total_size': 0,
-        'file_types': {},
-        'largest_files': []
-    }
-    
-    if media_dir.exists():
-        stats['exists'] = True
-        media_files = []
-        
-        try:
-            # Собираем информацию о файлах
-            for file_path in media_dir.rglob('*'):
-                if file_path.is_file():
-                    try:
-                        file_size = file_path.stat().st_size
-                        file_ext = file_path.suffix.lower()
-                        
-                        stats['total_files'] += 1
-                        stats['total_size'] += file_size
-                        
-                        # Считаем типы файлов
-                        stats['file_types'][file_ext] = stats['file_types'].get(file_ext, 0) + 1
-                        
-                        # Сохраняем информацию о файле для крупнейших
-                        media_files.append((file_path, file_size))
-                        
-                    except Exception as e:
-                        print(f"Error processing file {file_path}: {e}")
-                        continue
-            
-            # Сортируем по размеру и берем 10 крупнейших
-            media_files.sort(key=lambda x: x[1], reverse=True)
-            stats['largest_files'] = [(str(path), size) for path, size in media_files[:10]]
-            
-        except Exception as e:
-            print(f"Error scanning media directory: {e}")
-    
-    return stats
-
 @user_passes_test(is_admin, login_url='/admin/login/')
 def media_stats_api(request):
     """API для получения статистики медиа файлов"""
@@ -1336,6 +1303,8 @@ def restore_backup_api(request, backup_id):
     if request.method == 'POST':
         backup = get_object_or_404(Backup, id=backup_id)
         backup_manager = DjangoBackupManager()
+        backup_name = backup.name
+        request_user_id = request.user.pk
         
         try:
             # Дополнительное подтверждение для критических операций
@@ -1358,13 +1327,13 @@ def restore_backup_api(request, backup_id):
                 result = backup_manager.restore_backup(f, request.user)
             
             if result['success']:
-                # Логируем - ИСПРАВЛЕНО
-                action_type = get_or_create_action_type('backup_restored', 'Бэкап восстановлен')
-                AdminLog.objects.create(
-                    admin=request.user,
-                    action=action_type,
-                    details=f"Восстановлен бэкап: {backup.name}"
-                )
+                if User.objects.filter(pk=request_user_id).exists():
+                    action_type = get_or_create_action_type('backup_restored', 'Бэкап восстановлен')
+                    AdminLog.objects.create(
+                        admin_id=request_user_id,
+                        action=action_type,
+                        details=f"Восстановлен бэкап: {backup_name}"
+                    )
                 
                 return JsonResponse({
                     'success': True, 
@@ -1398,9 +1367,12 @@ def download_backup_api(request, backup_id):
                 'error': 'Файл бэкапа не найден'
             }, status=404)
         
-        response = HttpResponse(backup.backup_file, content_type='application/octet-stream')
-        response['Content-Disposition'] = f'attachment; filename="{backup.name}"'
-        response['Content-Length'] = backup.backup_file.size
+        response = FileResponse(
+            backup.backup_file.open('rb'),
+            content_type='application/octet-stream',
+            as_attachment=True,
+            filename=backup.name,
+        )
         
         # Логируем - ИСПРАВЛЕНО
         action_type = get_or_create_action_type('backup_downloaded', 'Бэкап скачан')
@@ -1457,6 +1429,10 @@ def get_backups_list_api(request):
         backups_data = []
         
         for backup in backups:
+            creator = getattr(backup, 'created_by', None)
+            created_by = '-'
+            if creator is not None:
+                created_by = creator.username or creator.email or '-'
             backups_data.append({
                 'id': backup.id,
                 'name': backup.name,
@@ -1465,7 +1441,7 @@ def get_backups_list_api(request):
                 'file_size': backup.file_size,
                 'file_size_display': backup.get_file_size_display(),
                 'created_at': backup.created_at.strftime('%d.%m.%Y %H:%M'),
-                'created_by': backup.created_by.username,
+                'created_by': created_by,
                 'download_url': reverse('admin_download_backup', args=[backup.id]),
             })
         
@@ -2431,8 +2407,12 @@ from django.core.paginator import Paginator
 @admin_required
 def admin_complaints(request):
     # Получаем параметры фильтрации
-    status_filter = request.GET.get('status', 'all')
-    type_filter = request.GET.get('type', 'all')
+    status_filter = (request.GET.get('status') or 'all').strip().lower()
+    type_filter = (request.GET.get('type') or 'all').strip().lower()
+    if status_filter == 'resolved':
+        status_filter = Complaint.STATUS_REVIEWED
+    if status_filter not in {'all', Complaint.STATUS_PENDING, Complaint.STATUS_REVIEWED, Complaint.STATUS_REJECTED}:
+        status_filter = 'all'
     
     # Базовый запрос
     complaints = Complaint.objects.select_related(
@@ -2457,8 +2437,9 @@ def admin_complaints(request):
         'status_filter': status_filter,
         'type_filter': type_filter,
         'total_complaints': complaints.count(),
-        'pending_count': Complaint.objects.filter(status='pending').count(),
-        'resolved_count': Complaint.objects.filter(status='resolved').count(),
+        'pending_count': Complaint.objects.filter(status=Complaint.STATUS_PENDING).count(),
+        'reviewed_count': Complaint.objects.filter(status=Complaint.STATUS_REVIEWED).count(),
+        'rejected_count': Complaint.objects.filter(status=Complaint.STATUS_REJECTED).count(),
     }
     
     return render(request, 'admin_panel/complaints.html', context)
@@ -2487,22 +2468,25 @@ def complaint_detail(request, complaint_id):
 def update_complaint_status(request, complaint_id):
     if request.method == 'POST':
         complaint = get_object_or_404(Complaint, id=complaint_id)
-        new_status = request.POST.get('status')
+        new_status = (request.POST.get('status') or '').strip().lower()
         admin_notes = request.POST.get('admin_notes', '')
-        
+
+        if new_status == 'resolved':
+            new_status = Complaint.STATUS_REVIEWED
+
         if new_status in dict(Complaint.STATUS_CHOICES):
             old_status = complaint.status
             complaint.status = new_status
             complaint.admin_notes = admin_notes
-            complaint.resolved_at = timezone.now() if new_status in ['resolved', 'rejected'] else None
             complaint.save()
+            old_status_display = dict(Complaint.STATUS_CHOICES).get(old_status, old_status)
             
             # Логируем - ИСПРАВЛЕНО
             action_type = get_or_create_action_type('complaint_status_updated', 'Статус жалобы обновлен')
             AdminLog.objects.create(
                 admin=request.user,
                 action=action_type,
-                details=f'Изменен статус жалобы #{complaint.id} с "{dict(Complaint.STATUS_CHOICES).get(old_status)}" на "{complaint.get_status_display()}"'
+                details=f'Изменен статус жалобы #{complaint.id} с "{old_status_display}" на "{complaint.get_status_display()}"'
             )
             
             messages.success(request, f'Статус жалобы обновлен на "{complaint.get_status_display()}"')
@@ -2520,7 +2504,7 @@ def send_vacancy_archive_email(vacancy, archive_reason=""):
     vacancy_title = vacancy.position
     
     try:
-        subject = f'Вакансия "{vacancy_title}" перемещена в архив - HR-Lab'
+        subject = f'Вакансия "{vacancy_title}" перемещена в архив - WorkMPT'
         
         html_message = f"""
         <!DOCTYPE html>
@@ -2664,7 +2648,7 @@ def send_vacancy_archive_email(vacancy, archive_reason=""):
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>📋 HR-Lab</h1>
+                    <h1>📋 WorkMPT</h1>
                     <p>Уведомление об архивации вакансии</p>
                 </div>
                 
@@ -2723,7 +2707,7 @@ def send_vacancy_archive_email(vacancy, archive_reason=""):
                 </div>
                 
                 <div class="footer">
-                    <p><strong>С уважением, команда HR-Lab</strong></p>
+                    <p><strong>С уважением, команда WorkMPT</strong></p>
                     <p>Мы заботимся о качестве вакансий на нашей платформе</p>
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
                         <p>Email: hr-labogency@mail.ru</p>
@@ -2741,7 +2725,7 @@ def send_vacancy_archive_email(vacancy, archive_reason=""):
         plain_message = f"""
         Уважаемый представитель компании "{company_name}"!
 
-        Ваша вакансия "{vacancy_title}" была перемещена в архив модератором платформы HR-Lab.
+        Ваша вакансия "{vacancy_title}" была перемещена в архив модератором платформы WorkMPT.
 
         Информация о вакансии:
         - Вакансия: {vacancy_title}
@@ -2758,7 +2742,7 @@ def send_vacancy_archive_email(vacancy, archive_reason=""):
         - Связаться с поддержкой: http://127.0.0.1:8000/contact/
 
         С уважением,
-        Команда HR-Lab
+        Команда WorkMPT
 
         ---
         Email: hr-labogency@mail.ru
@@ -2869,28 +2853,11 @@ def unarchive_vacancy(request, vacancy_id):
 def admin_profile(request):
     """Профиль администратора"""
     # Получаем статистику для отображения
-    total_users = User.objects.count()
+    total_users = get_platform_users_queryset().count()
     total_companies = Company.objects.count()
     total_vacancies = Vacancy.objects.count()
     pending_complaints = Complaint.objects.filter(status='pending').count()
-    # Получаем последние действия (пример)
-    recent_activity = [
-        {
-            'icon': 'user-check',
-            'description': 'Одобрена компания "ТехноПарк"',
-            'timestamp': timezone.now() - timedelta(hours=2)
-        },
-        {
-            'icon': 'flag',
-            'description': 'Рассмотрена жалоба на вакансию',
-            'timestamp': timezone.now() - timedelta(hours=4)
-        },
-        {
-            'icon': 'database',
-            'description': 'Создан резервный бэкап',
-            'timestamp': timezone.now() - timedelta(days=1)
-        }
-    ]
+    recent_activity = AdminLog.objects.select_related('action', 'admin').order_by('-created_at')[:5]
     
     context = {
         **get_admin_context(request),
@@ -2907,6 +2874,10 @@ def admin_profile(request):
 @login_required
 def admin_profile_edit(request):
     """Редактирование профиля администратора"""
+    if request.user.is_superuser:
+        messages.error(request, 'Редактирование профиля недоступно для суперпользователя.')
+        return redirect('admin_profile')
+
     if request.method == 'POST':
         form = AdminProfileEditForm(request.POST, instance=request.user)
         if form.is_valid():
